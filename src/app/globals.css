@@ -1,26 +1,143 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  /* Superfícies e Fundo */
+  --background: #111417;
+  --foreground: #E7EAED;
+  --card: #191D22;
+  --card-foreground: #E7EAED;
+  --popover: #20262C;
+  --popover-foreground: #E7EAED;
+
+  /* Ações e Destaque Lima */
+  --primary: #C6DD72;
+  --primary-foreground: #19200D;
+  --secondary: #252C33;
+  --secondary-foreground: #E0E5E9;
+  --muted: #20262C;
+  --muted-foreground: #A6AFB9;
+  --accent: #2B3427;
+  --accent-foreground: #D8E7AD;
+
+  /* Bordas e Controles */
+  --border: #333C45;
+  --input: #626F7C;
+  --ring: #C6DD72;
+
+  /* Estados Semânticos */
+  --destructive: #E39A9A;
+  --destructive-foreground: #281313;
+  --success: #8EC6A4;
+  --success-surface: #1D3027;
+  --warning: #D8BC7D;
+  --warning-surface: #342D1D;
+  --info: #9BBBD8;
+  --info-surface: #202E3A;
+
+  /* Sidebar */
+  --sidebar: #15191D;
+  --sidebar-foreground: #BDC5CD;
+  --sidebar-primary: #C6DD72;
+  --sidebar-primary-foreground: #19200D;
+  --sidebar-accent: #252D25;
+  --sidebar-accent-foreground: #D8E7AD;
+  --sidebar-border: #30383F;
+  --sidebar-ring: #C6DD72;
+
+  /* Gráficos */
+  --chart-1: #9CBF85;
+  --chart-2: #8DAEC4;
+  --chart-3: #C6B080;
+  --chart-4: #AB9ABD;
+  --chart-5: #91B7AD;
+
+  /* Raios */
+  --radius: 0.625rem;
 }
 
 @theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-info: var(--info);
+  --color-info-surface: var(--info-surface);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Redução de movimento */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Suporte de Impressão para Comprovantes */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
 }

@@ -1,0 +1,22 @@
+export const queryKeys = {
+  account: () => ["account"] as const,
+  overview: (period?: string) => ["overview", period ?? "today"] as const,
+  analytics: (period?: string) => ["analytics", period ?? "today"] as const,
+  transactions: (filters?: Record<string, unknown>) =>
+    ["transactions", filters ?? {}] as const,
+  transaction: (id: string) => ["transaction", id] as const,
+  charges: (filters?: Record<string, unknown>) => ["charges", filters ?? {}] as const,
+  charge: (id: string) => ["charge", id] as const,
+  batches: (filters?: Record<string, unknown>) => ["batches", filters ?? {}] as const,
+  batch: (id: string) => ["batch", id] as const,
+  approvals: (status?: string) => ["approvals", status ?? "PENDING"] as const,
+  approval: (id: string) => ["approval", id] as const,
+  approvalRules: () => ["approval-rules"] as const,
+  approvalRule: (id: string) => ["approval-rule", id] as const,
+  users: (filters?: Record<string, unknown>) => ["users", filters ?? {}] as const,
+  user: (id: string) => ["user", id] as const,
+  webhooks: () => ["webhooks"] as const,
+  webhook: (id: string) => ["webhook", id] as const,
+  notifications: () => ["notifications"] as const,
+  securityEvents: () => ["security-events"] as const,
+};
