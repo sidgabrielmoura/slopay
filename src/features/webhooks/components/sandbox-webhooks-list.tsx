@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -19,7 +21,9 @@ import { SandboxWebhookBadge, SandboxWebhookFallback } from "./sandbox-webhook-s
 import styles from "./webhooks-table.module.css";
 
 export function SandboxWebhooksList({ accountId }: { accountId: string }) {
+  const development = useDevelopmentFeatures();
   const list = useQuery({
+    enabled: development,
     queryKey: sandboxWebhookKey(accountId),
     queryFn: ({ signal }) => sandboxWebhookGateway.list(signal),
     retry: false,
@@ -46,11 +50,11 @@ export function SandboxWebhooksList({ accountId }: { accountId: string }) {
   return (
     <div className="grid min-w-0 gap-5">
       <IntegrationHeading title="Webhooks" description="Gerencie os destinos que recebem os eventos Pix do Slopay."
-        action={list.data?.connected && <Button asChild className="h-11 w-full sm:w-auto">
+        action={development && list.data?.connected && <Button asChild className="h-11 w-full sm:w-auto">
           <Link href={newWebhookPath}><Plus aria-hidden="true" data-icon="inline-start" /> Novo webhook</Link>
         </Button>} />
 
-      {!list.data?.connected ? (
+      {!development ? <Card><OperationalDataUnavailable title="Webhooks indisponíveis" /></Card> : !list.data?.connected ? (
         <SandboxWebhookFallback pending={list.isPending} error={list.error} unlinked={list.data?.connected === false}
           retry={() => void list.refetch()} />
       ) : (

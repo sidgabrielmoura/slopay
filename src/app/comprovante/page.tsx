@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
+import { developmentFeaturesEnabled } from "@/config/development";
 import { SharedReceiptTicket } from "@/features/receipts/shared-receipt-ticket";
 import styles from "@/features/receipts/shared-receipt.module.css";
 
@@ -10,5 +12,11 @@ export const metadata: Metadata = {
 };
 
 export default function SharedReceiptPage() {
-  return <main className={styles.page}><SharedReceiptTicket /></main>;
+  return <main className={styles.page}>
+    {developmentFeaturesEnabled() ? <SharedReceiptTicket /> : (
+      <article className={styles.ticket} aria-label="Comprovante Pix">
+        <OperationalDataUnavailable title="Comprovante indisponível" />
+      </article>
+    )}
+  </main>;
 }

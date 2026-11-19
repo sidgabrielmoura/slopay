@@ -1,5 +1,8 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,8 +35,10 @@ function ExpenseItems({ merchantId, period, category, onCategoryChange, page, se
   page: number;
   setPage: (page: number) => void;
 }) {
+  const development = useDevelopmentFeatures();
   const client = useQueryClient();
   const items = useQuery({
+    enabled: development,
     queryKey: expenseKeys.items(merchantId, period, category, page),
     queryFn: ({ signal }) => fetchExpenseItems(period, category, page, signal),
     staleTime: 15_000,
@@ -78,7 +83,7 @@ function ExpenseItems({ merchantId, period, category, onCategoryChange, page, se
       <ToastNotice message={items.isError ? items.error.message || expensesUnavailable : null} />
       <ToastNotice message={update.isError ? update.error.message : null} />
       <CardContent className="px-5 pb-5">
-        {items.isPending ? (
+        {!development ? <OperationalDataUnavailable title="Consulta de saídas indisponível" /> : items.isPending ? (
           <div aria-busy="true" aria-label="Carregando saídas" className="grid gap-2">
             <Skeleton className="h-12 motion-reduce:animate-none" />
             <Skeleton className="h-12 motion-reduce:animate-none" />

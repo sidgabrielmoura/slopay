@@ -4,7 +4,6 @@ import { HelpCircle, Settings } from "lucide-react";
 import { brandConfig } from "@/config/brand.config";
 import { financialControlPath } from "@/features/expenses/expenses";
 import { receiptsPath } from "@/features/receipts/pix-receipt-share";
-import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { merchantNavigation, panelNavigation } from "./panel-navigation";
 import { PanelSidebar } from "./panel-sidebar";
 
@@ -19,10 +18,9 @@ export function Sidebar({ pendingApprovals = 0, restricted = false, demo = false
   demo?: boolean;
   member?: boolean;
 }) {
-  const development = useDevelopmentFeatures();
   const groups = restricted
     ? [{ ...panelNavigation[0], items: panelNavigation[0].items.slice(0, 1) }]
-    : merchantNavigation(development, member).map(({ label, items }) => ({
+    : merchantNavigation(member).map(({ label, items }) => ({
       label,
       items: items
         .filter(({ path }) => !demo || (path !== financialControlPath && path !== receiptsPath))
@@ -36,6 +34,6 @@ export function Sidebar({ pendingApprovals = 0, restricted = false, demo = false
     subtitle="Operações Pix"
     navigationLabel="Menu do painel"
     footerLinks={restricted ? undefined : footerLinks}
-    showIntegrations={development && !restricted && !member}
+    showIntegrations={!restricted && !member}
   />;
 }

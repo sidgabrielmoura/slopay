@@ -18,6 +18,7 @@ import { ToastNotice } from "@/components/ui/toast-notice";
 import { IndicatorVolumeChart, type IndicatorMeasure } from "@/features/analytics/components/indicator-volume-chart";
 import { defaultIndicatorPeriod, indicatorPeriods, indicatorPeriodSchema, periodLabels, type IndicatorPeriod } from "@/features/analytics/indicators";
 import { formatDateTime } from "@/lib/dates";
+import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { adminDashboardUnavailable, adminPendingCount, fetchAdminDashboard, type AdminDashboardOperation, type AdminDashboardReport } from "../admin-dashboard";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 
@@ -34,7 +35,7 @@ const statuses = {
 const kinds = { RECEIVE: "Recebimento Pix", WITHDRAW: "Saque Pix", REFUND: "Estorno Pix" };
 
 function AdminDashboardFrame({ user, data, children }: { user: AdminIdentity; data?: AdminDashboardReport; children: ReactNode }) {
-  const pending = data?.pending;
+  const pending = data?.environment === "sandbox" ? data.pending : undefined;
   return (
     <AdminPanel user={user} pendingSummary={pending ? {
         pendingFinancialApprovalsCount: pending.withdrawalApprovals,
@@ -73,6 +74,7 @@ export function AdminDashboardLoading({ user }: { user: AdminIdentity }) {
 }
 
 export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdentity; initialReport: AdminDashboardReport | null }) {
+  const development = useDevelopmentFeatures();
   const [period, setPeriod] = useState<IndicatorPeriod>(defaultIndicatorPeriod);
   const [page, setPage] = useState(1);
   const [measure, setMeasure] = useState<IndicatorMeasure>("value");
@@ -81,12 +83,14 @@ export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdent
     queryKey: ["admin-dashboard", user.id, period, page],
     queryFn: ({ signal }) => fetchAdminDashboard(period, page, signal),
     initialData: period === defaultIndicatorPeriod && page === 1 ? initialReport ?? undefined : undefined,
-    placeholderData: (previous) => previous?.period === period ? previous : undefined,
+    placeholderData: (previous) => previous?.environment === "sandbox" && previous.period === period ? previous : undefined,
     staleTime: 20_000,
     refetchInterval: 30_000,
     retry: false,
   });
-  const data = report.data;
+  const data = report.data?.environment === "sandbox" && !development ? undefined : report.data;
+  const pix = data?.environment === "sandbox" ? data : undefined;
+  const pixUnavailable = "A consulta de operações Pix ainda não está disponível.";
 
   return (
     <AdminDashboardFrame user={user} data={data}>
@@ -94,14 +98,14 @@ export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdent
         <div className="grid gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Visão geral</h1>
-            <Badge variant="secondary">Sandbox</Badge>
+            {development && <Badge variant="secondary">Sandbox</Badge>}
           </div>
           <p className="text-pretty text-sm text-muted-foreground">Acompanhe os recebimentos, saques e a operação do Slopay.</p>
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <GlideSelect value={period} onChange={(value) => { setPeriod(indicatorPeriodSchema.parse(value)); setPage(1); }}
             options={indicatorPeriods.map((value) => ({ value, label: periodLabels[value] }))}
-            ariaLabel="Período da visão geral" size="lg" className="min-w-0 flex-1 sm:w-48" />
+            ariaLabel="Período da visão geral" size="lg" disabled={!development} className="min-w-0 flex-1 sm:w-48" />
           <Button type="button" variant="outline" size="icon" className="size-11 shrink-0"
             aria-label="Atualizar visão geral" disabled={report.isFetching} onClick={() => void report.refetch()}>
             {report.isFetching ? <LoadingIndicator /> : <RotateCw aria-hidden="true" />}
@@ -112,29 +116,30 @@ export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdent
       <ToastNotice message={report.isError ? report.error.message || adminDashboardUnavailable : null} />
       {report.isPending && <p role="status" className="sr-only">Carregando visão geral</p>}
       <SkeletonReveal key={period} flow revealed={!report.isPending} skeleton={<DashboardSkeleton />}>
-        {data ? (
+        {data || !development ? (
           <div className="grid min-w-0 gap-5">
             <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border xl:grid-cols-4">
               <Metric label="Recebimentos confirmados" icon={<ArrowDownLeft aria-hidden="true" />}>
-                <PanelAmount cents={data.receivedCents} />
-                <span className="mt-2 block text-xs font-normal text-muted-foreground">{count.format(data.receivedCount)} recebimentos · valor bruto</span>
+                {pix ? <PanelAmount cents={pix.receivedCents} /> : "—"}
+                <span className="mt-2 block text-xs font-normal text-muted-foreground">{pix ? count.format(pix.receivedCount) + " recebimentos · valor bruto" : "Consulta indisponível"}</span>
               </Metric>
               <Metric label="Saques concluídos" icon={<ArrowUpRight aria-hidden="true" />}>
-                <PanelAmount cents={data.withdrawnCents} />
-                <span className="mt-2 block text-xs font-normal text-muted-foreground">{count.format(data.withdrawnCount)} saques no período</span>
+                {pix ? <PanelAmount cents={pix.withdrawnCents} /> : "—"}
+                <span className="mt-2 block text-xs font-normal text-muted-foreground">{pix ? count.format(pix.withdrawnCount) + " saques no período" : "Consulta indisponível"}</span>
               </Metric>
               <Metric label="Operações pendentes" icon={<Clock3 aria-hidden="true" />}>
-                {count.format(adminPendingCount(data.pending))}
+                {pix ? count.format(adminPendingCount(pix.pending)) : "—"}
                 <span className="mt-2 block text-xs font-normal text-muted-foreground">Cobranças e saques em aberto</span>
               </Metric>
-              <Metric label="Empresas vinculadas" icon={<Building2 aria-hidden="true" />}>
-                {count.format(data.linkedCompaniesCount)}
-                <span className="mt-2 block text-xs font-normal text-muted-foreground">{count.format(data.companiesCount)} empresas cadastradas</span>
+              <Metric label={development ? "Empresas vinculadas" : "Empresas cadastradas"} icon={<Building2 aria-hidden="true" />}>
+                {pix ? count.format(pix.linkedCompaniesCount) : data ? count.format(data.companiesCount) : "—"}
+                <span className="mt-2 block text-xs font-normal text-muted-foreground">{pix ? count.format(pix.companiesCount) + " empresas cadastradas" : "Total na plataforma"}</span>
               </Metric>
             </div>
 
             <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-              <IndicatorVolumeChart days={data.days} measure={measure} onMeasureChange={setMeasure} detailsHref={null} />
+              <IndicatorVolumeChart days={pix?.days ?? []} measure={measure} onMeasureChange={setMeasure} detailsHref={null}
+                unavailableMessage={pix ? undefined : pixUnavailable} />
               <Card className="min-w-0">
                 <CardHeader className="gap-1 p-5 pb-2">
                   <h2 className="text-balance text-lg font-semibold">Acompanhamento da operação</h2>
@@ -142,15 +147,15 @@ export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdent
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
                   <dl className="divide-y divide-border text-sm">
-                    <PendingItem label="Aguardando aprovação do titular" value={data.pending.withdrawalApprovals} />
-                    <PendingItem label="Cobranças aguardando pagamento" value={data.pending.charges} />
-                    <PendingItem label="Saques em processamento" value={data.pending.withdrawals} />
-                    <PendingItem label="Cobranças em revisão" value={data.pending.chargeReview} />
-                    <PendingItem label="Saques em revisão" value={data.pending.withdrawalReview} />
+                    <PendingItem label="Aguardando aprovação do titular" value={pix?.pending.withdrawalApprovals} />
+                    <PendingItem label="Cobranças aguardando pagamento" value={pix?.pending.charges} />
+                    <PendingItem label="Saques em processamento" value={pix?.pending.withdrawals} />
+                    <PendingItem label="Cobranças em revisão" value={pix?.pending.chargeReview} />
+                    <PendingItem label="Saques em revisão" value={pix?.pending.withdrawalReview} />
                   </dl>
                   <div className="mt-3 flex flex-wrap justify-between gap-2 rounded-lg bg-muted px-3 py-3 text-sm">
                     <span className="text-muted-foreground">Estornos no período</span>
-                    <span className="font-medium tabular-nums"><PanelAmount cents={data.refundedCents} /></span>
+                    <span className="font-medium tabular-nums">{pix ? <PanelAmount cents={pix.refundedCents} /> : "—"}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -162,8 +167,8 @@ export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdent
                   <h2 className="text-balance text-lg font-semibold">Movimentações recentes</h2>
                   <p className="text-pretty text-sm text-muted-foreground">Operações atualizadas no período selecionado.</p>
                 </CardHeader>
-                {data.recentOperations.length ? <ul className="divide-y divide-border border-t border-border">
-                  {data.recentOperations.map((item) => {
+                {pix?.recentOperations.length ? <ul className="divide-y divide-border border-t border-border">
+                  {pix.recentOperations.map((item) => {
                     const status = statuses[item.status];
                     const Icon = item.kind === "RECEIVE" ? ArrowDownLeft : item.kind === "REFUND" ? Undo2 : ArrowUpRight;
                     return (
@@ -182,9 +187,8 @@ export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdent
                       </li>
                     );
                   })}
-                </ul> : <EmptyState>As movimentações aparecerão aqui quando houver operações neste período.</EmptyState>}
-                <TablePagination page={data.pagination.page} pageSize={data.pagination.pageSize} total={data.pagination.total}
-                  busy={report.isPlaceholderData} onPageChange={setPage} label="Paginação das movimentações" />
+                </ul> : <EmptyState>{pix ? "As movimentações aparecerão aqui quando houver operações neste período." : pixUnavailable}</EmptyState>}
+                {pix && <TablePagination {...pix.pagination} busy={report.isPlaceholderData} onPageChange={setPage} label="Paginação das movimentações" />}
               </Card>
 
               <Card className="min-w-0">
@@ -192,8 +196,8 @@ export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdent
                   <h2 className="text-balance text-lg font-semibold">Volume por empresa</h2>
                   <p className="text-pretty text-sm text-muted-foreground">Recebimentos e saques confirmados no período.</p>
                 </CardHeader>
-                {data.companies.length ? <CardContent className="grid gap-5 px-5 pb-5 pt-3">
-                  {data.companies.map((company) => (
+                {pix?.companies.length ? <CardContent className="grid gap-5 px-5 pb-5 pt-3">
+                  {pix.companies.map((company) => (
                     <div key={company.id} className="grid min-w-0 gap-1.5">
                       <span className="truncate text-sm font-medium">{company.name}</span>
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -202,11 +206,11 @@ export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdent
                       </div>
                     </div>
                   ))}
-                </CardContent> : <EmptyState>O volume será exibido após as primeiras confirmações de Pix.</EmptyState>}
+                </CardContent> : <EmptyState>{pix ? "O volume será exibido após as primeiras confirmações de Pix." : pixUnavailable}</EmptyState>}
               </Card>
             </div>
             <p className="text-pretty text-xs text-muted-foreground">
-              Sandbox · Atualizado em {formatDateTime(data.generatedAt, "short")} · Horário de Brasília
+              {data && <>{development && pix && "Sandbox · "}Atualizado em {formatDateTime(data.generatedAt, "short")} · Horário de Brasília</>}
               {report.isFetching && <span role="status"> · Atualizando…</span>}
             </p>
           </div>
@@ -252,8 +256,8 @@ function Metric({ label, icon, children }: { label: string; icon: ReactNode; chi
   );
 }
 
-function PendingItem({ label, value }: { label: string; value: number }) {
-  return <div className="flex items-start justify-between gap-4 py-3"><dt className="text-muted-foreground">{label}</dt><dd className="font-medium tabular-nums">{count.format(value)}</dd></div>;
+function PendingItem({ label, value }: { label: string; value?: number }) {
+  return <div className="flex items-start justify-between gap-4 py-3"><dt className="text-muted-foreground">{label}</dt><dd className="font-medium tabular-nums">{value === undefined ? "—" : count.format(value)}</dd></div>;
 }
 
 function EmptyState({ children }: { children: ReactNode }) {

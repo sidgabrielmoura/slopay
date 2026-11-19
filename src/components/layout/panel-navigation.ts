@@ -5,7 +5,6 @@ import {
 import { financialControlPath } from "@/features/expenses/expenses";
 import { integrationsItem } from "@/features/integrations/navigation";
 import { receiptsPath } from "@/features/receipts/pix-receipt-share";
-import { isDevelopmentRoute } from "@/config/development-routes";
 
 export const panelNavigation = [
   {
@@ -47,11 +46,10 @@ export const panelNavigation = [
 
 const ownerPaths = new Set(["/comprovantes", "/controle-financeiro", "/conta/taxas-e-limites", "/conta/regras-de-aprovacao", "/integracoes"]);
 
-export function merchantNavigation(development: boolean, member = false) {
-  if (development && !member) return panelNavigation;
+export function merchantNavigation(member = false) {
+  if (!member) return panelNavigation;
   return panelNavigation.map(({ label, items }) => ({
     label: label === "Conta & Integrações" ? "Conta" : label,
-    items: items.filter(({ path }) => (development || !isDevelopmentRoute(path)) &&
-      (!member || (!path.startsWith("/pix") && path !== "/aprovacoes" && !ownerPaths.has(path)))),
+    items: items.filter(({ path }) => !path.startsWith("/pix") && path !== "/aprovacoes" && !ownerPaths.has(path)),
   })).filter(({ items }) => items.length > 0);
 }

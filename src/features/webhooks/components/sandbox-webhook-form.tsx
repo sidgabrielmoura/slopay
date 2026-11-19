@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -23,18 +25,19 @@ import { SandboxWebhookBadge, SandboxWebhookFallback } from "./sandbox-webhook-s
 import { WebhookEventsField } from "./webhook-events-field";
 
 export function SandboxWebhookForm({ accountId, webhookId }: { accountId: string; webhookId?: string }) {
+  const development = useDevelopmentFeatures();
   const list = useQuery({
     queryKey: sandboxWebhookKey(accountId),
     queryFn: ({ signal }) => sandboxWebhookGateway.list(signal),
-    enabled: !webhookId, retry: false,
+    enabled: development && !webhookId, retry: false,
   });
   const detail = useQuery({
     queryKey: sandboxWebhookKey(accountId, webhookId ?? "new"),
     queryFn: ({ signal }) => sandboxWebhookGateway.get(webhookId!, signal),
-    enabled: Boolean(webhookId), retry: false,
+    enabled: development && Boolean(webhookId), retry: false,
   });
   const reading = webhookId ? detail : list;
-  const ready = webhookId ? Boolean(detail.data) : list.data?.connected === true;
+  const ready = development && (webhookId ? Boolean(detail.data) : list.data?.connected === true);
 
   return (
     <div className="mx-auto grid w-full min-w-0 max-w-4xl gap-5">
@@ -44,9 +47,9 @@ export function SandboxWebhookForm({ accountId, webhookId }: { accountId: string
       <IntegrationHeading
         title={webhookId ? "Configurar webhook" : "Novo webhook"}
         description={webhookId ? "Ajuste o destino HTTPS e os eventos que ele recebe." : "Escolha o destino HTTPS e os eventos que ele deve receber."}
-        action={detail.data && <SandboxWebhookBadge webhook={detail.data} />}
+        action={development && detail.data && <SandboxWebhookBadge webhook={detail.data} />}
       />
-      {ready ? <Editor accountId={accountId} webhook={detail.data} /> : (
+      {!development ? <Card><OperationalDataUnavailable title="Configuração de webhooks indisponível" /></Card> : ready ? <Editor accountId={accountId} webhook={detail.data} /> : (
         <SandboxWebhookFallback pending={reading.isPending} error={reading.error} unlinked={list.data?.connected === false}
           retry={() => void reading.refetch()} />
       )}

@@ -24,14 +24,11 @@ import {
   Shield,
 } from "lucide-react";
 import { PanelSidebar, type PanelSidebarGroup } from "@/components/layout/panel-sidebar";
-import { isDevelopmentRoute } from "@/config/development-routes";
-import { useDevelopmentFeatures } from "@/providers/app-providers";
 
 export function AdminSidebar({ pendingSummary, live = false }: {
   pendingSummary?: { pendingApplicationsCount?: number; pendingFinancialApprovalsCount?: number; totalUrgentTasks?: number };
   live?: boolean;
 }) {
-  const development = useDevelopmentFeatures();
 
   const pendingAppsCount = pendingSummary?.pendingApplicationsCount ?? 0;
   const pendingApprovalsCount = pendingSummary?.pendingFinancialApprovalsCount ?? 0;
@@ -106,13 +103,8 @@ export function AdminSidebar({ pendingSummary, live = false }: {
       ],
     },
   ];
-  const visibleGroups = development ? navGroups : navGroups.map((group) => ({
-    ...group,
-    items: group.items.filter(({ path }) => !isDevelopmentRoute(path)),
-  })).filter(({ items }) => items.length > 0);
-
   return <PanelSidebar
-    groups={visibleGroups}
+    groups={navGroups}
     homePath="/admin"
     homeLabel="Início do superadmin"
     subtitle="Superadmin"

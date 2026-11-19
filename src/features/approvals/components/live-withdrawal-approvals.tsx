@@ -1,5 +1,8 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
+
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,6 +33,7 @@ const status: Record<WithdrawalApproval["state"], [string, BadgeProps["variant"]
 };
 
 export function LiveWithdrawalApprovals({ accountId }: { accountId: string }) {
+  const development = useDevelopmentFeatures();
   const client = useQueryClient();
   const [group, setGroup] = useState<ApprovalGroup>("pending");
   const [cursors, setCursors] = useState<string[]>([]);
@@ -39,6 +43,7 @@ export function LiveWithdrawalApprovals({ accountId }: { accountId: string }) {
   const before = cursors.at(-1);
   const key = ["withdrawal-approvals", accountId] as const;
   const queue = useQuery({
+    enabled: development,
     queryKey: [...key, group, before], queryFn: ({ signal }) => withdrawalApprovalsGateway.list(group, before, signal),
     retry: false, refetchInterval: 15_000,
   });
@@ -64,11 +69,11 @@ export function LiveWithdrawalApprovals({ accountId }: { accountId: string }) {
             <TabsList aria-label="Status das aprovações">
               <TabsTrigger value="pending">Pendentes</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger>
             </TabsList>
-            <Button type="button" size="icon" variant="ghost" aria-label="Atualizar aprovações" disabled={queue.isFetching}
+            <Button type="button" size="icon" variant="ghost" aria-label="Atualizar aprovações" disabled={!development || queue.isFetching}
               onClick={() => void queue.refetch()}><RotateCw aria-hidden="true" /></Button>
           </div>
           <TabsContent value={group} className="mt-0">
-            {queue.isPending ? (
+            {!development ? <OperationalDataUnavailable title="Aprovações indisponíveis" /> : queue.isPending ? (
               <div className="grid gap-3 p-5" aria-busy="true" aria-label="Carregando aprovações">
                 {[0, 1, 2].map((item) => <Skeleton key={item} className="h-16 w-full" />)}
               </div>
@@ -109,7 +114,7 @@ export function LiveWithdrawalApprovals({ accountId }: { accountId: string }) {
           </TabsContent>
         </Tabs>
       </Card>
-      {selection && <WithdrawalReview key={selection} accountId={accountId} id={selection} onClose={closeReview}
+      {development && selection && <WithdrawalReview key={selection} accountId={accountId} id={selection} onClose={closeReview}
         onDecided={() => { setCursors([]); void client.invalidateQueries({ queryKey: key }); }} />}
     </div>
   );

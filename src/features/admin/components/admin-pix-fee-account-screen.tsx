@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpRight, RotateCw } from "lucide-react";
 import Link from "next/link";
@@ -22,10 +24,12 @@ import { OperationalStatusBadge } from "./admin-operational-accounts-screen";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 
 export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdentity; accountId: string }) {
+  const development = useDevelopmentFeatures();
   const back = adminPixFeesPath + pixFeesParams(pixFeesQueryFrom(useSearchParams()));
   const client = useQueryClient();
   const key = adminPixFeeDetailKey(user.id, accountId);
   const result = useQuery({
+    enabled: development,
     queryKey: key,
     queryFn: ({ signal }) => adminPixFees.detail(accountId, signal),
     staleTime: 15_000, retry: retryAdminRead,
@@ -39,7 +43,7 @@ export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdent
     },
   });
   const denied = result.error instanceof ApiError && [401, 403, 404].includes(result.error.status);
-  const wallet = denied ? undefined : result.data;
+  const wallet = development ? (denied ? undefined : result.data) : undefined;
 
   return (
     <AdminPanel user={user}>
@@ -48,8 +52,8 @@ export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdent
           <Link href={back} prefetch={false}><ArrowLeft aria-hidden="true" /> Taxas e limites</Link>
         </Button>
         <ToastNotice message={refresh.error?.message ?? result.error?.message} />
-        {result.isPending && <span role="status" className="sr-only">Carregando tarifas da carteira</span>}
-        <SkeletonReveal flow revealed={!result.isPending} skeleton={
+        {result.isLoading && <span role="status" className="sr-only">Carregando tarifas da carteira</span>}
+        <SkeletonReveal flow revealed={!result.isLoading} skeleton={
           <div className="grid min-w-0 gap-5">
             <div className="grid gap-3"><Skeleton className="h-7 w-56 max-w-full animate-none" /><Skeleton className="h-4 w-40 animate-none" /></div>
             <div className="grid gap-4 md:grid-cols-2"><Skeleton className="h-44 animate-none" /><Skeleton className="h-44 animate-none" /></div>
@@ -61,7 +65,7 @@ export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdent
                 <div className="min-w-0 space-y-1">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <h1 className="text-balance wrap-anywhere text-2xl font-semibold sm:text-3xl">{wallet.companyName}</h1>
-                    <Badge variant="secondary">Sandbox</Badge>
+                    {development && <Badge variant="secondary">Sandbox</Badge>}
                   </div>
                   <p className="text-sm text-muted-foreground tabular-nums">{wallet.cnpj ? formatCNPJ(wallet.cnpj) : "Pessoa física"} · Carteira final {wallet.walletSuffix}</p>
                 </div>
@@ -107,7 +111,7 @@ export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdent
                 </Button>
               </Card>
             </div>
-          ) : result.isError && (
+          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
             <Card className="grid min-h-36 content-center justify-items-start gap-3 p-5">
               <h1 className="text-balance text-xl font-semibold">
                 {result.error instanceof ApiError && result.error.status === 404 ? "Conta operacional não encontrada" : "Consulta de tarifas indisponível"}

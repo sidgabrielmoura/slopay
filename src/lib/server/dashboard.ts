@@ -1,5 +1,7 @@
 import "server-only";
 
+import { developmentFeaturesEnabled } from "@/config/development";
+
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { pixReceiptDatesSchema } from "@/features/pix-receive/pix-receipt";
@@ -67,7 +69,7 @@ export async function loadDashboardSummary() {
 
 export async function loadDashboardOverview() {
   const result = await loadDashboardData("/dashboard/overview", overviewSchema);
-  return result.state === "ready" ? result.data : null;
+  return result.state === "ready" && (developmentFeaturesEnabled() || result.data.environment === "live") ? result.data : null;
 }
 
 export function loadDashboardOperation(reference: string) {

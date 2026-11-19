@@ -1,5 +1,8 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
+
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ChevronRight, ReceiptText } from "lucide-react";
@@ -25,16 +28,18 @@ const operationCell = "col-span-2 flex min-w-0 items-center gap-3 lg:col-span-1"
 const actionCell = "col-span-2 min-w-0 lg:col-span-1 lg:justify-self-end";
 
 export function ReceiptsScreen({ merchantId }: { merchantId: string }) {
+  const development = useDevelopmentFeatures();
   const [page, setPage] = useState(1);
   const query = useQuery({
+    enabled: development,
     queryKey: ["pix-receipts", merchantId, page],
     queryFn: ({ signal }) => fetchLiveTransactions({ status: "COMPLETED", page }, signal),
     placeholderData: keepPreviousData,
     retry: false,
   });
-  const data = query.data;
+  const data = development ? query.data : undefined;
   const rows = data?.data.filter((operation) => canSharePixReceipt(data.environment, operation)) ?? [];
-  const pending = query.isPending || query.isPlaceholderData;
+  const pending = query.isLoading || query.isPlaceholderData;
   const previousDisabled = pending || !data || data.page <= 1;
   const nextDisabled = pending || !data || data.page >= data.totalPages;
 
@@ -56,7 +61,7 @@ export function ReceiptsScreen({ merchantId }: { merchantId: string }) {
           revealed={!pending}
           skeleton={<ReceiptListSkeleton count={query.isPlaceholderData ? Math.max(1, rows.length) : 4} />}
         >
-          {!pending && (data ? (
+          {!pending && (!development ? <OperationalDataUnavailable title="Comprovantes indisponíveis" /> : data ? (
             rows.length > 0 ? (
               <ul className="divide-y divide-border">
                 {rows.map((operation) => <ReceiptRow key={operation.reference} operation={operation} />)}

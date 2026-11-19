@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -32,27 +34,29 @@ import { OperationalAccountStatusDialog } from "./operational-account-status-dia
 const count = new Intl.NumberFormat("pt-BR");
 
 export function AdminOperationalAccountScreen({ user, accountId }: { user: AdminIdentity; accountId: string }) {
+  const development = useDevelopmentFeatures();
   const params = useSearchParams();
   const fromBalances = params.get("from") === "saldos";
   const listHref = fromBalances ? balancePositionsHref(balancePositionsQueryFrom(params))
     : operationalAccountsPath + operationalParams(operationalQueryFrom(params));
   const listLabel = fromBalances ? "Saldos & Posições" : "Contas operacionais";
   const result = useQuery({
+    enabled: development,
     queryKey: ["admin-operational-account", user.id, accountId],
     queryFn: ({ signal }) => adminOperationalAccounts.detail(accountId, signal),
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const status = result.error instanceof ApiError ? result.error.status : null;
   const missing = status === 404;
-  const data = missing || status === 401 || status === 403 ? undefined : result.data;
+  const data = development ? (missing || status === 401 || status === 403 ? undefined : result.data) : undefined;
   return (
     <AdminPanel user={user}>
       <Button asChild variant="ghost" className="-ml-2 h-11 w-fit px-2 text-muted-foreground">
         <Link href={listHref} prefetch={false}><ArrowLeft aria-hidden="true" />{listLabel}</Link>
       </Button>
       <ToastNotice message={result.isError && !missing ? result.error.message : null} />
-      {result.isPending && <p role="status" className="sr-only">Carregando conta operacional</p>}
-      <SkeletonReveal flow revealed={!result.isPending} skeleton={
+      {result.isLoading && <p role="status" className="sr-only">Carregando conta operacional</p>}
+      <SkeletonReveal flow revealed={!result.isLoading} skeleton={
         <div className="grid min-w-0 gap-5">
           <div className="grid gap-2"><Skeleton className="h-8 w-48 animate-none" /><Skeleton className="h-4 w-36 animate-none" /></div>
           <div className="grid gap-4 sm:grid-cols-3">{[1, 2, 3].map((index) => <Skeleton key={index} className="h-28 animate-none rounded-xl" />)}</div>
@@ -64,7 +68,7 @@ export function AdminOperationalAccountScreen({ user, accountId }: { user: Admin
             <h1 className="text-balance text-lg font-semibold">Conta operacional não encontrada</h1>
             <Button asChild variant="outline" className="h-11"><Link href={listHref}>{listLabel}</Link></Button>
           </Card>
-        ) : result.isError && <CompanyReadError title="Conta indisponível" retry={() => void result.refetch()} />}
+        ) : !development ? <OperationalDataUnavailable /> : result.isError && <CompanyReadError title="Conta indisponível" retry={() => void result.refetch()} />}
       </SkeletonReveal>
     </AdminPanel>
   );

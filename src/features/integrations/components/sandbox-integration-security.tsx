@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,9 +19,10 @@ import { IntegrationConfirmationDialog } from "./integration-confirmation-dialog
 import { IntegrationHeading } from "./integration-heading";
 
 export function SandboxIntegrationSecurity({ accountId }: { accountId: string }) {
+  const development = useDevelopmentFeatures();
   const queryClient = useQueryClient();
   const key = ["sandbox-api-security", accountId] as const;
-  const security = useQuery({ queryKey: key, queryFn: ({ signal }) => sandboxApiGateway.security(signal), retry: false });
+  const security = useQuery({ enabled: development, queryKey: key, queryFn: ({ signal }) => sandboxApiGateway.security(signal), retry: false });
   const editor = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState<{ version: number; text: string } | null>(null);
   const [review, setReview] = useState<ApiAccessDraft | null>(null);
@@ -41,7 +44,7 @@ export function SandboxIntegrationSecurity({ accountId }: { accountId: string })
   return (
     <div className="grid min-w-0 gap-5">
       <IntegrationHeading title="Segurança da integração" description="Controle quais redes podem usar as chaves de API da empresa." />
-      {security.isPending ? (
+      {!development ? <Card><OperationalDataUnavailable title="Segurança da integração indisponível" /></Card> : security.isPending ? (
         <Card className="grid gap-3 p-5" aria-busy="true" aria-label="Carregando segurança da integração">
           <Skeleton className="h-6 w-44" /><Skeleton className="h-32 w-full" />
         </Card>

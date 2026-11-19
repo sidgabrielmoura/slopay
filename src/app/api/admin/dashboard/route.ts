@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
+import { developmentFeaturesEnabled } from "@/config/development";
 import { adminDashboardSchema, adminDashboardUnavailable } from "@/features/admin/admin-dashboard";
 import { indicatorPeriodSchema } from "@/features/analytics/indicators";
 import { forwardIntegrationRequest, integrationResponse } from "@/lib/server/integration-request";
@@ -13,7 +14,8 @@ export async function GET(request: NextRequest) {
     return integrationResponse({ message: "Selecione um período e uma página válidos." }, 400);
   }
   return forwardIntegrationRequest(request, {
-    path: "/admin/dashboard", output: adminDashboardSchema,
+    path: "/admin/dashboard",
+    output: adminDashboardSchema.refine((report) => developmentFeaturesEnabled() || report.environment === "live"),
     searchParams: new URLSearchParams({ period: period.data, page: String(page.data) }), unavailable: adminDashboardUnavailable,
   });
 }

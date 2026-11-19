@@ -44,11 +44,12 @@ function chartSeries(days: IndicatorDay[], countMode: boolean, groupSize: number
 
 export type IndicatorMeasure = "value" | "count";
 
-export function IndicatorVolumeChart({ days, measure, onMeasureChange, detailsHref = "/movimentacoes" }: {
+export function IndicatorVolumeChart({ days, measure, onMeasureChange, detailsHref = "/movimentacoes", unavailableMessage }: {
   days: IndicatorDay[];
   measure: IndicatorMeasure;
   onMeasureChange: (measure: IndicatorMeasure) => void;
   detailsHref?: string | null;
+  unavailableMessage?: string;
 }) {
   const { hideValues, preferencesReady } = usePreferences();
   const hidden = hideValues || !preferencesReady;
@@ -69,8 +70,8 @@ export function IndicatorVolumeChart({ days, measure, onMeasureChange, detailsHr
           value={countMode ? "count" : "value"} onValueChange={(value) => {
             if (value === "count" || value === "value") onMeasureChange(value);
           }}>
-          <ToggleGroupItem value="value" className="h-11 px-3" disabled={hidden}>Valores</ToggleGroupItem>
-          <ToggleGroupItem value="count" className="h-11 px-3">Quantidade</ToggleGroupItem>
+          <ToggleGroupItem value="value" className="h-11 px-3" disabled={hidden || Boolean(unavailableMessage)}>Valores</ToggleGroupItem>
+          <ToggleGroupItem value="count" className="h-11 px-3" disabled={Boolean(unavailableMessage)}>Quantidade</ToggleGroupItem>
         </ToggleGroup>
       </CardHeader>
       <CardContent className="grid gap-4 px-5 pb-5">
@@ -104,7 +105,7 @@ export function IndicatorVolumeChart({ days, measure, onMeasureChange, detailsHr
           ) : (
             <div className="grid h-full content-center justify-items-center gap-2 rounded-lg border border-dashed border-border px-3 text-center text-sm text-muted-foreground">
               <ChartNoAxesColumn className="size-5" aria-hidden="true" />
-              {countMode ? "Nenhum Pix confirmado neste período." : "Nenhum valor confirmado neste período."}
+              {unavailableMessage ?? (countMode ? "Nenhum Pix confirmado neste período." : "Nenhum valor confirmado neste período.")}
             </div>
           )}
         </div>

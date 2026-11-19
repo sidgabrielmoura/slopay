@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, ChevronRight, Search } from "lucide-react";
@@ -184,18 +186,20 @@ function DestinationRows({ items, query }: { items: AdminWebhook[]; query: Admin
 }
 
 export function AdminWebhooksScreen({ user }: { user: AdminIdentity }) {
+  const development = useDevelopmentFeatures();
   const query = adminWebhookQueryFrom(useSearchParams());
   const filterKey = adminWebhookHref({ ...query, page: 1 });
   const filtered = Boolean(query.search || query.status !== "ALL");
   const result = useQuery({
+    enabled: development,
     queryKey: ["admin-webhooks", user.id, filterKey, query.page],
     queryFn: ({ signal }) => adminWebhooks.list(query, signal),
     placeholderData: (data, previous) => previous?.queryKey[1] === user.id && previous.queryKey[2] === filterKey ? data : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const report = denied ? undefined : result.data;
-  const loading = result.isPending || result.isPlaceholderData;
+  const report = development ? (denied ? undefined : result.data) : undefined;
+  const loading = result.isLoading || result.isPlaceholderData;
 
   function navigate(next: AdminWebhookQuery) {
     window.history.replaceState(null, "", adminWebhookHref(next));
@@ -207,7 +211,7 @@ export function AdminWebhooksScreen({ user }: { user: AdminIdentity }) {
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Webhooks Globais</h1>
-            <Badge variant="secondary">Sandbox</Badge>
+            {development && <Badge variant="secondary">Sandbox</Badge>}
           </div>
           <p className="text-pretty text-sm text-muted-foreground">Acompanhe os webhooks de saída das empresas e consulte o histórico de entregas.</p>
         </div>
@@ -215,7 +219,7 @@ export function AdminWebhooksScreen({ user }: { user: AdminIdentity }) {
           <Link href="/admin/pendencias" prefetch={false}>Ver pendências <ArrowUpRight aria-hidden="true" /></Link>
         </Button>
       </header>
-      {(result.isPending || report) && <WebhookSummary summary={report?.summary} loading={result.isPending} />}
+      {(result.isLoading || report) && <WebhookSummary summary={report?.summary} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="global-webhook-destinations">
         <div className="space-y-1 px-4 py-4 sm:px-5">
@@ -237,7 +241,7 @@ export function AdminWebhooksScreen({ user }: { user: AdminIdentity }) {
                 </>
               )}
             </div>
-          ) : result.isError && (
+          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
             <div className="grid min-h-40 content-center justify-items-center gap-3 px-4 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Consulta de webhooks indisponível</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>

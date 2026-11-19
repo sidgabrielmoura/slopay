@@ -21,7 +21,7 @@ export function MerchantPanel({
   children: ReactNode;
 }) {
   const member = user.role === "OPERATOR" || user.role === "AUDITOR";
-  const notifications = developmentFeaturesEnabled() && !restricted &&
+  const notifications = !restricted &&
     (user.role === "MERCHANT" || (user.role === "OPERATOR" && user.merchantId)) && user.status === "ACTIVE" &&
     user.isEmailVerified && user.isTwoFactorEnabled && user.mfaVerified;
   const panel = (
@@ -49,7 +49,7 @@ export function MerchantPanel({
       {children}
     </PanelFrame>
   );
-  return notifications ? (
+  return notifications && developmentFeaturesEnabled() ? (
     <DashboardPixNoticesProvider mode="sandbox" accountId={user.id}>{panel}</DashboardPixNoticesProvider>
   ) : panel;
 }

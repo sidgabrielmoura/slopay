@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -193,11 +195,13 @@ function BatchDetails({ batch, listQuery }: {
 }
 
 export function AdminWithdrawalBatchScreen({ user, batchId }: { user: AdminIdentity; batchId: string }) {
+  const development = useDevelopmentFeatures();
   const params = useSearchParams();
   const listQuery = adminBatchQueryFrom(params);
   const itemPage = adminBatchPage.catch(1).parse(params.get("itemPage"));
   const backHref = adminBatchHref(listQuery);
   const result = useQuery({
+    enabled: development,
     queryKey: ["admin-withdrawal-batch", user.id, batchId, itemPage],
     queryFn: ({ signal }) => adminWithdrawalBatches.detail(batchId, itemPage, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && request.queryKey[2] === batchId ? previous : undefined,
@@ -205,7 +209,7 @@ export function AdminWithdrawalBatchScreen({ user, batchId }: { user: AdminIdent
   });
   const status = result.error instanceof ApiError ? result.error.status : null;
   const missing = status === 404;
-  const data = missing || status === 401 || status === 403 ? undefined : result.data;
+  const data = development ? (missing || status === 401 || status === 403 ? undefined : result.data) : undefined;
 
   return (
     <AdminPanel user={user}>
@@ -213,8 +217,8 @@ export function AdminWithdrawalBatchScreen({ user, batchId }: { user: AdminIdent
         <Link href={backHref} prefetch={false}><ArrowLeft aria-hidden="true" /> Lotes de saída</Link>
       </Button>
       <ToastNotice message={missing ? null : result.error?.message} />
-      {result.isPending && <p role="status" className="sr-only">Carregando lote de saída</p>}
-      <SkeletonReveal flow revealed={!result.isPending} skeleton={
+      {result.isLoading && <p role="status" className="sr-only">Carregando lote de saída</p>}
+      <SkeletonReveal flow revealed={!result.isLoading} skeleton={
         <div className="grid min-w-0 gap-5">
           <Skeleton className="h-9 w-48 animate-none" /><Skeleton className="h-44 animate-none rounded-xl" /><CompanyRowsSkeleton />
         </div>
@@ -232,7 +236,7 @@ export function AdminWithdrawalBatchScreen({ user, batchId }: { user: AdminIdent
             <h1 className="text-balance text-lg font-semibold">Lote de saída não encontrado</h1>
             <Button asChild variant="outline" className="h-11"><Link href={backHref} prefetch={false}>Voltar aos lotes</Link></Button>
           </Card>
-        ) : result.isError && <CompanyReadError title="Não foi possível carregar o lote" retry={() => void result.refetch()} />}
+        ) : !development ? <OperationalDataUnavailable /> : result.isError && <CompanyReadError title="Não foi possível carregar o lote" retry={() => void result.refetch()} />}
       </SkeletonReveal>
     </AdminPanel>
   );

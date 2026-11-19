@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
@@ -231,6 +233,7 @@ function TransactionRows({ items, onOpen }: { items: PixTransactionRow[]; onOpen
 }
 
 export function AdminPixTransactionsScreen({ user }: { user: AdminIdentity }) {
+  const development = useDevelopmentFeatures();
   const params = useSearchParams();
   const query = pixQueryFrom(params);
   const selection = pixTransactionIdentifier.safeParse({ kind: params.get("detail"), id: params.get("transaction") }).data;
@@ -238,12 +241,13 @@ export function AdminPixTransactionsScreen({ user }: { user: AdminIdentity }) {
   const title = useRef<HTMLHeadingElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const result = useQuery({
+    enabled: development,
     queryKey: ["admin-pix-transactions", user.id, filterKey, query.page],
     queryFn: ({ signal }) => adminPixTransactions.list(query, signal),
     placeholderData: (previous, previousQuery) => previousQuery?.queryKey[2] === filterKey ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
-  const data = result.data;
+  const data = development ? (result.data) : undefined;
   const displayedQuery = { ...query, page: data?.pagination.page ?? query.page };
 
   function navigate(next: PixTransactionsQuery) {
@@ -266,11 +270,11 @@ export function AdminPixTransactionsScreen({ user }: { user: AdminIdentity }) {
       <header className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 ref={title} tabIndex={-1} className="text-balance text-2xl font-semibold outline-none sm:text-3xl">Transações Pix</h1>
-          <Badge variant="secondary">Sandbox</Badge>
+          {development && <Badge variant="secondary">Sandbox</Badge>}
         </div>
         <p className="text-pretty text-sm text-muted-foreground">Acompanhe recebimentos, saques e estornos registrados pelas empresas.</p>
       </header>
-      {(result.isPending || data) && <PixSummary summary={data?.summary} loading={result.isPending} />}
+      {(result.isLoading || data) && <PixSummary summary={data?.summary} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="admin-pix-history">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
@@ -281,8 +285,8 @@ export function AdminPixTransactionsScreen({ user }: { user: AdminIdentity }) {
           <PixTransactionExport query={displayedQuery} disabled={!data?.items.length || result.isPlaceholderData || result.isError} onRefresh={() => void result.refetch()} />
         </div>
         <PixFilters key={query.search} query={query} onChange={navigate} />
-        {result.isPending && <p role="status" className="sr-only">Carregando transações</p>}
-        <SkeletonReveal flow revealed={!result.isPending}
+        {result.isLoading && <p role="status" className="sr-only">Carregando transações</p>}
+        <SkeletonReveal flow revealed={!result.isLoading}
           skeleton={<div className="divide-y divide-border">{[1, 2, 3, 4].map((line) => (
             <div key={line} className="flex min-h-17 items-center gap-3 px-4 sm:px-5">
               <Skeleton className="size-9 shrink-0 animate-none" /><Skeleton className="h-4 w-2/5 animate-none" />
@@ -308,7 +312,7 @@ export function AdminPixTransactionsScreen({ user }: { user: AdminIdentity }) {
               <TablePagination {...data.pagination} busy={result.isPlaceholderData} label="Paginação de transações Pix"
                 onPageChange={(page) => navigate({ ...query, page })} />
             </>
-          ) : result.isError && (
+          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
             <div className="grid min-h-48 content-center justify-items-center gap-3 px-5 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Não foi possível consultar as transações</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>
@@ -316,7 +320,7 @@ export function AdminPixTransactionsScreen({ user }: { user: AdminIdentity }) {
           )}
         </SkeletonReveal>
       </Card>
-      <PixTransactionDialog adminId={user.id} selection={selection} onClose={closeDetail} onOpen={openDetail}
+      <PixTransactionDialog adminId={user.id} selection={development ? selection : undefined} onClose={closeDetail} onOpen={openDetail}
         onScope={(scope, value) => {
           trigger.current = null;
           navigate({ ...query, companyId: undefined, accountId: undefined, [scope]: value, page: 1 });

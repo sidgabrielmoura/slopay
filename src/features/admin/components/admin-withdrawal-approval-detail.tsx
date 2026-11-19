@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -124,15 +126,17 @@ function ApprovalDetails({ approval }: { approval: AdminApprovalDetail }) {
 }
 
 export function AdminWithdrawalApprovalScreen({ user, approvalId }: { user: AdminIdentity; approvalId: string }) {
+  const development = useDevelopmentFeatures();
   const backHref = adminApprovalHref(adminApprovalQueryFrom(useSearchParams()));
   const result = useQuery({
+    enabled: development,
     queryKey: ["admin-withdrawal-approval", user.id, approvalId],
     queryFn: ({ signal }) => adminWithdrawalApprovals.detail(approvalId, signal),
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const status = result.error instanceof ApiError ? result.error.status : null;
   const missing = status === 404;
-  const data = missing || status === 401 || status === 403 ? undefined : result.data;
+  const data = development ? (missing || status === 401 || status === 403 ? undefined : result.data) : undefined;
 
   return (
     <AdminPanel user={user}>
@@ -140,8 +144,8 @@ export function AdminWithdrawalApprovalScreen({ user, approvalId }: { user: Admi
         <Link href={backHref} prefetch={false}><ArrowLeft aria-hidden="true" /> Aprovações extraordinárias</Link>
       </Button>
       <ToastNotice message={missing ? null : result.error?.message} />
-      {result.isPending && <p role="status" className="sr-only">Carregando solicitação de saque</p>}
-      <SkeletonReveal flow revealed={!result.isPending} skeleton={
+      {result.isLoading && <p role="status" className="sr-only">Carregando solicitação de saque</p>}
+      <SkeletonReveal flow revealed={!result.isLoading} skeleton={
         <div className="grid min-w-0 gap-5">
           <Skeleton className="h-12 w-56 max-w-full animate-none" />
           <Skeleton className="h-32 animate-none rounded-xl" />
@@ -153,7 +157,7 @@ export function AdminWithdrawalApprovalScreen({ user, approvalId }: { user: Admi
             <h1 className="text-balance text-lg font-semibold">Solicitação de aprovação não encontrada</h1>
             <Button asChild variant="outline" className="h-11"><Link href={backHref} prefetch={false}>Voltar às aprovações</Link></Button>
           </Card>
-        ) : result.isError && <CompanyReadError title="Não foi possível carregar a solicitação" retry={() => void result.refetch()} />}
+        ) : !development ? <OperationalDataUnavailable /> : result.isError && <CompanyReadError title="Não foi possível carregar a solicitação" retry={() => void result.refetch()} />}
       </SkeletonReveal>
     </AdminPanel>
   );

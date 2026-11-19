@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -194,16 +196,18 @@ function BatchRows({ batches, query }: { batches: AdminWithdrawalBatch[]; query:
 }
 
 export function AdminWithdrawalBatchesScreen({ user }: { user: AdminIdentity }) {
+  const development = useDevelopmentFeatures();
   const query = adminBatchQueryFrom(useSearchParams());
   const filters = adminBatchHref({ ...query, page: 1 });
   const result = useQuery({
+    enabled: development,
     queryKey: ["admin-withdrawal-batches", user.id, filters, query.page],
     queryFn: ({ signal }) => adminWithdrawalBatches.list(query, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && request.queryKey[2] === filters ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const data = denied ? undefined : result.data;
+  const data = development ? (denied ? undefined : result.data) : undefined;
 
   function navigate(next: AdminWithdrawalBatchQuery) {
     window.history.replaceState(null, "", adminBatchHref(next));
@@ -214,19 +218,19 @@ export function AdminWithdrawalBatchesScreen({ user }: { user: AdminIdentity }) 
       <header className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Lotes de saída</h1>
-          <Badge variant="secondary">Sandbox</Badge>
+          {development && <Badge variant="secondary">Sandbox</Badge>}
         </div>
         <p className="text-pretty text-sm text-muted-foreground">Acompanhe os saques em lote das empresas e a liquidação de cada Pix.</p>
       </header>
-      {(result.isPending || data) && <BatchSummary data={data} loading={result.isPending} />}
+      {(result.isLoading || data) && <BatchSummary data={data} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="admin-batch-history">
         <header className="px-4 py-4 sm:px-5">
           <h2 id="admin-batch-history" className="text-balance text-lg font-semibold">Histórico de lotes</h2>
         </header>
         <BatchFilters key={query.search} query={query} onChange={navigate} />
-        {result.isPending && <p role="status" className="sr-only">Carregando lotes de saída</p>}
-        <SkeletonReveal flow revealed={!result.isPending} skeleton={
+        {result.isLoading && <p role="status" className="sr-only">Carregando lotes de saída</p>}
+        <SkeletonReveal flow revealed={!result.isLoading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3, 4].map((cell) => (
             <div key={cell} className="flex min-h-16 items-center gap-3 px-4 sm:px-5">
               <Skeleton className="h-4 w-2/5 animate-none" /><Skeleton className="ml-auto h-4 w-1/5 animate-none" />
@@ -244,7 +248,7 @@ export function AdminWithdrawalBatchesScreen({ user }: { user: AdminIdentity }) 
             )}
             <TablePagination {...data.pagination} label="Paginação de lotes de saída" busy={result.isPlaceholderData}
               onPageChange={(page) => navigate({ ...query, page })} />
-          </> : result.isError && (
+          </> : !development ? <OperationalDataUnavailable /> : result.isError && (
             <div className="grid min-h-48 content-center justify-items-center gap-3 px-5 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Não foi possível consultar os lotes</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>

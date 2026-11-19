@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -208,16 +210,18 @@ function EmptyResults({ query, onChange }: { query: AdminApprovalQuery; onChange
 }
 
 export function AdminWithdrawalApprovalsScreen({ user }: { user: AdminIdentity }) {
+  const development = useDevelopmentFeatures();
   const query = adminApprovalQueryFrom(useSearchParams());
   const filters = adminApprovalHref({ ...query, page: 1 });
   const result = useQuery({
+    enabled: development,
     queryKey: ["admin-withdrawal-approvals", user.id, filters, query.page],
     queryFn: ({ signal }) => adminWithdrawalApprovals.list(query, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && request.queryKey[2] === filters ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const data = denied ? undefined : result.data;
+  const data = development ? (denied ? undefined : result.data) : undefined;
 
   function navigate(next: AdminApprovalQuery) {
     window.history.replaceState(null, "", adminApprovalHref(next));
@@ -228,19 +232,19 @@ export function AdminWithdrawalApprovalsScreen({ user }: { user: AdminIdentity }
       <header className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Aprovações extraordinárias</h1>
-          <Badge variant="secondary">Sandbox</Badge>
+          {development && <Badge variant="secondary">Sandbox</Badge>}
         </div>
         <p className="text-pretty text-sm text-muted-foreground">Acompanhe as solicitações de saque via API e as decisões dos titulares.</p>
       </header>
-      {(result.isPending || data) && <ApprovalSummary summary={data?.summary} loading={result.isPending} />}
+      {(result.isLoading || data) && <ApprovalSummary summary={data?.summary} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="withdrawal-approvals">
         <header className="px-4 py-4 sm:px-5">
           <h2 id="withdrawal-approvals" className="text-balance text-lg font-semibold">Solicitações de saque</h2>
         </header>
         <ApprovalFilters query={query} onChange={navigate} />
-        {result.isPending && <p role="status" className="sr-only">Carregando solicitações de saque</p>}
-        <SkeletonReveal flow revealed={!result.isPending} skeleton={
+        {result.isLoading && <p role="status" className="sr-only">Carregando solicitações de saque</p>}
+        <SkeletonReveal flow revealed={!result.isLoading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3].map((row) => (
             <div key={row} className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-5">
               <Skeleton className="h-4 w-2/5 animate-none" /><Skeleton className="h-4 w-1/5 animate-none" />
@@ -254,7 +258,7 @@ export function AdminWithdrawalApprovalsScreen({ user }: { user: AdminIdentity }
                 onPageChange={(page) => navigate({ ...query, page })} />
             </>
           ) : <EmptyResults query={query} onChange={navigate} />
-            : result.isError && <CompanyReadError title="Não foi possível carregar as solicitações" retry={() => void result.refetch()} />}
+            : !development ? <OperationalDataUnavailable /> : result.isError && <CompanyReadError title="Não foi possível carregar as solicitações" retry={() => void result.refetch()} />}
         </SkeletonReveal>
       </Card>
     </AdminPanel>

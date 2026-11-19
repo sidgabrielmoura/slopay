@@ -1,5 +1,6 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, FlaskConical } from "lucide-react";
@@ -358,7 +359,8 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
     review(false);
   }
 
-  const canSimulate = process.env.NODE_ENV === "development" && options.data?.simulationAvailable;
+  const development = useDevelopmentFeatures();
+  const canSimulate = development && options.data?.simulationAvailable;
   const statusError = isMissing(displayedStatus.error) ? unavailableStatus
     : displayedStatus.isError ? displayedStatus.error.message : null;
   const reviewTitle = draft?.data.simulate ? "Revisar simulação" : "Revisar saque";

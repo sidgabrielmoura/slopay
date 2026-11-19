@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import { integrationsItem, isIntegrationRoute } from "@/features/integrations/navigation";
 import { cn } from "@/lib/utils";
-import { useDevelopmentFeatures } from "@/providers/app-providers";
 import {
   Sheet,
   SheetContent,
@@ -38,7 +37,6 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
   member?: boolean;
 }) {
   const pathname = usePathname();
-  const development = useDevelopmentFeatures();
   const router = useRouter();
   const [pixSheetOpen, setPixSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
@@ -48,7 +46,7 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
   const integrationsBack = useRef<HTMLButtonElement>(null);
   const moveMenuFocus = useRef(false);
   const demo = Boolean(demoControls);
-  const currentIntegration = development && !member && isIntegrationRoute(pathname);
+  const currentIntegration = !member && isIntegrationRoute(pathname);
 
   useLayoutEffect(() => {
     if (!moreSheetOpen || !moveMenuFocus.current) return;
@@ -86,7 +84,6 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
           <span>Início</span>
         </NextLink>
 
-        {development && <>
         {/* 2. Movimentações */}
         <NextLink
           href="/movimentacoes"
@@ -102,9 +99,8 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
           <ReceiptText className="size-4" />
           <span>Extrato</span>
         </NextLink>
-        </>}
 
-        {development && !member && <>
+        {!member && <>
         {/* 3. Pix Hub (Botão Central) */}
         <button
           type="button"
@@ -164,7 +160,7 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
       </nav>
 
       {/* Drawer: Ações Rápidas Pix */}
-      {development && !member && <Sheet open={pixSheetOpen} onOpenChange={setPixSheetOpen}>
+      {!member && <Sheet open={pixSheetOpen} onOpenChange={setPixSheetOpen}>
         <SheetContent side="bottom" aria-describedby={undefined} className="p-5 max-w-md mx-auto">
           <SheetHeader className="text-left pb-4 border-b border-border">
             <SheetTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
@@ -248,7 +244,7 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
           {integrationsOpen ? (
             <IntegrationNavigation className="py-3" onNavigate={() => setMoreSheetOpen(false)} />
           ) : <div className="py-2 space-y-4">
-            {development && <div className="space-y-1">
+            <div className="space-y-1">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
                 Gestão & Métricas
               </p>
@@ -266,7 +262,7 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
                 <Percent className="size-4 text-muted-foreground" />
                 <span>Taxas e Limites</span>
               </button>}
-            </div>}
+            </div>
 
             <div className="space-y-1">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
@@ -279,7 +275,7 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
                 <Users2 className="size-4 text-muted-foreground" />
                 <span>Gestão de Usuários</span>
               </button>
-              {development && !member && <button
+              {!member && <button
                 onClick={() => navigateTo("/conta/regras-de-aprovacao")}
                 className="flex items-center gap-3 w-full p-2.5 rounded-lg text-sm text-foreground hover:bg-accent text-left"
               >
@@ -295,7 +291,7 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
               </button>
             </div>
 
-            {development && !member && <button
+            {!member && <button
               ref={integrationsTrigger}
               type="button"
               onClick={() => switchMoreMenu(true)}

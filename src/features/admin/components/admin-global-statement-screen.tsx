@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -250,6 +252,7 @@ function EmptyStatement({ query, onChange }: { query: GlobalStatementQuery; onCh
 }
 
 export function AdminGlobalStatementScreen({ user }: { user: AdminIdentity }) {
+  const development = useDevelopmentFeatures();
   const params = useSearchParams();
   const query = globalStatementQueryFrom(params);
   const selection = pixTransactionIdentifier.safeParse({ kind: params.get("detail"), id: params.get("transaction") }).data;
@@ -257,13 +260,14 @@ export function AdminGlobalStatementScreen({ user }: { user: AdminIdentity }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const origin = useRef<HTMLButtonElement>(null);
   const result = useQuery({
+    enabled: development,
     queryKey: ["admin-global-statement", user.id, filters, query.page],
     queryFn: ({ signal }) => fetchGlobalStatement(query, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && request.queryKey[2] === filters ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const data = denied ? undefined : result.data;
+  const data = development ? (denied ? undefined : result.data) : undefined;
   const displayedQuery = { ...query, page: data?.pagination.page ?? query.page };
 
   function navigate(next: GlobalStatementQuery) {
@@ -286,11 +290,11 @@ export function AdminGlobalStatementScreen({ user }: { user: AdminIdentity }) {
       <header className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 ref={heading} tabIndex={-1} className="text-balance text-2xl font-semibold outline-none sm:text-3xl">Extrato Global</h1>
-          <Badge variant="secondary">Sandbox</Badge>
+          {development && <Badge variant="secondary">Sandbox</Badge>}
         </div>
         <p className="text-pretty text-sm text-muted-foreground">Consulte os créditos, débitos e tarifas de Pix confirmados das empresas.</p>
       </header>
-      {(result.isPending || data) && <StatementSummary data={data?.summary} loading={result.isPending} />}
+      {(result.isLoading || data) && <StatementSummary data={data?.summary} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="statement-entries">
         <header className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
@@ -303,8 +307,8 @@ export function AdminGlobalStatementScreen({ user }: { user: AdminIdentity }) {
             onExport={() => exportPage(displayedQuery)} onRefresh={() => void result.refetch()} />
         </header>
         <StatementFilters query={query} onChange={navigate} />
-        {result.isPending && <p role="status" className="sr-only">Carregando lançamentos do extrato</p>}
-        <SkeletonReveal flow revealed={!result.isPending} skeleton={
+        {result.isLoading && <p role="status" className="sr-only">Carregando lançamentos do extrato</p>}
+        <SkeletonReveal flow revealed={!result.isLoading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3, 4].map((row) => (
             <div key={row} className="flex min-h-16 items-center gap-3 px-4 sm:px-5">
               <Skeleton className="size-9 shrink-0 animate-none" /><Skeleton className="h-4 w-2/5 animate-none" />
@@ -321,7 +325,7 @@ export function AdminGlobalStatementScreen({ user }: { user: AdminIdentity }) {
               <TablePagination {...data.pagination} busy={result.isPlaceholderData} label="Paginação do Extrato Global"
                 onPageChange={(page) => navigate({ ...query, page })} />
             </>
-          ) : <EmptyStatement query={query} onChange={navigate} /> : result.isError && (
+          ) : <EmptyStatement query={query} onChange={navigate} /> : !development ? <OperationalDataUnavailable /> : result.isError && (
             <div className="grid min-h-44 content-center justify-items-center gap-3 px-5 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Não foi possível consultar o extrato</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>

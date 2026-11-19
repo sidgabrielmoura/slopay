@@ -5,7 +5,6 @@ import { LiveOverviewScreen } from "@/features/overview/components/live-overview
 import { accountOpeningPath, needsAccountOpening, onboardingDestination } from "@/lib/auth-navigation";
 import { loadDashboardOverview } from "@/lib/server/dashboard";
 import { requireSession } from "@/lib/server/session";
-import { developmentFeaturesEnabled } from "@/config/development";
 
 export const metadata: Metadata = {
   title: "Início",
@@ -19,10 +18,9 @@ export default async function InicioPage() {
   if (!destination && needsAccountOpening(user)) redirect(accountOpeningPath);
 
   const pending = destination === "/conta-em-validacao";
-  const development = developmentFeaturesEnabled();
   const merchant = user.role === "MERCHANT";
   const hasAccess = merchant || Boolean(user.merchantId);
-  const data = development && hasAccess && !pending ? await loadDashboardOverview() : null;
+  const data = hasAccess && !pending ? await loadDashboardOverview() : null;
 
   return (
     <MerchantPanel user={user} restricted={pending}>
@@ -34,8 +32,6 @@ export default async function InicioPage() {
             <p className="text-sm text-muted-foreground">Seu e-mail foi confirmado. A conta aguarda liberação.</p>
           </section>
         </>
-      ) : !development ? (
-        <PanelHeading title="Visão geral" description="Gerencie seus dados e a segurança da conta." />
       ) : hasAccess ? (
         <LiveOverviewScreen data={data} merchantId={user.id} owner={merchant} canReceive={user.role !== "AUDITOR"} />
       ) : (

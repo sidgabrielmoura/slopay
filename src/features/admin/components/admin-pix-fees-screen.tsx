@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, ChevronRight, Search } from "lucide-react";
@@ -214,18 +216,20 @@ function FeeRows({ items, query }: { items: PixFeeWallet[]; query: PixFeesQuery 
 }
 
 export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
+  const development = useDevelopmentFeatures();
   const query = pixFeesQueryFrom(useSearchParams());
   const filters = pixFeesParams({ ...query, page: 1 });
   const filtered = Boolean(filters);
   const result = useQuery({
+    enabled: development,
     queryKey: [...adminPixFeesListKey(user.id), filters, query.page],
     queryFn: ({ signal }) => adminPixFees.list(query, signal),
     placeholderData: (previous, prior) => prior?.queryKey[1] === user.id && prior.queryKey[2] === filters ? previous : undefined,
     staleTime: 15_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const data = denied ? undefined : result.data;
-  const loading = result.isPending || result.isPlaceholderData;
+  const data = development ? (denied ? undefined : result.data) : undefined;
+  const loading = result.isLoading || result.isPlaceholderData;
 
   function navigate(next: PixFeesQuery) {
     window.history.replaceState(null, "", adminPixFeesPath + pixFeesParams(next));
@@ -237,7 +241,7 @@ export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Taxas e limites</h1>
-            <Badge variant="secondary">Sandbox</Badge>
+            {development && <Badge variant="secondary">Sandbox</Badge>}
           </div>
           <p className="text-pretty text-sm text-muted-foreground">Consulte as tarifas das carteiras vinculadas e as regras de operação do Pix.</p>
         </div>
@@ -245,7 +249,7 @@ export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
           <Link href={globalStatementPath + "?type=FEE_DEBIT"} prefetch={false}>Extrato de tarifas <ArrowUpRight aria-hidden="true" /></Link>
         </Button>
       </header>
-      {(result.isPending || data) && <AppliedLimits limits={data?.limits} loading={result.isPending} />}
+      {(result.isLoading || data) && <AppliedLimits limits={data?.limits} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="pix-fees-wallets">
         <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-5">
@@ -277,7 +281,7 @@ export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
                 <Button asChild variant="outline" className="h-11"><Link href={operationalAccountsPath} prefetch={false}>Ver contas operacionais</Link></Button>
               )}
             </div>
-          ) : result.isError && (
+          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
             <div className="grid min-h-40 content-center justify-items-center gap-3 px-4 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Consulta de tarifas indisponível</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>

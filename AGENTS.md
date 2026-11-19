@@ -10,6 +10,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Ambientes do gateway
 
+Use o mesmo layout e a mesma navegação em produção e em desenvolvimento para as páginas do produto. Oculte apenas rótulos, ações e dados de teste. Quando a integração de produção ainda estiver indisponível, mantenha a tela acessível com um estado claro de indisponibilidade e sem ações ativas que dependam dessa integração.
+
 Configure `AMBIENTE=dev` para desenvolvimento e `AMBIENTE=producao` no frontend e no backend de produção. `NODE_ENV=production` também bloqueia as funções de desenvolvimento. Flags de demonstração, simulação e Sandbox podem habilitar recursos apenas dentro do ambiente permitido.
 
 Ao adicionar uma tela, rota, ação, worker ou consulta exclusiva de teste, use a política de ambiente no servidor. Inclua a rota no [mapa do frontend](src/config/development-routes.ts) e proteja o endpoint no Nest com `DevelopmentOnly` ou com a verificação de ambiente já utilizada pelo serviço. Em páginas mistas, carregue somente os dados autorizados para aquele ambiente e derive os controles visíveis da configuração do servidor. Use bancos, integrações e credenciais separados por ambiente.

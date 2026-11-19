@@ -1,3 +1,4 @@
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -129,11 +130,12 @@ function exportPage(data: StatementPage) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function StatementScreen({ initialTab, initialSearch = "", merchantId, fetchPage, afterTable, owner = true }: {
+export function StatementScreen({ initialTab, initialSearch = "", merchantId, fetchPage, afterTable, owner = true, available = true }: {
   initialTab: TransactionTab;
   initialSearch?: string;
   merchantId?: string;
   owner?: boolean;
+  available?: boolean;
   fetchPage: (filters: StatementFilters, signal: AbortSignal) => Promise<StatementPage>;
   afterTable?: ReactNode;
 }) {
@@ -158,6 +160,7 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
 
   const filters = { direction, status: status === "ALL" ? undefined : status, search, page };
   const { data, isError, isFetching, isLoading, error, refetch } = useQuery({
+    enabled: available,
     queryKey: live ? ["pix-statement", merchantId, filters] : queryKeys.transactions({ ...filters, pageSize: 10 }),
     queryFn: ({ signal }) => fetchPage(filters, signal),
     staleTime: live ? 0 : 5 * 60_000,
@@ -214,11 +217,11 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
               </Link>
             </Button>
           )}
-          <Button type="button" variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching || searching} className="gap-1.5">
+          <Button type="button" variant="outline" size="sm" onClick={() => void refetch()} disabled={!available || isFetching || searching} className="gap-1.5">
             <RotateCcw className="size-3.5" aria-hidden="true" />
             Atualizar
           </Button>
-          {live ? owner && <StatementExportDialog direction={direction} status={filters.status} search={search} disabled={searching || isError} /> : <Button
+          {live ? owner && <StatementExportDialog direction={direction} status={filters.status} search={search} disabled={!available || searching || isError} /> : <Button
             type="button"
             variant="outline"
             size="sm"
@@ -309,7 +312,7 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
               <Skeleton key={index} className="h-12 w-full motion-reduce:animate-none" />
             ))}
           </div>
-        ) : isError && !data ? (
+        ) : !available ? <OperationalDataUnavailable title="Extrato indisponível" /> : isError && !data ? (
           <div className="p-8">
             <Empty title="Extrato indisponível" />
           </div>

@@ -4,7 +4,7 @@ import { ApiError } from "@/lib/api-client";
 
 const nonnegative = z.int().nonnegative();
 export const adminDashboardUnavailable = "A visão geral está temporariamente indisponível.";
-export const adminDashboardSchema = z.object({
+const sandboxDashboardSchema = z.object({
   environment: z.literal("sandbox"),
   period: indicatorPeriodSchema,
   generatedAt: z.iso.datetime({ offset: true }),
@@ -40,18 +40,24 @@ export const adminDashboardSchema = z.object({
   })).max(8),
 });
 
-export type AdminDashboardReport = z.infer<typeof adminDashboardSchema>;
-export type AdminDashboardOperation = AdminDashboardReport["recentOperations"][number];
+export const adminDashboardSchema = z.discriminatedUnion("environment", [
+  sandboxDashboardSchema,
+  z.object({ environment: z.literal("live"), companiesCount: nonnegative, generatedAt: z.iso.datetime({ offset: true }) }),
+]);
 
-export async function fetchAdminDashboard(period: AdminDashboardReport["period"], page: number, signal: AbortSignal) {
+export type AdminDashboardReport = z.infer<typeof adminDashboardSchema>;
+type SandboxDashboardReport = z.infer<typeof sandboxDashboardSchema>;
+export type AdminDashboardOperation = SandboxDashboardReport["recentOperations"][number];
+
+export async function fetchAdminDashboard(period: SandboxDashboardReport["period"], page: number, signal: AbortSignal) {
   const response = await fetch(`/api/admin/dashboard?period=${period}&page=${page}`, { signal, cache: "no-store" });
   const body = await response.json().catch(() => null);
   if (!response.ok) throw new ApiError(body?.message ?? adminDashboardUnavailable, response.status);
   const result = adminDashboardSchema.safeParse(body);
-  if (!result.success || result.data.period !== period) throw new ApiError(adminDashboardUnavailable, 503);
+  if (!result.success || (result.data.environment === "sandbox" && result.data.period !== period)) throw new ApiError(adminDashboardUnavailable, 503);
   return result.data;
 }
 
-export function adminPendingCount(pending: AdminDashboardReport["pending"]) {
+export function adminPendingCount(pending: SandboxDashboardReport["pending"]) {
   return pending.charges + pending.chargeReview + pending.withdrawalApprovals + pending.withdrawalReview + pending.withdrawals;
 }

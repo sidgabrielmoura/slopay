@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -39,16 +41,18 @@ export function OperationalStatusBadge({ status }: { status: OperationalStatus }
 }
 
 export function AdminOperationalAccountsScreen({ user }: { user: AdminIdentity }) {
+  const development = useDevelopmentFeatures();
   const query = operationalQueryFrom(useSearchParams());
   const { search, status, page } = query;
   const [draft, setDraft] = useState(search);
   const result = useQuery({
+    enabled: development,
     queryKey: ["admin-operational-accounts", user.id, status, search, page],
     queryFn: ({ signal }) => adminOperationalAccounts.list(query, signal),
     placeholderData: (previous, prior) => prior?.queryKey[2] === status && prior.queryKey[3] === search ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
-  const data = result.data;
+  const data = development ? result.data : undefined;
   const filtered = Boolean(search) || status !== "ALL";
 
   function navigate(next: OperationalQuery) {
@@ -72,7 +76,7 @@ export function AdminOperationalAccountsScreen({ user }: { user: AdminIdentity }
       <header className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Contas operacionais</h1>
-          <Badge variant="secondary">Sandbox</Badge>
+          {development && <Badge variant="secondary">Sandbox</Badge>}
         </div>
         <p className="text-pretty text-sm text-muted-foreground">Consulte as carteiras Pix vinculadas às empresas e acompanhe cada posição.</p>
       </header>
@@ -95,8 +99,8 @@ export function AdminOperationalAccountsScreen({ user }: { user: AdminIdentity }
       </form>
 
       <ToastNotice message={result.isError ? result.error.message : null} />
-      {result.isPending && <p role="status" className="sr-only">Carregando contas</p>}
-      <SkeletonReveal flow revealed={!result.isPending} skeleton={
+      {result.isLoading && <p role="status" className="sr-only">Carregando contas</p>}
+      <SkeletonReveal flow revealed={!result.isLoading} skeleton={
         <div className="grid gap-5">
           <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border xl:grid-cols-4">
             {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 animate-none rounded-none" />)}
@@ -134,7 +138,7 @@ export function AdminOperationalAccountsScreen({ user }: { user: AdminIdentity }
             <TablePagination {...data.pagination} busy={result.isPlaceholderData} label="Paginação das contas"
               onPageChange={(nextPage) => navigate({ ...query, page: nextPage })} />
           </Card>
-        </div> : result.isError && <CompanyReadError title="Contas indisponíveis" retry={() => void result.refetch()} />}
+        </div> : !development ? <OperationalDataUnavailable /> : result.isError && <CompanyReadError title="Contas indisponíveis" retry={() => void result.refetch()} />}
       </SkeletonReveal>
     </AdminPanel>
   );

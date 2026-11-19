@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
@@ -195,6 +197,7 @@ function ChargeRows({ items, onOpen }: { items: AdminChargeRow[]; onOpen: OpenCh
 }
 
 export function AdminPixChargesScreen({ user }: { user: AdminIdentity }) {
+  const development = useDevelopmentFeatures();
   const params = useSearchParams();
   const query = adminChargeQueryFrom(params);
   const selected = adminChargeId.safeParse(params.get("cobranca")).data;
@@ -203,13 +206,14 @@ export function AdminPixChargesScreen({ user }: { user: AdminIdentity }) {
   const historyCard = useRef<HTMLDivElement>(null);
   const lastOpened = useRef<string>(undefined);
   const result = useQuery({
+    enabled: development,
     queryKey: ["admin-pix-charges", user.id, filterKey, query.page],
     queryFn: ({ signal }) => adminPixCharges.list(query, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && request.queryKey[2] === filterKey ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const data = denied ? undefined : result.data;
+  const data = development ? (denied ? undefined : result.data) : undefined;
   const displayedQuery = { ...query, page: data?.pagination.page ?? query.page };
 
   function navigate(next: AdminChargeQuery) {
@@ -241,11 +245,11 @@ export function AdminPixChargesScreen({ user }: { user: AdminIdentity }) {
       <header className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 ref={heading} tabIndex={-1} className="text-balance text-2xl font-semibold outline-none sm:text-3xl">Cobranças dinâmicas Pix</h1>
-          <Badge variant="secondary">Sandbox</Badge>
+          {development && <Badge variant="secondary">Sandbox</Badge>}
         </div>
         <p className="text-pretty text-sm text-muted-foreground">Consulte valores, vencimentos e confirmações das cobranças das empresas.</p>
       </header>
-      {(result.isPending || data) && <ChargeSummary data={data} loading={result.isPending} />}
+      {(result.isLoading || data) && <ChargeSummary data={data} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
 
       <Card ref={historyCard} className="min-w-0" aria-labelledby="admin-charge-history">
@@ -254,8 +258,8 @@ export function AdminPixChargesScreen({ user }: { user: AdminIdentity }) {
           <p className="text-pretty text-sm text-muted-foreground">As datas seguem o horário de Brasília.</p>
         </div>
         <ChargeFilters key={query.search} query={query} onChange={navigate} />
-        {result.isPending && <p role="status" className="sr-only">Carregando cobranças</p>}
-        <SkeletonReveal flow revealed={!result.isPending} skeleton={
+        {result.isLoading && <p role="status" className="sr-only">Carregando cobranças</p>}
+        <SkeletonReveal flow revealed={!result.isLoading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3, 4].map((slot) => (
             <div key={slot} className="flex min-h-17 items-center gap-3 px-4 sm:px-5">
               <Skeleton className="h-4 w-2/5 animate-none" /><Skeleton className="ml-auto h-4 w-1/5 animate-none" />
@@ -276,7 +280,7 @@ export function AdminPixChargesScreen({ user }: { user: AdminIdentity }) {
               )}
               <TablePagination {...data.pagination} busy={result.isPlaceholderData} label="Paginação de cobranças Pix" onPageChange={(page) => navigate({ ...query, page })} />
             </>
-          ) : result.isError && (
+          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
             <div className="grid min-h-48 content-center justify-items-center gap-3 px-5 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Não foi possível consultar as cobranças</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>
@@ -285,7 +289,7 @@ export function AdminPixChargesScreen({ user }: { user: AdminIdentity }) {
         </SkeletonReveal>
       </Card>
 
-      <AdminPixChargeDialog adminId={user.id} id={selected} onClose={closeCharge}
+      <AdminPixChargeDialog adminId={user.id} id={development ? selected : undefined} onClose={closeCharge}
         onScope={(scope, value) => {
           lastOpened.current = undefined;
           navigate({ ...query, companyId: undefined, accountId: undefined, [scope]: value, page: 1 });

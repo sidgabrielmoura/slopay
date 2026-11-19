@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
@@ -299,6 +301,7 @@ function accessDenied(error: Error | null) {
 }
 
 export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
+  const development = useDevelopmentFeatures();
   const { historyPage, ...query } = reportQueryFrom(useSearchParams());
   const historyKey = ["admin-report-history", user.id] as const;
   const scope = reportPageHref({ ...query, page: 1 }, 1);
@@ -307,20 +310,22 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const origin = useRef<HTMLButtonElement>(null);
   const preview = useQuery({
+    enabled: development,
     queryKey: ["admin-report-preview", user.id, scope, query.page],
     queryFn: ({ signal }) => adminReports.preview(query, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && request.queryKey[2] === scope ? previous : undefined,
     staleTime: 15_000, retry: retryAdminRead,
   });
   const history = useQuery({
+    enabled: development,
     queryKey: [...historyKey, historyPage],
     queryFn: ({ signal }) => adminReports.history(historyPage, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id ? previous : undefined,
     staleTime: 15_000, retry: retryAdminRead,
   });
   const denied = accessDenied(preview.error) || accessDenied(history.error);
-  const data = denied ? undefined : preview.data;
-  const records = denied ? undefined : history.data;
+  const data = development ? (denied ? undefined : preview.data) : undefined;
+  const records = development ? (denied ? undefined : history.data) : undefined;
 
   function navigate(next: ReportPreviewQuery, nextHistoryPage = historyPage) {
     window.history.replaceState(null, "", reportPageHref(next, nextHistoryPage));
@@ -331,7 +336,7 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
       <header className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 ref={heading} tabIndex={-1} className="text-balance text-2xl font-semibold outline-none sm:text-3xl">Relatórios e Fechamentos</h1>
-          <Badge variant="secondary">Sandbox</Badge>
+          {development && <Badge variant="secondary">Sandbox</Badge>}
         </div>
         <p className="text-pretty text-sm text-muted-foreground">Confira os dados por período e consulte as versões emitidas.</p>
       </header>
@@ -348,10 +353,10 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
           }}><FileText aria-hidden="true" /> Emitir CSV</Button>
         </header>
         <ReportFilters query={query} onChange={navigate} />
-        {preview.isPending && <p role="status" className="sr-only">Carregando prévia do relatório</p>}
-        <SkeletonReveal flow revealed={!preview.isPending} skeleton={<ReportSkeleton preview />}>
+        {preview.isLoading && <p role="status" className="sr-only">Carregando prévia do relatório</p>}
+        <SkeletonReveal flow revealed={!preview.isLoading} skeleton={<ReportSkeleton preview />}>
           {data ? <ReportDataset data={data} query={query} busy={preview.isPlaceholderData} onChange={navigate} />
-            : (preview.isError || denied) && <ReadError label="Não foi possível consultar a prévia" retry={() => void preview.refetch()} />}
+            : !development ? <OperationalDataUnavailable /> : (preview.isError || denied) && <ReadError label="Não foi possível consultar a prévia" retry={() => void preview.refetch()} />}
         </SkeletonReveal>
       </Card>
 
@@ -359,8 +364,8 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
         <header className="border-b border-border p-4 sm:px-5">
           <h2 id="report-history" className="text-balance text-lg font-semibold">Relatórios emitidos</h2>
         </header>
-        {history.isPending && <p role="status" className="sr-only">Carregando relatórios emitidos</p>}
-        <SkeletonReveal flow revealed={!history.isPending} skeleton={<ReportSkeleton />}>
+        {history.isLoading && <p role="status" className="sr-only">Carregando relatórios emitidos</p>}
+        <SkeletonReveal flow revealed={!history.isLoading} skeleton={<ReportSkeleton />}>
           {records?.items.length ? (
             <>
               <HistoryRows data={records} onDownload={(report, trigger) => {
@@ -372,7 +377,7 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
             </>
           ) : records ? (
             <p className="p-4 text-pretty text-sm text-muted-foreground sm:px-5">As emissões aparecerão aqui após a confirmação.</p>
-          ) : (history.isError || denied) && <ReadError label="Não foi possível consultar o histórico" retry={() => void history.refetch()} />}
+          ) : !development ? <OperationalDataUnavailable /> : (history.isError || denied) && <ReadError label="Não foi possível consultar o histórico" retry={() => void history.refetch()} />}
         </SkeletonReveal>
       </Card>
       {action && <ReportFileDialog action={action} onClose={() => setAction(undefined)} onIssue={() => {

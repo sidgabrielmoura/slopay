@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, ChevronRight, Search, ShieldCheck } from "lucide-react";
@@ -200,9 +202,11 @@ function WalletRows({ items }: { items: ApprovalRuleWallet[] }) {
 }
 
 export function AdminApprovalRulesScreen({ user }: { user: AdminIdentity }) {
+  const development = useDevelopmentFeatures();
   const query = approvalRulesQueryFrom(useSearchParams());
   const filters = approvalRulesParams({ ...query, page: 1 }).toString();
   const result = useQuery({
+    enabled: development,
     queryKey: ["admin-approval-rules", user.id, filters, query.page],
     queryFn: ({ signal }) => fetchAdminApprovalRules(query, signal),
     placeholderData: (previous, prior) => prior?.queryKey[1] === user.id && prior.queryKey[2] === filters ? previous : undefined,
@@ -211,8 +215,8 @@ export function AdminApprovalRulesScreen({ user }: { user: AdminIdentity }) {
     retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const report = denied ? undefined : result.data;
-  const loading = result.isPending || result.isPlaceholderData;
+  const report = development ? (denied ? undefined : result.data) : undefined;
+  const loading = result.isLoading || result.isPlaceholderData;
 
   function navigate(next: ApprovalRulesQuery) {
     const params = approvalRulesParams(next);
@@ -225,7 +229,7 @@ export function AdminApprovalRulesScreen({ user }: { user: AdminIdentity }) {
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Regras de Alçada</h1>
-            <Badge variant="secondary">Sandbox</Badge>
+            {development && <Badge variant="secondary">Sandbox</Badge>}
           </div>
           <p className="text-pretty text-sm text-muted-foreground">Consulte a regra de autorização dos saques e a situação das carteiras vinculadas.</p>
         </div>
@@ -262,7 +266,7 @@ export function AdminApprovalRulesScreen({ user }: { user: AdminIdentity }) {
                 <Button asChild variant="outline" className="h-11"><Link href={openingsPath} prefetch={false}>Ver abertura de contas</Link></Button>
               )}
             </div>
-          ) : result.isError && (
+          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
             <div className="grid min-h-40 content-center justify-items-center gap-3 px-4 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Consulta de alçadas indisponível</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>

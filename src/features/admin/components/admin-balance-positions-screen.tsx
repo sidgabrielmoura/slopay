@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -233,17 +235,19 @@ function PositionRows({ items, query }: { items: BalancePosition[]; query: Balan
 }
 
 export function AdminBalancePositionsScreen({ user }: { user: AdminIdentity }) {
+  const development = useDevelopmentFeatures();
   const query = balancePositionsQueryFrom(useSearchParams());
   const filters = balancePositionsHref({ ...query, page: 1 });
   const filtered = query.search || query.status !== "ALL" || query.coverage !== "ALL";
   const result = useQuery({
+    enabled: development,
     queryKey: [...balancePositionsQueryKey(user.id), filters, query.page],
     queryFn: ({ signal }) => fetchBalancePositions(query, signal),
     placeholderData: (previous, prior) => prior?.queryKey[1] === user.id && prior.queryKey[2] === filters ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const data = denied ? undefined : result.data;
+  const data = development ? (denied ? undefined : result.data) : undefined;
 
   function navigate(next: BalancePositionsQuery) {
     window.history.replaceState(null, "", balancePositionsHref(next));
@@ -254,11 +258,11 @@ export function AdminBalancePositionsScreen({ user }: { user: AdminIdentity }) {
       <header className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Saldos &amp; Posições</h1>
-          <Badge variant="secondary">Sandbox</Badge>
+          {development && <Badge variant="secondary">Sandbox</Badge>}
         </div>
         <p className="text-pretty text-sm text-muted-foreground">Consulte os saldos registrados das carteiras e acompanhe os saques em aberto.</p>
       </header>
-      {(result.isPending || data) && <PositionSummary summary={data?.summary} loading={result.isPending} />}
+      {(result.isLoading || data) && <PositionSummary summary={data?.summary} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="balance-positions">
         <header className="space-y-1 px-4 py-4 sm:px-5">
@@ -266,8 +270,8 @@ export function AdminBalancePositionsScreen({ user }: { user: AdminIdentity }) {
           <p className="text-pretty text-sm text-muted-foreground">O saldo reflete a última consulta de cada carteira. Para atualizar, abra o dossiê da conta.</p>
         </header>
         <BalanceFilters query={query} onChange={navigate} />
-        {result.isPending && <p role="status" className="sr-only">Carregando posições das carteiras</p>}
-        <SkeletonReveal flow revealed={!result.isPending} skeleton={
+        {result.isLoading && <p role="status" className="sr-only">Carregando posições das carteiras</p>}
+        <SkeletonReveal flow revealed={!result.isLoading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3, 4].map((row) => (
             <div key={row} className="flex min-h-16 items-center gap-3 px-4 sm:px-5">
               <Skeleton className="h-4 w-2/5 animate-none" /><Skeleton className="ml-auto h-4 w-1/5 animate-none" />
@@ -289,7 +293,7 @@ export function AdminBalancePositionsScreen({ user }: { user: AdminIdentity }) {
                 <Button asChild variant="outline" className="h-11"><Link href={operationalAccountsPath} prefetch={false}>Ver contas operacionais</Link></Button>
               )}
             </div>
-          ) : result.isError && (
+          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
             <div className="grid min-h-44 content-center justify-items-center gap-3 px-5 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Não foi possível consultar as posições</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>

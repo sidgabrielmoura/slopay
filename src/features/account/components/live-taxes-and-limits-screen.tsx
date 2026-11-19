@@ -1,5 +1,8 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
+
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight } from "lucide-react";
 import { PanelAmount } from "@/components/layout/panel-privacy";
@@ -15,14 +18,16 @@ import { PixFeeCards } from "./pix-fee-cards";
 type SandboxTerms = Extract<z.infer<typeof pixConditionsSchema>, { environment: "sandbox" }>;
 
 export function LiveTaxesAndLimitsScreen({ merchantId }: { merchantId: string }) {
+  const development = useDevelopmentFeatures();
   const report = useQuery({
+    enabled: development,
     queryKey: ["pix-conditions", merchantId],
     queryFn: ({ signal }) => requestPixGateway("/api/payments/pix/conditions", pixConditionsSchema, pixConditionsUnavailable, { signal }),
     retry: false,
     staleTime: 60_000,
   });
-  const conditions = report.data?.environment === "sandbox" ? report.data : null;
-  const fallback = report.isPending ? <PixTermsLoading /> : (
+  const conditions = development && report.data?.environment === "sandbox" ? report.data : null;
+  const fallback = !development ? <Card><OperationalDataUnavailable title="Consulta de taxas e limites indisponível" /></Card> : report.isPending ? <PixTermsLoading /> : (
     <Card className="grid min-h-36 content-center justify-items-start gap-2 p-5">
       <h2 className="text-balance text-base font-semibold">{report.isError ? "Consulta indisponível" : "Carteira Asaas não vinculada"}</h2>
       {report.isError ? (

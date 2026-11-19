@@ -1,5 +1,7 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -103,16 +105,17 @@ export function LivePixOperations({ merchantId, view, receiveAvailable, withdraw
   withdrawAvailable: boolean;
   unavailable: boolean;
 }) {
+  const development = useDevelopmentFeatures();
   const router = useRouter();
   const client = useQueryClient();
   const direction = view === "withdraw" ? "OUT" : "IN";
-  const available = view === "withdraw" ? withdrawAvailable : receiveAvailable;
-  const useWithdrawals = view === "withdraw" && withdrawAvailable;
+  const available = development && (view === "withdraw" ? withdrawAvailable : receiveAvailable);
+  const useWithdrawals = development && view === "withdraw" && withdrawAvailable;
   const historyKey = ["pix-recent-operations", merchantId, direction] as const;
   const history = useQuery({
     queryKey: historyKey,
     queryFn: ({ signal }) => fetchLiveTransactions({ direction }, signal),
-    enabled: view !== "hub" && !useWithdrawals,
+    enabled: development && view !== "hub" && !useWithdrawals,
     staleTime: 10_000,
     retry: false,
   });
@@ -205,8 +208,8 @@ export function LivePixOperations({ merchantId, view, receiveAvailable, withdraw
               )}
             </CardContent>
           </Card>
-          <PixHistory direction={direction} rows={records} loading={historyQuery.isPending}
-            error={historyQuery.isError ? historyQuery.error.message : undefined} retry={() => void historyQuery.refetch()} />
+          <PixHistory direction={direction} rows={development ? records : []} loading={historyQuery.isLoading}
+            error={development && historyQuery.isError ? historyQuery.error.message : undefined} retry={() => void historyQuery.refetch()} />
         </div>
       )}
       <ExpenseCharts merchantId={merchantId} preview />

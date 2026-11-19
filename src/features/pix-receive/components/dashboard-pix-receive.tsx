@@ -1,5 +1,6 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { DashboardPixNotice } from "@/components/layout/dashboard-pix-notices";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -67,6 +68,7 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
   const [tracking, setTracking] = useState<Tracking | null>(null);
   const [numberAnimation, setNumberAnimation] = useState<{ from: number; sequence: number } | null>(null);
   const [animateOutcome, setAnimateOutcome] = useState(false);
+  const development = useDevelopmentFeatures();
   const [simulationRequestedFor, setSimulationRequestedFor] = useState<string>();
   const [manualCheck, setManualCheck] = useState<{ id: string; until: number }>();
   const formInput = useRef<HTMLInputElement>(null);
@@ -322,7 +324,7 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
             qrError={qrCode.isError ? getError(qrCode.error, "Não foi possível obter o QR Code.") : undefined}
             qrFetching={qrCode.isFetching}
             onRetryQr={() => { void status.refetch(); void qrCode.refetch(); }}
-            onSimulate={gateway.simulate || (gateway.requestSimulation && receipt.status === "pending") ? simulate : undefined}
+            onSimulate={development && (gateway.simulate || (gateway.requestSimulation && receipt.status === "pending")) ? simulate : undefined}
             simulationRequested={simulationRequestedFor === receipt.id}
             onReconcile={gateway.requestReconciliation && receipt.status === "review" ? () => reconciliation.mutate(receipt.id) : undefined}
             reconciling={reconciliation.isPending}

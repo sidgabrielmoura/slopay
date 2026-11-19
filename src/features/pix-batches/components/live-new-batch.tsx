@@ -1,5 +1,8 @@
 "use client";
 
+import { useDevelopmentFeatures } from "@/providers/app-providers";
+import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
+
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -55,13 +58,15 @@ export function LiveNewBatch({ merchantId }: { merchantId: string }) {
   const visibleAtConfirmation = useRef(false);
   const storageKey = "slopay:withdrawal-batch:" + merchantId;
 
+  const development = useDevelopmentFeatures();
   const options = useQuery({
+    enabled: development,
     queryKey: withdrawalOptionsKey(merchantId),
     queryFn: ({ signal }) => asaasPixWithdrawals.options(signal),
     staleTime: 15_000,
     retry: false,
   });
-  const canSimulate = process.env.NODE_ENV === "development" && options.data?.simulationAvailable;
+  const canSimulate = development && options.data?.simulationAvailable;
   const total = transfers.reduce((sum, item) => sum + item.amountInCents, 0);
   const fee = step === 0 ? options.data?.feeLimitInCents : prepared?.input.feeLimitInCents;
 
@@ -155,6 +160,7 @@ export function LiveNewBatch({ merchantId }: { merchantId: string }) {
 
   function review(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!development) return;
     if (!options.data || options.isFetching || options.isError) return showError("Consulte o saldo antes de revisar o lote.");
     if (simulate && !canSimulate) return showError("A simulação está indisponível.");
 
@@ -200,6 +206,7 @@ export function LiveNewBatch({ merchantId }: { merchantId: string }) {
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Novo lote Pix</h1>
       </header>
       <BatchStepper step={step} />
+      {!development && <OperationalDataUnavailable title="Envio de lotes indisponível" />}
       <ToastNotice message={error || (options.isError ? options.error.message : null)} />
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
         <Card className="min-w-0">
@@ -288,7 +295,7 @@ export function LiveNewBatch({ merchantId }: { merchantId: string }) {
                     }}>
                     <Plus aria-hidden="true" /> Adicionar Pix
                   </Button>
-                  <Button type="submit" className="h-11" disabled={!options.data || options.isError || options.isFetching}>Revisar lote <ArrowRight aria-hidden="true" /></Button>
+                  <Button type="submit" className="h-11" disabled={!development || !options.data || options.isError || options.isFetching}>Revisar lote <ArrowRight aria-hidden="true" /></Button>
                 </div>
               </form>
             ) : step === 1 && prepared ? (
@@ -357,9 +364,9 @@ export function LiveNewBatch({ merchantId }: { merchantId: string }) {
               </div>
             </>}
             <div className="flex items-center justify-between gap-2 text-sm">
-              <dt className="text-muted-foreground">Saldo no Sandbox</dt>
+              <dt className="text-muted-foreground">Saldo disponível</dt>
               <dd className="font-medium tabular-nums">
-                {options.data ? <PanelAmount cents={options.data.availableBalanceInCents} /> : options.isPending ? "Consultando…" : "Indisponível"}
+                {options.data ? <PanelAmount cents={options.data.availableBalanceInCents} /> : options.isLoading ? "Consultando…" : "Indisponível"}
               </dd>
             </div>
           </dl>

@@ -1,10 +1,5 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { PanelHeading } from "@/components/layout/merchant-panel";
-import { Button } from "@/components/ui/button";
 import { developmentFeaturesEnabled } from "@/config/development";
-import { isDevelopmentRoute } from "@/config/development-routes";
-import { AdminPanel } from "@/features/admin/components/layout/admin-panel";
 import { AdminDashboardLoading, AdminDashboardScreen } from "@/features/admin/components/admin-dashboard-screen";
 import { AdminActivityProvider } from "@/features/admin/components/admin-activity-provider";
 import { AdminPendingLoading, AdminPendingScreen } from "@/features/admin/components/admin-pending-screen";
@@ -28,22 +23,10 @@ export default async function AdminPage({ params }: { params: Promise<{ section?
   const { section = [] } = await params;
   const returnTo = ["/admin", ...section.map(encodeURIComponent)].join("/");
   const development = developmentFeaturesEnabled();
-  if (!development && isDevelopmentRoute(returnTo)) notFound();
   const user = await requireSession(returnTo, { admin: true });
   const identity = { id: user.id, fullName: user.fullName, email: user.email };
 
   if (!section.length) {
-    if (!development) {
-      return <AdminActivityProvider accountId={user.id}>
-        <AdminPanel user={identity}>
-          <PanelHeading title="Visão geral" description="Acompanhe os cadastros e gerencie os acessos à plataforma." />
-          <div className="flex flex-wrap gap-3">
-            <Button asChild><Link href="/admin/abertura-de-contas" prefetch={false}>Abertura de contas</Link></Button>
-            <Button asChild variant="outline"><Link href="/admin/usuarios" prefetch={false}>Usuários credenciados</Link></Button>
-          </div>
-        </AdminPanel>
-      </AdminActivityProvider>;
-    }
     return <AdminActivityProvider accountId={user.id}><Suspense fallback={<AdminDashboardLoading user={identity} />}><Dashboard user={identity} /></Suspense></AdminActivityProvider>;
   }
 
