@@ -156,16 +156,16 @@ export function PixHubScreen() {
                       c.status === "PAID"
                         ? "success"
                         : c.status === "EXPIRED"
-                        ? "destructive"
-                        : "warning"
+                          ? "destructive"
+                          : "warning"
                     }
                     className="text-[10px] mt-0.5"
                   >
                     {c.status === "PAID"
                       ? "Paga"
                       : c.status === "EXPIRED"
-                      ? "Expirada"
-                      : "Pendente"}
+                        ? "Expirada"
+                        : "Pendente"}
                   </Badge>
                 </div>
               </div>

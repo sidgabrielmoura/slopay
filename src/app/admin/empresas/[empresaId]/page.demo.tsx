@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { use, useState } from "react";
+import { useRouter } from "next/navigation";
 import NextLink from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGatewayService } from "@/providers/demo-provider";
@@ -46,10 +46,9 @@ import { toast } from "sonner";
 import { formatCentsToBrl } from "@/lib/money";
 import type { CompanyStatus } from "@/types/domain";
 
-export default function AdminEmpresaDetalhePage() {
-  const params = useParams();
+export default function AdminEmpresaDetalhePage({ params }: { params: Promise<{ empresaId: string }> }) {
+  const { empresaId } = use(params);
   const router = useRouter();
-  const empresaId = params.empresaId as string;
   const service = useGatewayService();
   const queryClient = useQueryClient();
 
@@ -153,15 +152,15 @@ export default function AdminEmpresaDetalhePage() {
                   company.status === "ACTIVE"
                     ? "border-primary/40 text-primary bg-primary/10"
                     : company.status === "SUSPENDED"
-                    ? "border-destructive/40 text-destructive bg-destructive/10"
-                    : "border-border text-muted-foreground"
+                      ? "border-destructive/40 text-destructive bg-destructive/10"
+                      : "border-border text-muted-foreground"
                 }
               >
                 {company.status === "ACTIVE"
                   ? "Conta Ativa"
                   : company.status === "SUSPENDED"
-                  ? "Operação Suspensa"
-                  : "Desativada"}
+                    ? "Operação Suspensa"
+                    : "Desativada"}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground font-mono">
@@ -474,8 +473,8 @@ export default function AdminEmpresaDetalhePage() {
               {statusMutation.isPending
                 ? "Gravando..."
                 : nextStatus === "SUSPENDED"
-                ? "Confirmar Suspensão"
-                : "Confirmar Reativação"}
+                  ? "Confirmar Suspensão"
+                  : "Confirmar Reativação"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -27,7 +27,7 @@ export function PeriodFilter({
         Período ({dateFieldLabel})
       </span>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-9 w-[190px] bg-card border-border text-xs text-foreground">
+        <SelectTrigger aria-label={`Período (${dateFieldLabel})`} className="h-9 w-[190px] bg-card border-border text-xs text-foreground">
           <Calendar className="size-3.5 mr-2 text-muted-foreground shrink-0" />
           <SelectValue placeholder="Selecione o período" />
         </SelectTrigger>

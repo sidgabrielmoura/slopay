@@ -106,8 +106,8 @@ export default function AdminRelatoriosPage() {
           selectedPeriod === "LAST_30_DAYS"
             ? "Últimos 30 dias"
             : selectedPeriod === "THIS_MONTH"
-            ? "Mês Atual"
-            : "Personalizado",
+              ? "Mês Atual"
+              : "Personalizado",
         generatedBy: "Gabriel Santos (Superadmin)",
         createdAt: new Date().toISOString(),
         fileSize: "2.4 MB",
@@ -182,7 +182,7 @@ export default function AdminRelatoriosPage() {
               Período de Extração
             </span>
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="h-9 text-xs bg-background border-border text-foreground">
+              <SelectTrigger aria-label="Período de extração" className="h-9 text-xs bg-background border-border text-foreground">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-card border-border text-foreground">
@@ -199,7 +199,7 @@ export default function AdminRelatoriosPage() {
               Filtrar por Empresa
             </span>
             <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-              <SelectTrigger className="h-9 text-xs bg-background border-border text-foreground">
+              <SelectTrigger aria-label="Filtrar por empresa" className="h-9 text-xs bg-background border-border text-foreground">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-card border-border text-foreground">
@@ -218,7 +218,7 @@ export default function AdminRelatoriosPage() {
               Formato do Arquivo
             </span>
             <Select value={selectedFormat} onValueChange={setSelectedFormat}>
-              <SelectTrigger className="h-9 text-xs bg-background border-border text-foreground">
+              <SelectTrigger aria-label="Formato do arquivo" className="h-9 text-xs bg-background border-border text-foreground">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-card border-border text-foreground">

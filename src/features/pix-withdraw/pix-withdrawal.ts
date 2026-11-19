@@ -1,0 +1,125 @@
+import { z } from "zod";
+import { passkeyAssertionSchema } from "@/features/auth/passkey-contract";
+import { expenseCategorySchema } from "@/features/expenses/expenses";
+import { MAX_PIX_AMOUNT_IN_CENTS, pixAmountSchema, pixPaymentIdSchema } from "@/features/pix-receive/pix-receipt";
+import { cleanDocument, formatBrazilianInput, pixKeyInputMask } from "@/lib/validators";
+
+export const pixKeyLabels = {
+  EMAIL: "E-mail",
+  CPF: "CPF",
+  CNPJ: "CNPJ",
+  PHONE: "Telefone",
+  EVP: "Chave aleatória",
+} as const;
+
+export const pixKeyTypeSchema = z.enum(["EMAIL", "CPF", "CNPJ", "PHONE", "EVP"]);
+export type PixKeyType = z.infer<typeof pixKeyTypeSchema>;
+
+const emailKeyPattern = /^[a-z0-9.!#$%&'*+/=?^_\x60{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i;
+const randomKeyPattern = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+export function normalizeWithdrawalKey(type: PixKeyType, input: string): string | null {
+  const key = input.trim();
+  if (type === "EMAIL") return key.length <= 77 && emailKeyPattern.test(key) ? key.toLowerCase() : null;
+  if (type === "EVP") return randomKeyPattern.test(key) ? key.toLowerCase() : null;
+  const mask = pixKeyInputMask(type);
+  if (!mask) return key;
+  const formatted = formatBrazilianInput(mask, key);
+  if (!formatted) return null;
+  if (type === "CPF") {
+    const digits = cleanDocument(formatted);
+    return /^\d{11}$/.test(digits) ? digits : null;
+  }
+  if (type === "CNPJ") {
+    const document = formatted.replace(/[./-]/g, "");
+    return /^[A-Z0-9]{12}\d{2}$/.test(document) ? document : null;
+  }
+  const digits = cleanDocument(formatted);
+  const national = formatted.startsWith("+") ? digits.slice(2) : digits;
+  return /^[1-9]\d{9,10}$/.test(national) ? "+55" + national : null;
+}
+
+export const withdrawalFeeSchema = z.int().min(0).max(MAX_PIX_AMOUNT_IN_CENTS);
+export const withdrawalDraftSchema = z.strictObject({
+  amountInCents: pixAmountSchema,
+  pixKeyType: pixKeyTypeSchema,
+  pixKey: z.string().trim().min(1).max(120).optional(),
+  simulate: z.boolean(),
+  feeLimitInCents: withdrawalFeeSchema.optional(),
+  expenseCategory: expenseCategorySchema.nullable().optional(),
+});
+export const withdrawalInputSchema = z.union([
+  withdrawalDraftSchema.extend({ verificationCode: z.string().regex(/^\d{6}$/) }),
+  withdrawalDraftSchema.extend({ credential: passkeyAssertionSchema }),
+]);
+export type WithdrawalDraftInput = z.infer<typeof withdrawalDraftSchema>;
+export type WithdrawalInput = z.infer<typeof withdrawalInputSchema>;
+export type WithdrawalProof = { verificationCode: string } | { credential: z.infer<typeof passkeyAssertionSchema> };
+
+export const withdrawalOptionsSchema = z.object({
+  availableBalanceInCents: z.int().nonnegative(),
+  feeLimitInCents: withdrawalFeeSchema.nullish(),
+  simulationAvailable: z.boolean(),
+  simulationDestination: z.string().max(120).nullable(),
+});
+
+const withdrawalStatusLabels = {
+  QUEUED: "Preparando saque",
+  SUBMITTING: "Enviando saque",
+  RECONCILING: "Verificando envio",
+  PENDING: "Aguardando confirmação",
+  IN_BANK_PROCESSING: "Em processamento",
+  BLOCKED: "Saque bloqueado",
+  DONE: "Saque concluído",
+  FAILED: "Saque recusado",
+  CANCELLED: "Saque cancelado",
+  REVIEW: "Saque em revisão",
+} as const;
+
+const withdrawalReasons: Record<string, string> = {
+  INSUFFICIENT_BALANCE: "Saldo disponível insuficiente para o saque.",
+  AUTHORIZATION_EXPIRED: "A autorização expirou antes do envio. Revise os dados e inicie um novo saque.",
+  PROVIDER_REJECTED: "O Asaas recusou a transferência. Confira o saldo e a chave Pix no Sandbox.",
+  PROVIDER_FAILED: "O Asaas informou que a transferência falhou.",
+  PROVIDER_ACCESS_DENIED: "O Asaas recusou o acesso à transferência. Confira a chave de API e as permissões do Sandbox.",
+};
+
+export const withdrawalSchema = z.object({
+  id: pixPaymentIdSchema,
+  environment: z.literal("sandbox"),
+  state: z.enum(Object.keys(withdrawalStatusLabels) as Array<keyof typeof withdrawalStatusLabels>),
+  amountInCents: pixAmountSchema,
+  currency: z.literal("BRL"),
+  asaasTransferId: z.uuid().nullable(),
+  feeInCents: z.int().nonnegative().nullable(),
+  expenseCategory: expenseCategorySchema.nullable().optional(),
+  destination: z.string().max(80),
+  pixKeyType: pixKeyTypeSchema,
+  simulated: z.boolean(),
+  createdAt: z.iso.datetime(),
+  effectiveDate: z.iso.date().nullable(),
+  effectiveAt: z.iso.datetime().nullable(),
+  confirmedAt: z.iso.datetime().nullable(),
+  reason: z.string().max(64).nullable(),
+});
+export type PixWithdrawal = z.infer<typeof withdrawalSchema>;
+export const recentWithdrawalsSchema = z.object({ withdrawals: z.array(withdrawalSchema).max(6) });
+
+export function isWithdrawalFinal(state: PixWithdrawal["state"]) {
+  return state === "DONE" || state === "FAILED" || state === "CANCELLED";
+}
+
+export function withdrawalStatusLabel(withdrawal: Pick<PixWithdrawal, "state">) {
+  return withdrawalStatusLabels[withdrawal.state];
+}
+
+export function withdrawalIssue(withdrawal: Pick<PixWithdrawal, "state" | "reason"> | undefined) {
+  if (!withdrawal) return null;
+  if (withdrawal.state === "REVIEW") return "Confira o status no Asaas antes de repetir este saque.";
+  if (withdrawal.state === "FAILED") {
+    return withdrawalReasons[withdrawal.reason ?? ""] ?? "O saque foi encerrado. Consulte os detalhes da operação.";
+  }
+  return null;
+}
+
+export const withdrawalUnavailable = "O serviço de saque Pix está temporariamente indisponível.";

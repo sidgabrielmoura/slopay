@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { use, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import NextLink from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGatewayService } from "@/providers/demo-provider";
 import { ArrowLeft, Building2, Save, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { BrazilianInput } from "@/components/ui/brazilian-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,10 +21,9 @@ import {
 import { toast } from "sonner";
 import type { Company } from "@/types/domain";
 
-export default function AdminEmpresaEditarPage() {
-  const params = useParams();
+export default function AdminEmpresaEditarPage({ params }: { params: Promise<{ empresaId: string }> }) {
+  const { empresaId } = use(params);
   const router = useRouter();
-  const empresaId = params.empresaId as string;
   const service = useGatewayService();
   const queryClient = useQueryClient();
 
@@ -155,7 +155,7 @@ export default function AdminEmpresaEditarPage() {
                     value={formData.segment || "SERVICOS"}
                     onValueChange={(val) => setFormData({ ...formData, segment: val })}
                   >
-                    <SelectTrigger className="h-9 text-xs bg-background border-border">
+                    <SelectTrigger aria-label="Segmento da empresa" className="h-9 text-xs bg-background border-border">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover border-border text-xs">
@@ -175,7 +175,7 @@ export default function AdminEmpresaEditarPage() {
                     value={formData.companySize || "1-10"}
                     onValueChange={(val) => setFormData({ ...formData, companySize: val })}
                   >
-                    <SelectTrigger className="h-9 text-xs bg-background border-border">
+                    <SelectTrigger aria-label="Porte da empresa" className="h-9 text-xs bg-background border-border">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover border-border text-xs">
@@ -237,8 +237,10 @@ export default function AdminEmpresaEditarPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">Telefone</label>
-                  <Input
+                  <label htmlFor="company-contact-phone" className="text-xs font-medium text-foreground">Telefone</label>
+                  <BrazilianInput
+                    id="company-contact-phone"
+                    mask="PHONE"
                     value={formData.responsiblePhone || ""}
                     onChange={(e) => setFormData({ ...formData, responsiblePhone: e.target.value })}
                     className="h-9 text-xs bg-background border-border"

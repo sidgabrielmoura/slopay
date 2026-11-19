@@ -1,4 +1,4 @@
-import { OverviewScreen } from "@/features/overview/components/overview-screen";
+import { DemoOverviewScreen } from "@/features/overview/components/demo-overview-screen";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -6,5 +6,5 @@ export const metadata: Metadata = {
 };
 
 export default function InicioPage() {
-  return <OverviewScreen />;
+  return <DemoOverviewScreen />;
 }

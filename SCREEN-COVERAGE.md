@@ -1,6 +1,6 @@
 # SloPay · Mapeamento de Cobertura de Telas (Screen Coverage)
 
-Este documento atesta a implementação completa de todas as 16 telas e fluxos operacionais especificados para a interface do gateway Pix **SloPay**, desenvolvida com **Next.js 16 (App Router)**, **React 19**, **TypeScript**, **Tailwind CSS v4** e **shadcn/ui**.
+Este documento descreve a cobertura das telas do protótipo demonstrativo do Slopay. Veja a situação dos fluxos ligados à API, ao Postgres e ao Asaas na [revisão de produção](docs/VERIFICACAO_PRODUCAO.md).
 
 ---
 

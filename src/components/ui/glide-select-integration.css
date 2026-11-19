@@ -1,0 +1,98 @@
+/* Slopay integration. Official curves, sizes and keyframes live in GlideSelect.css. */
+.slopay-glide-select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.slopay-glide-select .glide-select__trigger {
+  width: 100%;
+  min-width: 0;
+}
+
+.slopay-glide-select .glide-select__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.slopay-glide-select .glide-select__chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.slopay-glide-select .glide-select__trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.slopay-glide-select .glide-select__trigger[aria-invalid="true"] {
+  outline: 1px solid var(--destructive);
+  outline-offset: 1px;
+}
+
+.glide-select__menu[data-gs-portal] {
+  position: relative;
+  z-index: 50;
+  inset: auto;
+  width: max(var(--gs-menu-w), var(--radix-popper-anchor-width, 0px));
+  min-width: 0;
+  max-width: min(calc(100vw - 16px), var(--radix-popover-content-available-width, calc(100vw - 16px)));
+  max-height: min(320px, var(--radix-popover-content-available-height));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+  scrollbar-width: thin;
+  transform-origin: var(--radix-popover-content-transform-origin);
+}
+
+.glide-select__menu[data-gs-portal] .glide-select__list {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  touch-action: pan-y;
+}
+
+.glide-select__menu[data-gs-portal] .glide-select__option {
+  min-width: 0;
+}
+
+.glide-select__menu[data-gs-portal] .glide-select__tag {
+  min-width: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glide-select__option[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.glide-select__form-control {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+:root.reduce-motion .glide-select__menu,
+:root.reduce-motion .glide-select__pill,
+:root.reduce-motion .glide-select__chevron,
+:root.reduce-motion .glide-select__trigger,
+:root.reduce-motion .glide-select__label {
+  animation: none !important;
+  transition: none !important;
+}
+
+:root.reduce-motion .glide-select__trigger:active,
+:root.reduce-motion .glide-select__menu[data-state="open"] {
+  transform: none !important;
+}

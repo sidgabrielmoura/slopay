@@ -1,10 +1,13 @@
 "use client";
 
+import { ToastNotice } from "@/components/ui/toast-notice";
+
 import React, { useState, useEffect } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
+import { AuthActionButton, AuthHeading, AuthSuccessMark } from "@/features/auth/components/auth-form-controls";
 import { AuthShell } from "@/features/auth/components/auth-shell";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Check,
   RefreshCw,
@@ -14,35 +17,46 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useGatewayService, useDemoScenario } from "@/providers/demo-provider";
-import { sessionService } from "@/services/session.service";
+import { sessionService, type DemoSessionData } from "@/services/session.service";
+import { cn } from "@/lib/utils";
+
+const validationSteps = [
+  { label: "Proposta recebida", description: "Informações societárias e perfil de transações registrados." },
+  { label: "Análise cadastral", description: "Verificação de poderes societários, CNPJ e limites operacionais." },
+  { label: "Liberação do acesso", description: "Disponibilização das chaves e console de pagamentos Pix." },
+];
+const validationLabels = validationSteps.map(({ label }) => label);
 
 export function AccountValidationScreen() {
   const router = useRouter();
   const service = useGatewayService();
   const { logout, switchScenario } = useDemoScenario();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [sessionData, setSessionData] = useState<any>(null);
-  const [statusInfo, setStatusInfo] = useState<{
-    status: string;
-    message?: string;
-    submittedAt?: string;
-    email?: string;
-  }>({
-    status: "PENDING_REVIEW",
-    message:
-      "Nossa equipe está validando a sua conta, será enviada a confirmação pro seu email quando finalizarmos.",
-  });
+  const [action, setAction] = useState<"refresh" | "approve" | null>("refresh");
+  const [sessionData, setSessionData] = useState<DemoSessionData | null>(null);
+  const [statusInfo, setStatusInfo] = useState<Awaited<ReturnType<typeof service.checkValidationStatus>>>();
+  const [error, setError] = useState<string | null>(null);
+  const status = statusInfo?.status ?? sessionData?.accountStatus ?? "PENDING_REVIEW";
+  const approved = status === "APPROVED";
+  const currentStep = approved ? 2 : 1;
 
   useEffect(() => {
-    const session = sessionService.getSession();
-    setSessionData(session);
+    let active = true;
+    setSessionData(sessionService.getSession());
     service.checkValidationStatus().then((info) => {
-      setStatusInfo(info);
+      if (active) setStatusInfo(info);
+    }).catch(() => {
+      if (active) setError("Não foi possível consultar o status. Tente atualizar.");
+    }).finally(() => {
+      if (active) setAction(null);
     });
+    return () => { active = false; };
   }, [service]);
 
   const handleRefreshStatus = async () => {
-    setIsRefreshing(true);
+    if (action) return;
+
+    setAction("refresh");
+    setError(null);
     try {
       const info = await service.checkValidationStatus();
       setStatusInfo(info);
@@ -50,72 +64,80 @@ export function AccountValidationScreen() {
         toast.success("Conta aprovada. Redirecionando...");
         router.push("/inicio");
       } else {
-        toast.info("A conta continua sob análise pela equipe de compliance.");
+        toast.info(info.status === "PENDING_REVIEW" ? "A conta continua em análise." : "Status consultado.");
       }
     } catch {
-      toast.error("Não foi possível atualizar o status. Tente novamente.");
+      setError("Não foi possível atualizar o status. Tente novamente.");
     } finally {
-      setIsRefreshing(false);
+      setAction(null);
     }
   };
 
   const handleSimulateApproval = async () => {
-    await switchScenario("NORMAL");
-    toast.success("Demonstração: Conta aprovada com sucesso.");
-    router.push("/inicio");
+    if (action) return;
+
+    setAction("approve");
+    setError(null);
+    try {
+      await switchScenario("NORMAL");
+      toast.success("Demonstração: Conta aprovada com sucesso.");
+      router.push("/inicio");
+    } catch {
+      setError("Não foi possível simular a aprovação. Tente novamente.");
+    } finally {
+      setAction(null);
+    }
   };
 
   const handleLogout = () => {
+    if (action) return;
+
     logout();
     toast.info("Sessão encerrada.");
     router.push("/entrar");
   };
 
   const displayEmail =
-    statusInfo.email || sessionData?.email || "gabriel.silva@slopay.com.br";
+    statusInfo?.email || sessionData?.email;
   const displayCompany =
     sessionData?.companyName || "SloPay Soluções em Pagamentos Ltda";
-  const formattedDate = statusInfo.submittedAt
-    ? new Date(statusInfo.submittedAt).toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "Hoje às " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const submittedAt = statusInfo?.submittedAt || sessionData?.submittedAt;
+  const formattedDate = submittedAt
+    ? new Date(submittedAt).toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    : undefined;
 
   return (
-    <AuthShell contentMaxWidthClass="max-w-[480px]">
-      <div className="w-full space-y-5">
+    <AuthShell
+      contentMaxWidthClass="max-w-[480px]"
+      progress={{ steps: validationLabels, current: currentStep, showOnMobile: false }}
+    >
+      <section className="w-full space-y-5">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
-                Conta Corporativa
-              </span>
-              <Badge
-                variant="outline"
-                className="text-[10px] py-0 px-2 font-normal text-primary border-primary/30 bg-primary/5"
-              >
-                Em validação
-              </Badge>
-            </div>
-            <h1 className="text-[20px] font-semibold text-foreground tracking-[-0.02em] leading-tight mt-1">
-              {displayCompany}
-            </h1>
-          </div>
+        <header className="space-y-2">
+          {approved && <AuthSuccessMark />}
+          <AuthHeading>{approved ? "Conta aprovada" : "Conta em validação"}</AuthHeading>
+          <p className="break-words text-sm text-muted-foreground">{displayCompany}</p>
+        </header>
 
-          <button
+        <div className="space-y-2">
+          <AuthActionButton
             type="button"
+            variant="outline"
             onClick={handleRefreshStatus}
-            disabled={isRefreshing}
-            className="h-8 px-2.5 rounded-[6px] border border-border bg-card/40 text-[11px] font-medium text-foreground hover:bg-card/70 transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+            pending={action === "refresh"}
+            pendingLabel="Atualizando…"
+            disabled={action === "approve"}
+            endIcon={<RefreshCw />}
           >
-            <RefreshCw className={`size-3 ${isRefreshing ? "animate-spin" : ""}`} />
-            <span>Atualizar</span>
-          </button>
+            Atualizar
+          </AuthActionButton>
+          <ToastNotice message={error} persistent />
         </div>
 
         {/* Mensagem Mandatória de Compliance */}
@@ -124,7 +146,9 @@ export function AccountValidationScreen() {
             Status da Análise Cadastral
           </span>
           <p className="text-[12px] text-foreground font-medium leading-relaxed">
-            &ldquo;Nossa equipe está validando a sua conta, será enviada a confirmação pro seu email quando finalizarmos.&rdquo;
+            {approved
+              ? "O acesso ao console está liberado."
+              : "Nossa equipe está validando a sua conta, será enviada a confirmação pro seu email quando finalizarmos."}
           </p>
           <p className="text-[11px] text-muted-foreground leading-relaxed pt-0.5">
             O processo de validação assegura o enquadramento regulatório da empresa perante as normas de liquidação do Banco Central.
@@ -132,24 +156,16 @@ export function AccountValidationScreen() {
         </div>
 
         {/* Dados do envio */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-[8px] bg-card/20 border border-border/60 text-[11px]">
-          <div>
-            <span className="text-muted-foreground block text-[10px]">
-              E-mail de notificação:
-            </span>
-            <span className="text-foreground font-mono font-medium truncate block">
-              {displayEmail}
-            </span>
+        <dl className="grid gap-3 rounded-lg border border-border/60 bg-card/20 p-3 text-xs sm:grid-cols-2">
+          <div className="min-w-0">
+            <dt className="text-muted-foreground">E-mail de notificação</dt>
+            <dd className="break-words font-medium text-foreground">{displayEmail ?? "—"}</dd>
           </div>
           <div>
-            <span className="text-muted-foreground block text-[10px]">
-              Proposta submetida:
-            </span>
-            <span className="text-foreground font-mono truncate block">
-              {formattedDate}
-            </span>
+            <dt className="text-muted-foreground">Proposta submetida</dt>
+            <dd className="tabular-nums text-foreground">{formattedDate ?? "—"}</dd>
           </div>
-        </div>
+        </dl>
 
         {/* Linha do Tempo Minimalista das Etapas */}
         <div className="space-y-2.5 pt-1">
@@ -157,50 +173,28 @@ export function AccountValidationScreen() {
             Etapas do Processo
           </h2>
 
-          <div className="space-y-3 relative pl-5 border-l border-border ml-2">
-            {/* Etapa 1 */}
-            <div className="relative">
-              <div className="absolute -left-[27px] top-0.5 size-3.5 rounded-full bg-secondary border border-border text-foreground flex items-center justify-center text-[9px]">
-                <Check className="size-2 stroke-[3]" />
-              </div>
-              <div>
-                <h3 className="text-[12px] font-medium text-foreground">Proposta recebida</h3>
-                <p className="text-[11px] text-muted-foreground">
-                  Informações societárias e perfil de transações registrados.
-                </p>
-              </div>
-            </div>
-
-            {/* Etapa 2 */}
-            <div className="relative">
-              <div className="absolute -left-[27px] top-0.5 size-3.5 rounded-full bg-primary/20 border border-primary text-primary flex items-center justify-center text-[8px] font-bold">
-                2
-              </div>
-              <div>
-                <h3 className="text-[12px] font-medium text-primary">
-                  Análise cadastral e de compliance
-                </h3>
-                <p className="text-[11px] text-muted-foreground">
-                  Verificação de poderes societários, CNPJ e limites operacionais.
-                </p>
-              </div>
-            </div>
-
-            {/* Etapa 3 */}
-            <div className="relative">
-              <div className="absolute -left-[27px] top-0.5 size-3.5 rounded-full bg-muted border border-border text-muted-foreground flex items-center justify-center text-[8px]">
-                3
-              </div>
-              <div>
-                <h3 className="text-[12px] font-medium text-muted-foreground">
-                  Confirmação e liberação do acesso
-                </h3>
-                <p className="text-[11px] text-muted-foreground">
-                  Disponibilização das chaves e console de pagamentos Pix.
-                </p>
-              </div>
-            </div>
-          </div>
+          <ol className="space-y-3 relative pl-5 border-l border-border ml-2">
+            {validationSteps.map(({ label, description }, index) => {
+              const current = index === currentStep;
+              const completed = index < currentStep;
+              return (
+                <li key={label} className="relative" aria-current={current ? "step" : undefined}>
+                  <span aria-hidden="true" className={cn(
+                    "absolute -left-[27px] top-0.5 grid size-3.5 place-items-center rounded-full border border-border bg-muted text-[8px] font-bold text-muted-foreground",
+                    completed && "bg-success-surface text-success",
+                    current && "border-primary bg-accent text-primary",
+                  )}>
+                    {completed ? <Check className="size-2 stroke-[3]" /> : index + 1}
+                  </span>
+                  <h3 className={cn("text-xs font-medium", current && "text-primary")}>
+                    {label}
+                    {completed && <span className="sr-only"> (concluída)</span>}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">{description}</p>
+                </li>
+              );
+            })}
+          </ol>
         </div>
 
         {/* Caixa de Demonstração */}
@@ -213,36 +207,41 @@ export function AccountValidationScreen() {
               Você pode aprovar o cadastro instantaneamente para avaliar o console.
             </p>
           </div>
-          <button
+          <AuthActionButton
             type="button"
             onClick={handleSimulateApproval}
-            className="h-8 px-3 rounded-[6px] bg-primary text-primary-foreground font-semibold text-[11px] hover:bg-primary/90 active:scale-[0.99] transition-all flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer"
+            pending={action === "approve"}
+            pendingLabel="Aprovando…"
+            disabled={action === "refresh"}
+            endIcon={<ArrowRight />}
+            className="shrink-0 self-start sm:self-auto"
           >
-            <span>Aprovar agora</span>
-            <ArrowRight className="size-3" />
-          </button>
+            Aprovar agora
+          </AuthActionButton>
         </div>
 
         {/* Rodapé com Central de Suporte e Logout */}
         <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
           <NextLink
             href="/ajuda"
-            className="hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
+            className="inline-flex min-h-11 items-center gap-1.5 transition-colors hover:text-foreground"
           >
-            <HelpCircle className="size-3" />
+            <HelpCircle aria-hidden="true" className="size-3" />
             <span>Central de Suporte</span>
           </NextLink>
 
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={handleLogout}
-            className="hover:text-foreground inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+            disabled={action !== null}
+            className="h-11 px-2 text-xs"
           >
-            <LogOut className="size-3" />
-            <span>Sair da conta</span>
-          </button>
+            <LogOut aria-hidden="true" />
+            Sair da conta
+          </Button>
         </div>
-      </div>
+      </section>
     </AuthShell>
   );
 }

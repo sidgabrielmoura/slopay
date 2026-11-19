@@ -1,0 +1,106 @@
+/* Transitions.dev — Card resize, applied to the sidebar and its labels. */
+.sidebar {
+  --resize-dur: 300ms;
+  --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --sidebar-expanded-width: 248px;
+  width: var(--sidebar-expanded-width);
+  transition: width var(--resize-dur) var(--resize-ease);
+}
+
+.sidebar[data-collapsed="true"] {
+  width: 64px;
+}
+
+.sidebar[data-integrations-open="true"] {
+  width: var(--sidebar-expanded-width);
+}
+
+/* Panel reveal adapted to the horizontal navigation rail. */
+.integrationsPanel {
+  width: var(--sidebar-expanded-width);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition:
+    transform 180ms var(--resize-ease),
+    visibility 0s linear 180ms;
+}
+
+.integrationsPanel[data-open="true"] {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 200ms var(--resize-ease);
+}
+
+.header {
+  width: var(--sidebar-expanded-width);
+}
+
+.label {
+  min-width: 0;
+  white-space: nowrap;
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity 180ms var(--resize-ease) 80ms,
+    transform 180ms var(--resize-ease) 80ms;
+}
+
+.sidebar[data-collapsed="true"] .label {
+  opacity: 0;
+  transform: translateX(-6px);
+  transition-duration: 120ms;
+  transition-delay: 0ms;
+}
+
+.groupTitle {
+  height: 20px;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 1;
+  transition:
+    height var(--resize-dur) var(--resize-ease),
+    opacity 120ms var(--resize-ease);
+}
+
+.sidebar[data-collapsed="true"] .groupTitle {
+  height: 0;
+  opacity: 0;
+}
+
+.sidebar[data-collapsed="true"] .badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  transform: scale(0.75);
+  transform-origin: top right;
+}
+
+.footerLinks {
+  width: calc(var(--sidebar-expanded-width) - 1rem);
+}
+
+.expandTrigger {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition:
+    opacity 150ms var(--resize-ease),
+    transform 150ms var(--resize-ease);
+}
+
+.sidebar[data-collapsed="true"] .expandTrigger {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+:global(:root.reduce-motion) .sidebar,
+:global(:root.reduce-motion) .sidebar * {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar, .sidebar * {
+    transition: none !important;
+  }
+}

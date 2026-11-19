@@ -1,0 +1,9 @@
+.reveal[data-state="loading"] > :first-child {
+  transition: none;
+}
+
+.reveal[data-state="ready"] > :first-child {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}

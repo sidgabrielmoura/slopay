@@ -4,7 +4,7 @@ import { demoPolicy } from "@/config/demo-policy.config";
  * Formata valor em centavos inteiros para o padrão monetário BRL (R$ 1.250,00)
  */
 export function formatCentsToBrl(
-  amountInCents: number,
+  amountInCents: number | bigint,
   options?: { hideValue?: boolean; showSign?: boolean }
 ): string {
   if (options?.hideValue) {
@@ -12,8 +12,16 @@ export function formatCentsToBrl(
   }
 
   const isNegative = amountInCents < 0;
-  const absCents = Math.abs(amountInCents);
-  const reais = absCents / 100;
+  let reais: number | `${number}`;
+  if (typeof amountInCents === "bigint") {
+    const digits = (isNegative ? -amountInCents : amountInCents).toString().padStart(3, "0");
+    reais = `${digits.slice(0, -2)}.${digits.slice(-2)}` as `${number}`;
+  } else {
+    const absCents = Math.abs(amountInCents);
+    reais = Number.isSafeInteger(absCents)
+      ? (`${Math.floor(absCents / 100)}.${String(absCents % 100).padStart(2, "0")}` as `${number}`)
+      : absCents / 100;
+  }
 
   const formatted = new Intl.NumberFormat("pt-BR", {
     style: "currency",

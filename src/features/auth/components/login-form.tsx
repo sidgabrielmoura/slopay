@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Eye,
   EyeOff,
-  AlertCircle,
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,7 +35,6 @@ export function LoginForm() {
   const router = useRouter();
   const service = useGatewayService();
   const [showPassword, setShowPassword] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const {
@@ -54,7 +52,6 @@ export function LoginForm() {
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
-    setAuthError(null);
     try {
       const result = await service.authenticate(data.email, data.password);
       if (result.requires2FA) {
@@ -76,8 +73,7 @@ export function LoginForm() {
         router.push("/inicio");
       }
     } catch (err: any) {
-      setAuthError(err?.message || "E-mail ou senha incorretos.");
-      toast.error("Falha ao autenticar. Verifique seus dados.");
+      toast.error(err?.message || "E-mail ou senha incorretos.");
     } finally {
       setIsLoading(false);
     }
@@ -156,18 +152,10 @@ export function LoginForm() {
             </CardDescription>
           </CardHeader>
 
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(onSubmit, ({ email, password }) => {
+            toast.error(email?.message || password?.message || "Confira os dados de acesso.", { id: "login-validation" });
+          })}>
             <CardContent className="space-y-4">
-              {authError && (
-                <div
-                  role="alert"
-                  className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs flex items-start gap-2"
-                >
-                  <AlertCircle className="size-4 shrink-0 mt-0.5" />
-                  <p className="text-xs">{authError}</p>
-                </div>
-              )}
-
               {/* Campo E-mail */}
               <div className="space-y-1.5">
                 <label htmlFor="email" className="text-xs font-medium text-foreground">
@@ -182,10 +170,11 @@ export function LoginForm() {
                     errors.email ? "border-destructive focus-visible:ring-destructive" : ""
                   }`}
                   aria-invalid={Boolean(errors.email)}
+                  aria-describedby={errors.email ? "legacy-login-email-error" : undefined}
                   disabled={isLoading}
                 />
                 {errors.email && (
-                  <p className="text-[11px] text-destructive">{errors.email.message}</p>
+                  <span id="legacy-login-email-error" className="sr-only">{errors.email.message}</span>
                 )}
               </div>
 
@@ -212,6 +201,7 @@ export function LoginForm() {
                       errors.password ? "border-destructive focus-visible:ring-destructive" : ""
                     }`}
                     aria-invalid={Boolean(errors.password)}
+                    aria-describedby={errors.password ? "legacy-login-password-error" : undefined}
                     disabled={isLoading}
                   />
                   <button
@@ -225,7 +215,7 @@ export function LoginForm() {
                   </button>
                 </div>
                 {errors.password && (
-                  <p className="text-[11px] text-destructive">{errors.password.message}</p>
+                  <span id="legacy-login-password-error" className="sr-only">{errors.password.message}</span>
                 )}
               </div>
             </CardContent>

@@ -1,0 +1,78 @@
+.page {
+  min-height: 100dvh;
+  padding: clamp(1rem, 5vw, 3.5rem) 1rem;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.ticket {
+  position: relative;
+  width: 100%;
+  max-width: 29rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+.ticket::after {
+  position: absolute;
+  inset: auto 0 -1px;
+  content: "";
+  height: 12px;
+  background: radial-gradient(ellipse 9px 9px at 50% 100%, var(--background) 99%, transparent 100%) center bottom / 34px 12px repeat-x;
+  pointer-events: none;
+}
+
+.perforation {
+  position: relative;
+  height: 1px;
+  margin-inline: 1rem;
+  border-top: 1px dashed var(--border);
+}
+
+.perforation::before,
+.perforation::after {
+  position: absolute;
+  top: -9px;
+  content: "";
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--background);
+}
+
+.perforation::before { left: -25px; }
+.perforation::after { right: -25px; }
+
+.label {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+
+.action {
+  min-height: 44px;
+  width: fit-content;
+  max-width: 100%;
+  height: auto;
+  white-space: normal;
+}
+
+@media print {
+  .page {
+    --background: #fff;
+    --foreground: #111417;
+    --card: #fff;
+    --muted: #f1f3f5;
+    --muted-foreground: #424b54;
+    --border: #cbd1d7;
+    min-height: auto;
+    padding: 0;
+    color-scheme: light;
+  }
+  .ticket { break-inside: avoid; }
+  .ticket::after, .perforation::before, .perforation::after { display: none; }
+}

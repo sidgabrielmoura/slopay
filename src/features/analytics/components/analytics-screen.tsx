@@ -1,297 +1,186 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useGatewayService } from "@/providers/demo-provider";
-import { usePreferences } from "@/providers/preferences-provider";
-import { queryKeys } from "@/lib/query-keys";
-import { formatCentsToBrl } from "@/lib/money";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { RotateCw } from "lucide-react";
+import { PanelAmount } from "@/components/layout/panel-privacy";
 import { Badge } from "@/components/ui/badge";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Empty } from "@/components/ui/empty";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
+import { ToastNotice } from "@/components/ui/toast-notice";
+import { formatDateTime } from "@/lib/dates";
+import { queryKeys } from "@/lib/query-keys";
 import {
-  TrendingUp,
-  ArrowDownLeft,
-  ArrowUpRight,
-  BarChart3,
-  PieChart,
-  Percent,
-  Terminal,
-  Monitor,
-  RotateCcw,
-} from "lucide-react";
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
+  defaultIndicatorPeriod, indicatorPeriods, indicatorPeriodSchema, indicatorsUnavailable, periodLabels,
+  summarizeIndicatorDays, type IndicatorPeriod, type IndicatorReport,
+} from "../indicators";
+import { IndicatorVolumeChart, type IndicatorMeasure } from "./indicator-volume-chart";
 
-export function AnalyticsScreen() {
-  const service = useGatewayService();
-  const { hideValues } = usePreferences();
-  const [period, setPeriod] = useState<string>("today");
+const statsGrid = "grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border lg:grid-cols-4";
+const chartsGrid = "grid min-w-0 items-stretch gap-4 xl:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]";
+const counts = new Intl.NumberFormat("pt-BR");
+const percent = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 1 });
+const chargeStates = [
+  { key: "paid", label: "Pagas", color: "var(--success)" },
+  { key: "open", label: "Em aberto", color: "var(--warning)" },
+  { key: "closed", label: "Encerradas", color: "var(--muted-foreground)" },
+] as const;
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: queryKeys.analytics(period),
-    queryFn: () => service.getAnalytics(period),
+export function AnalyticsScreen({ scope, load }: {
+  scope: string;
+  load: (period: IndicatorPeriod, signal: AbortSignal) => Promise<IndicatorReport>;
+}) {
+  const [period, setPeriod] = useState<IndicatorPeriod>(defaultIndicatorPeriod);
+  const [measure, setMeasure] = useState<IndicatorMeasure>("value");
+  const report = useQuery({
+    queryKey: queryKeys.analytics(scope, period),
+    queryFn: ({ signal }) => load(period, signal),
+    retry: false,
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
   });
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6 animate-in fade-in-50">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-32 rounded-xl" />
-        </div>
-        <Skeleton className="h-80 rounded-xl" />
-      </div>
-    );
-  }
-
-  if (isError || !data) {
-    return (
-      <Empty
-        title="Erro ao carregar indicadores"
-        description="Não foi possível processar as estatísticas analíticas da demonstração."
-        action={
-          <Button onClick={() => refetch()} variant="outline">
-            Tentar novamente
-          </Button>
-        }
-      />
-    );
-  }
+  const data = report.data;
+  const environment = data?.environment === "sandbox" ? "Sandbox" : data?.environment === "demo" ? "Demonstração" : null;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            Indicadores Pix
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Métricas de conversão, dispersão de ticket e volume operacional por canal.
-          </p>
+    <div className="grid min-w-0 gap-5">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="grid gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Indicadores Pix</h1>
+            {environment && <Badge variant="secondary">{environment}</Badge>}
+          </div>
+          <p className="text-pretty text-sm text-muted-foreground">Acompanhe recebimentos, saques e a conversão das suas cobranças.</p>
         </div>
+        <div className="flex w-full gap-2 sm:w-auto">
+          <Select value={period} onValueChange={(value) => setPeriod(indicatorPeriodSchema.parse(value))}>
+            <SelectTrigger aria-label="Período dos indicadores" className="h-11 min-w-0 flex-1 sm:w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {indicatorPeriods.map((option) => <SelectItem key={option} value={option}>{periodLabels[option]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button type="button" variant="outline" size="icon" aria-label="Atualizar indicadores" className="size-11"
+            onClick={() => void report.refetch()} disabled={report.isFetching}>
+            <RotateCw aria-hidden="true" />
+          </Button>
+        </div>
+      </header>
 
-        <ToggleGroup
-          type="single"
-          value={period}
-          onValueChange={(val) => val && setPeriod(val)}
-          className="bg-card border border-border p-1 rounded-lg w-fit"
-        >
-          <ToggleGroupItem value="today" size="sm">Hoje</ToggleGroupItem>
-          <ToggleGroupItem value="yesterday" size="sm">Ontem</ToggleGroupItem>
-          <ToggleGroupItem value="week" size="sm">7 dias</ToggleGroupItem>
-          <ToggleGroupItem value="month" size="sm">30 dias</ToggleGroupItem>
-        </ToggleGroup>
+      <ToastNotice message={report.isError ? report.error.message || indicatorsUnavailable : null} />
+      {report.isPending && <p role="status" className="sr-only">Carregando indicadores</p>}
+      <SkeletonReveal key={period} flow revealed={!report.isPending} skeleton={<IndicatorsSkeleton />}>
+        {data ? <IndicatorData report={data} measure={measure} onMeasureChange={setMeasure} /> : report.isError && (
+          <Card className="grid min-h-52 content-center justify-items-center gap-3 p-5 text-center">
+            <h2 className="text-balance text-base font-semibold">Indicadores indisponíveis</h2>
+            <Button type="button" variant="outline" className="h-11" disabled={report.isFetching}
+              onClick={() => void report.refetch()}>Tentar novamente</Button>
+          </Card>
+        )}
+      </SkeletonReveal>
+    </div>
+  );
+}
+
+function IndicatorsSkeleton() {
+  return (
+    <>
+      <Skeleton className="mb-3 h-4 w-44 animate-none" />
+      <Skeleton className="mb-4 h-44 animate-none lg:h-25" />
+      <div className={chartsGrid}>
+        <Skeleton className="h-103 animate-none" />
+        <Skeleton className="h-80 animate-none xl:h-103" />
       </div>
+    </>
+  );
+}
 
-      {/* Taxa de Conversão e Métricas Principais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Taxa de Conversão */}
-        <Card className="border-border bg-card/80 p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Conversão de Cobranças
-            </span>
-            <Badge variant="success" className="text-[10px]">
-              {data.conversionRate}%
-            </Badge>
-          </div>
-          <p className="text-3xl font-extrabold text-foreground mt-2">
-            {data.conversionRate}%
-          </p>
-          <p className="text-xs text-muted-foreground mt-1.5">
-            {data.chargesPaidCount} de {data.chargesGeneratedCount} cobranças pagas
-          </p>
-        </Card>
+function IndicatorData({ report, measure, onMeasureChange }: {
+  report: IndicatorReport;
+  measure: IndicatorMeasure;
+  onMeasureChange: (measure: IndicatorMeasure) => void;
+}) {
+  const totals = summarizeIndicatorDays(report.days);
+  const { paid, open, closed } = report.charges;
+  const issued = paid + open + closed;
+  const metrics = [
+    {
+      label: "Recebido líquido", value: <PanelAmount cents={totals.receivedCents} />,
+      detail: counts.format(totals.receivedCount) + (totals.receivedCount === 1 ? " recebimento" : " recebimentos"),
+    },
+    {
+      label: "Enviado em saques", value: <PanelAmount cents={totals.withdrawnCents} />,
+      detail: counts.format(totals.withdrawnCount) + (totals.withdrawnCount === 1 ? " saque" : " saques"),
+    },
+    { label: "Pix confirmados", value: counts.format(totals.receivedCount + totals.withdrawnCount), detail: "Entradas e saídas" },
+    {
+      label: "Conversão de cobranças", value: issued ? percent.format(paid / issued) : "—",
+      detail: issued ? counts.format(paid) + " de " + counts.format(issued) + " pagas" : "Nenhuma cobrança emitida",
+    },
+  ];
 
-        {/* Ticket Médio de Entrada */}
-        <Card className="border-border bg-card/80 p-5">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Ticket Médio de Recebimento
-          </span>
-          <p className="text-2xl font-bold tabular-nums text-[var(--success)] mt-2">
-            {formatCentsToBrl(data.inflowsAverageTicketInCents, { hideValue: hideValues })}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1.5">
-            Min: {formatCentsToBrl(data.inflowsMinTicketInCents, { hideValue: hideValues })} · Max: {formatCentsToBrl(data.inflowsMaxTicketInCents, { hideValue: hideValues })}
-          </p>
-        </Card>
-
-        {/* Ticket Médio de Saída */}
-        <Card className="border-border bg-card/80 p-5">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Ticket Médio de Saque
-          </span>
-          <p className="text-2xl font-bold tabular-nums text-foreground mt-2">
-            {formatCentsToBrl(data.outflowsAverageTicketInCents, { hideValue: hideValues })}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1.5">
-            Min: {formatCentsToBrl(data.outflowsMinTicketInCents, { hideValue: hideValues })} · Max: {formatCentsToBrl(data.outflowsMaxTicketInCents, { hideValue: hideValues })}
-          </p>
-        </Card>
-
-        {/* Volume Total Operado */}
-        <Card className="border-border bg-card/80 p-5">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Volume Total Movimentado
-          </span>
-          <p className="text-2xl font-bold tabular-nums text-primary mt-2">
-            {formatCentsToBrl(data.inflowsVolumeInCents + data.outflowsVolumeInCents, {
-              hideValue: hideValues,
-            })}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1.5">
-            {data.inflowsCount + data.outflowsCount} transações consolidadas
-          </p>
-        </Card>
-      </div>
-
-      {/* Origem das Operações de Saída: API vs Painel */}
-      <Card className="border-border bg-card/80">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">
-            Origem dos Saques Pix
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Distribuição de saques emitidos via API de integração versus Painel web
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40 border border-border">
-              <div className="size-10 rounded-lg bg-secondary text-primary flex items-center justify-center">
-                <Terminal className="size-5" />
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground uppercase font-medium">Via API</span>
-                <p className="text-lg font-bold tabular-nums text-foreground">
-                  {formatCentsToBrl(data.outflowsByOrigin.apiVolumeInCents, { hideValue: hideValues })}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {data.outflowsByOrigin.apiCount} operações integradas
-                </p>
-              </div>
+  return (
+    <div className="grid min-w-0 gap-4">
+      <p className="text-sm text-muted-foreground tabular-nums">
+        {formatDateTime(report.days[0].date, "date-only")} a {formatDateTime(report.days[report.days.length - 1].date, "date-only")}
+      </p>
+      <Card>
+        <dl aria-label="Resumo do período" className={statsGrid}>
+          {metrics.map(({ label, value, detail }) => (
+            <div key={label} className="min-w-0 bg-card p-4 sm:p-5">
+              <dt className="text-sm text-muted-foreground">{label}</dt>
+              <dd className="mt-1 wrap-break-word text-xl font-semibold tabular-nums sm:text-2xl">{value}</dd>
+              <dd className="mt-1 text-xs text-muted-foreground">{detail}</dd>
             </div>
-
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/40 border border-border">
-              <div className="size-10 rounded-lg bg-secondary text-foreground flex items-center justify-center">
-                <Monitor className="size-5" />
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground uppercase font-medium">Via Painel Web</span>
-                <p className="text-lg font-bold tabular-nums text-foreground">
-                  {formatCentsToBrl(data.outflowsByOrigin.panelVolumeInCents, { hideValue: hideValues })}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {data.outflowsByOrigin.panelCount} operações manuais
-                </p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
+          ))}
+        </dl>
       </Card>
-
-      {/* Gráficos de Evolução Temporal */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-border bg-card/80">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">
-              Volume Financeiro por Período
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Evolução do montante transacionado (R$)
-            </CardDescription>
+      <div className={chartsGrid}>
+        <IndicatorVolumeChart days={report.days} measure={measure} onMeasureChange={onMeasureChange} />
+        <Card className="min-w-0">
+          <CardHeader className="space-y-1 p-5 pb-4">
+            <h2 className="text-balance text-lg font-semibold">Cobranças emitidas</h2>
+            <p className="text-pretty text-sm text-muted-foreground">Situação atual das cobranças criadas no período.</p>
           </CardHeader>
-          <CardContent className="h-64 pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.temporalSeries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
-                <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} />
-                <YAxis
-                  stroke="var(--muted-foreground)"
-                  fontSize={10}
-                  tickLine={false}
-                  tickFormatter={(val) => `R$ ${(val / 100000).toFixed(0)}k`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--popover)",
-                    borderColor: "var(--border)",
-                    borderRadius: "0.5rem",
-                    color: "var(--foreground)",
-                    fontSize: "0.75rem",
-                  }}
-                  formatter={(val: any) => [
-                    hideValues ? "••••••" : formatCentsToBrl(Number(val)),
-                    "",
-                  ]}
-                />
-                <Area
-                  type="monotone"
-                  name="Entradas"
-                  dataKey="inflowsAmountInCents"
-                  stroke="var(--chart-1)"
-                  fill="var(--chart-1)"
-                  fillOpacity={0.2}
-                  strokeWidth={2}
-                />
-                <Area
-                  type="monotone"
-                  name="Saídas"
-                  dataKey="outflowsAmountInCents"
-                  stroke="var(--chart-2)"
-                  fill="var(--chart-2)"
-                  fillOpacity={0.2}
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card/80">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">
-              Quantidade de Operações
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Número de transações processadas (Unidades)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="h-64 pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.temporalSeries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
-                <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={10} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--popover)",
-                    borderColor: "var(--border)",
-                    borderRadius: "0.5rem",
-                    color: "var(--foreground)",
-                    fontSize: "0.75rem",
-                  }}
-                />
-                <Bar name="Qtd Entradas" dataKey="inflowsCount" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
-                <Bar name="Qtd Saídas" dataKey="outflowsCount" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="grid gap-4 px-5 pb-5">
+            {issued > 0 && (
+              <div className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                {chargeStates.filter(({ key }) => report.charges[key] > 0).map(({ key, color }) => (
+                  <span key={key} style={{ flex: report.charges[key], backgroundColor: color }} />
+                ))}
+              </div>
+            )}
+            <dl className="divide-y divide-border">
+              {chargeStates.map(({ key, label, color }) => (
+                <div key={key} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <dt className="inline-flex items-center gap-2">
+                    <span aria-hidden="true" className="size-2 rounded-sm" style={{ backgroundColor: color }} />
+                    {label}
+                  </dt>
+                  <dd className="font-medium tabular-nums">{counts.format(report.charges[key])}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="grid gap-2 border-t border-border pt-3">
+              <h3 className="text-sm font-semibold">Valor médio por Pix</h3>
+              <dl className="grid grid-cols-2 gap-3">
+                {([
+                  ["Recebido líquido", totals.receivedCents, totals.receivedCount],
+                  ["Enviado em saques", totals.withdrawnCents, totals.withdrawnCount],
+                ] as const).map(([label, value, count]) => (
+                  <div key={label} className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">{label}</dt>
+                    <dd className="mt-1 wrap-break-word text-sm font-medium tabular-nums">
+                      {count ? <PanelAmount cents={Math.round(value / count)} /> : "—"}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
           </CardContent>
         </Card>
       </div>

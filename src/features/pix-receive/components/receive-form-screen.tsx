@@ -4,12 +4,14 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGatewayService, useDemoScenario } from "@/providers/demo-provider";
 import { calculatePixFeeInCents, formatCentsToBrl } from "@/lib/money";
+import { BrazilianInput } from "@/components/ui/brazilian-input";
 import { Button } from "@/components/ui/button";
+import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ArrowDownLeft, QrCode, Sparkles, Loader2 } from "lucide-react";
+import { ArrowDownLeft, QrCode, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 export function ReceiveFormScreen() {
@@ -152,10 +154,12 @@ export function ReceiveFormScreen() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <label htmlFor="payer-document" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   CPF ou CNPJ (Opcional)
                 </label>
-                <Input
+                <BrazilianInput
+                  id="payer-document"
+                  mask="CPF_OR_CNPJ"
                   value={payerDocument}
                   onChange={(e) => setPayerDocument(e.target.value)}
                   placeholder="000.000.000-00"
@@ -196,7 +200,7 @@ export function ReceiveFormScreen() {
             >
               {submitting ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" />
+                  <LoadingIndicator />
                   <span>Gerando Cobrança...</span>
                 </>
               ) : (

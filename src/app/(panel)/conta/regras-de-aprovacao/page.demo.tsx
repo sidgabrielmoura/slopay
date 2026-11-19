@@ -2,7 +2,7 @@ import { RulesListScreen } from "@/features/approval-rules/components/rules-list
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Regras de Aprovação",
+  title: "Regras de aprovação",
 };
 
 export default function RegrasAprovacaoPage() {

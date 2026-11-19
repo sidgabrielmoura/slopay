@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { use, useState } from "react";
+import { useRouter } from "next/navigation";
 import NextLink from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGatewayService } from "@/providers/demo-provider";
@@ -48,10 +48,9 @@ import {
 import { toast } from "sonner";
 import type { AccountApplication } from "@/types/domain";
 
-export default function AdminAberturaDeContaReviewPage() {
-  const params = useParams();
+export default function AdminAberturaDeContaReviewPage({ params }: { params: Promise<{ solicitacaoId: string }> }) {
+  const { solicitacaoId } = use(params);
   const router = useRouter();
-  const solicitacaoId = params.solicitacaoId as string;
   const service = useGatewayService();
   const queryClient = useQueryClient();
 
@@ -547,14 +546,14 @@ export default function AdminAberturaDeContaReviewPage() {
                       selectedAdjustmentFields.includes(item)
                         ? "bg-primary/10 border-primary text-foreground font-medium"
                         : "bg-background border-border text-muted-foreground hover:text-foreground"
-                    }`}
+                      }`}
                   >
                     <div
                       className={`size-4 rounded flex items-center justify-center border ${
                         selectedAdjustmentFields.includes(item)
                           ? "bg-primary text-primary-foreground border-primary"
                           : "border-border"
-                      }`}
+                        }`}
                     >
                       {selectedAdjustmentFields.includes(item) && <Check className="size-3" />}
                     </div>
@@ -622,7 +621,7 @@ export default function AdminAberturaDeContaReviewPage() {
                 Política Comercial / Tabela de Tarifas Aplicada
               </label>
               <Select value={selectedPricingPolicy} onValueChange={setSelectedPricingPolicy}>
-                <SelectTrigger className="h-9 text-xs bg-background border-border">
+                <SelectTrigger aria-label="Tabela comercial" className="h-9 text-xs bg-background border-border">
                   <SelectValue placeholder="Selecione a tabela comercial" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border text-xs">

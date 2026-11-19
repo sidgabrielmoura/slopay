@@ -2,7 +2,7 @@ import { RuleFormScreen } from "@/features/approval-rules/components/rule-form-s
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Nova Regra de Aprovação",
+  title: "Nova regra de aprovação",
 };
 
 export default function NovaRegraPage() {

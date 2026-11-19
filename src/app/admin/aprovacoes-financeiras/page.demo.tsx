@@ -150,7 +150,7 @@ export default function AdminAprovacoesFinanceirasPage() {
               statusFilter === tab.id
                 ? "bg-secondary text-foreground font-semibold border border-border"
                 : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -383,13 +383,13 @@ export default function AdminAprovacoesFinanceirasPage() {
                   decisionAction === "APPROVE"
                     ? "bg-primary text-primary-foreground hover:bg-primary/90"
                     : "bg-red-500 hover:bg-red-600 text-white"
-                }`}
+                  }`}
               >
                 {mutation.isPending
                   ? "Gravando..."
                   : decisionAction === "APPROVE"
-                  ? "Confirmar Aprovação"
-                  : "Confirmar Recusa"}
+                    ? "Confirmar Aprovação"
+                    : "Confirmar Recusa"}
               </Button>
             </DialogFooter>
           </DialogContent>

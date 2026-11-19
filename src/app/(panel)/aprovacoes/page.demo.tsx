@@ -2,7 +2,7 @@ import { ApprovalsListScreen } from "@/features/approvals/components/approvals-l
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Fila de Aprovações",
+  title: "Aprovações",
 };
 
 export default function AprovacoesPage() {

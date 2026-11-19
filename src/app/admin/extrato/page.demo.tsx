@@ -222,7 +222,7 @@ export default function AdminExtratoPage() {
                         entry.amountInCents > 0
                           ? "text-emerald-400"
                           : "text-foreground"
-                      }`}
+                        }`}
                     >
                       {entry.amountInCents > 0 ? "+" : ""}
                       {formatCentsToBrl(entry.amountInCents)}

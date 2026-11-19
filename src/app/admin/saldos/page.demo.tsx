@@ -245,7 +245,7 @@ export default function AdminSaldosPage() {
                             <div
                               className={`h-full rounded-full ${
                                 percentUsed > 80 ? "bg-amber-500" : "bg-primary"
-                              }`}
+                                }`}
                               style={{ width: `${percentUsed}%` }}
                             />
                           </div>

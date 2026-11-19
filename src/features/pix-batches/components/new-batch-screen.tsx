@@ -12,7 +12,10 @@ import {
   partitionBatchInstallments,
 } from "@/lib/money";
 import { demoPolicy } from "@/config/demo-policy.config";
+import { pixKeyInputMask } from "@/lib/validators";
+import { BrazilianInput } from "@/components/ui/brazilian-input";
 import { Button } from "@/components/ui/button";
+import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -29,7 +32,6 @@ import {
   KeyRound,
   AlertCircle,
   CheckCircle2,
-  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -206,9 +208,13 @@ export function NewBatchScreen() {
                   </label>
                   <Select
                     value={keyType}
-                    onValueChange={(val) => setKeyType(val as KeyType)}
+                    onValueChange={(value) => {
+                      const type = value as KeyType;
+                      if (pixKeyInputMask(type) || pixKeyInputMask(keyType)) setTargetKey("");
+                      setKeyType(type);
+                    }}
                   >
-                    <SelectTrigger className="h-10 bg-card/60">
+                    <SelectTrigger aria-label="Tipo de chave Pix" className="h-10 bg-card/60">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -222,10 +228,12 @@ export function NewBatchScreen() {
                 </div>
 
                 <div className="sm:col-span-2 space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <label htmlFor="batch-destination" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Chave Pix de Destino *
                   </label>
-                  <Input
+                  <BrazilianInput
+                    id="batch-destination"
+                    mask={pixKeyInputMask(keyType)}
                     value={targetKey}
                     onChange={(e) => setTargetKey(e.target.value)}
                     placeholder="Chave do favorecido único do lote"
@@ -383,7 +391,7 @@ export function NewBatchScreen() {
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="size-4 animate-spin" />
+                      <LoadingIndicator />
                       <span>Criando Lote...</span>
                     </>
                   ) : (

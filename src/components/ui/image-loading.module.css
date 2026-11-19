@@ -1,0 +1,75 @@
+.frame {
+  background: var(--success-surface);
+}
+
+.dots,
+.content,
+.fallback {
+  position: absolute;
+  inset: 0;
+}
+
+.dots {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  color: var(--primary);
+  opacity: 1;
+}
+
+.dots:not([data-drawn]) {
+  background: radial-gradient(circle, color-mix(in srgb, currentColor 35%, transparent) 0.85px, transparent 1.5px) center / 11px 11px;
+}
+
+.frame[data-image-loading="ready"] .dots {
+  opacity: 0;
+  transition: opacity 140ms cubic-bezier(0.35, 0, 0.4, 1);
+}
+
+.frame[data-image-loading="error"] {
+  background: var(--card);
+}
+
+.frame[data-image-loading="error"] .dots {
+  visibility: hidden;
+}
+
+.content {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.frame[data-image-loading="ready"] .content {
+  visibility: visible;
+  opacity: 1;
+  animation:
+    image-appear 500ms cubic-bezier(0.12, 0.82, 0.28, 1),
+    image-focus 610ms cubic-bezier(0.48, 0.14, 0.35, 1);
+}
+
+.fallback {
+  display: grid;
+  place-items: center;
+}
+
+@keyframes image-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes image-focus {
+  from { filter: blur(12px); }
+  to { filter: blur(0); }
+}
+
+:global(:root.reduce-motion) .frame[data-image-loading="ready"] :is(.dots, .content) {
+  animation: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame[data-image-loading="ready"] :is(.dots, .content) {
+    animation: none;
+    transition: none;
+  }
+}

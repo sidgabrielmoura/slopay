@@ -8,7 +8,9 @@ import { formatDateTime } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableHeader,
@@ -60,12 +62,13 @@ export default function AdminRegrasAprovacaoPage() {
       if (editingRule) {
         return demoRepository.updateApprovalRule(editingRule.id, ruleForm);
       } else {
+        const members = await demoRepository.getApprovalRuleMembers();
         return demoRepository.createApprovalRule({
           name: ruleForm.name,
           minAmountInCents: Number(ruleForm.minAmountInCents),
           ruleType: ruleForm.ruleType,
           requiredApprovalsCount: Number(ruleForm.requiredApprovalsCount),
-          eligibleApproverIds: ["usr-02", "usr-03"],
+          eligibleApproverIds: members.filter((member) => member.eligible).map((member) => member.id),
           active: ruleForm.active,
         });
       }
@@ -97,6 +100,7 @@ export default function AdminRegrasAprovacaoPage() {
       queryClient.invalidateQueries({ queryKey: ["admin", "approvalRules"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "audit"] });
     },
+    onError: (error) => toast.error(error.message),
   });
 
   const handleOpenCreate = () => {
@@ -294,43 +298,43 @@ export default function AdminRegrasAprovacaoPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground">
-                  Gatilho Mínimo (em centavos) *
+                <label htmlFor="approval-rule-minimum" className="text-xs font-medium text-foreground">
+                  Gatilho Mínimo *
                 </label>
-                <Input
-                  type="number"
-                  value={ruleForm.minAmountInCents}
-                  onChange={(e) =>
+                <CurrencyInput
+                  id="approval-rule-minimum"
+                  valueInCents={ruleForm.minAmountInCents}
+                  onValueChange={(minAmountInCents) =>
                     setRuleForm({
                       ...ruleForm,
-                      minAmountInCents: parseInt(e.target.value) || 0,
+                      minAmountInCents,
                     })
                   }
                   className="h-8 text-xs bg-background border-border text-foreground"
                 />
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  Equivale a: {formatCentsToBrl(ruleForm.minAmountInCents)}
-                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">
+                  <label htmlFor="approval-rule-execution" className="text-xs font-medium text-foreground">
                     Tipo de Execução
                   </label>
-                  <select
+                  <Select
                     value={ruleForm.ruleType}
-                    onChange={(e) =>
-                      setRuleForm({
-                        ...ruleForm,
-                        ruleType: e.target.value as ApprovalRuleType,
-                      })
+                    onValueChange={(ruleType) =>
+                      setRuleForm((current) => ({ ...current, ruleType: ruleType as ApprovalRuleType }))
                     }
-                    className="w-full h-8 text-xs bg-background border border-border rounded-md px-2 text-foreground"
                   >
-                    <option value="PARALLEL">Paralela</option>
-                    <option value="SEQUENTIAL">Sequencial</option>
-                  </select>
+                    <SelectTrigger id="approval-rule-execution" className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="PARALLEL">Paralela</SelectItem>
+                        <SelectItem value="SEQUENTIAL">Sequencial</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1.5">

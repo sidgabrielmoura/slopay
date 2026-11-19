@@ -15,7 +15,7 @@ export function formatDateTime(
   switch (formatStyle) {
     case "date-only":
       return new Intl.DateTimeFormat("pt-BR", {
-        timeZone: TIMEZONE,
+        timeZone: typeof dateInput === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateInput) ? "UTC" : TIMEZONE,
         day: "2-digit",
         month: "2-digit",
         year: "numeric",

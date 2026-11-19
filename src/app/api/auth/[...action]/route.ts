@@ -1,5 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { profilePhoneRequestSchema, profilePhoneResponseSchema } from "@/features/account/profile";
+import { passkeyAssertionSchema, passkeyOptionsSchema } from "@/features/auth/passkey-contract";
+import {
+  passwordChangeChallenge, passwordChangeCompletion, passwordChangeGrant, passwordChangeRequest, passwordChangeVerification,
+} from "@/features/auth/password-change-contract";
+import {
+  registrationEmailChallenge, registrationEmailCorrection, registrationEmailRequest, registrationEmailVerification,
+} from "@/features/auth/registration-email-contract";
 import {
   appOrigin,
   authTokensSchema,
@@ -14,22 +22,50 @@ import {
   saveSession,
   setAuthCookie,
 } from "@/lib/server/session";
+import { readJson, RequestBodyError } from "@/lib/server/request-json";
 
 const maxBodyBytes = 8192;
 const password = z.string().min(1).max(128);
 const code = z.string().trim().min(6).max(128);
 const email = z.email().max(254);
 const token = z.string().min(1).max(512);
+const credentialId = z.string().min(1).max(1024).regex(/^[A-Za-z0-9_-]+$/);
+const credential = z.looseObject({
+  id: credentialId,
+  rawId: credentialId,
+  type: z.literal("public-key"),
+  response: z.record(z.string(), z.unknown()),
+});
+const webAuthnOptions = z.looseObject({ challenge: z.string().min(1).max(128) });
+const sessionTimes = z.object({ idleExpiresAt: z.iso.datetime(), absoluteExpiresAt: z.iso.datetime() });
+const sessionStatus = sessionTimes.extend({
+  state: z.enum(["active", "locked"]),
+  requiresMfa: z.boolean(),
+  passkeysEnabled: z.boolean(),
+  hasPasskey: z.boolean(),
+});
 
 type Action = {
-  mode: "issue" | "challenge" | "refresh" | "logout" | "setup" | "confirm" | "message";
+  mode: "issue" | "challenge" | "refresh" | "unlock" | "rotate" | "logout" | "setup" | "confirm" | "message" | "data";
   body?: z.ZodType;
+  response?: z.ZodType;
+  bodyLimit?: number;
+  refreshRequired?: boolean;
   sessionRequired?: boolean;
+  challengeRequired?: boolean;
 };
 
 const actions: Record<string, Action> = {
   login: { mode: "issue", body: z.object({ email, password }) },
   "login/2fa": { mode: "challenge", body: z.object({ code }) },
+  "passkeys/login/options": { mode: "data", response: passkeyOptionsSchema, challengeRequired: true },
+  "passkeys/login": { mode: "challenge", body: z.object({ credential: passkeyAssertionSchema }), bodyLimit: 32_768 },
+  "passkeys/security/options": {
+    mode: "data",
+    body: z.object({ action: z.literal("replace-authenticator") }),
+    response: passkeyOptionsSchema,
+    sessionRequired: true,
+  },
   register: {
     mode: "issue",
     body: z.object({
@@ -38,17 +74,42 @@ const actions: Record<string, Action> = {
       fullName: z.string().trim().min(1).max(100),
       cpf: z.string().regex(/^\d{11}$/),
       phone: z.string().min(1).max(20),
+      invitation: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     }),
   },
   "forgot-password": { mode: "message", body: z.object({ email }) },
   "reset-password": { mode: "message", body: z.object({ token, newPassword: password }) },
+  "password-change/request": {
+    mode: "data", body: passwordChangeRequest, response: passwordChangeChallenge, sessionRequired: true,
+  },
+  "password-change/verify": {
+    mode: "data", body: passwordChangeVerification, response: passwordChangeGrant, sessionRequired: true,
+  },
+  "password-change/complete": { mode: "rotate", body: passwordChangeCompletion, sessionRequired: true },
   "verify-email": { mode: "message", body: z.object({ token }) },
   "resend-verification": { mode: "message", sessionRequired: true },
+  "email-verification/request": {
+    mode: "data", body: registrationEmailRequest, response: registrationEmailChallenge, sessionRequired: true,
+  },
+  "email-verification/verify": { mode: "message", body: registrationEmailVerification, sessionRequired: true },
+  "email-verification/correct": { mode: "rotate", body: registrationEmailCorrection, sessionRequired: true },
   refresh: { mode: "refresh" },
   logout: { mode: "logout" },
+  "session/status": { mode: "data", response: sessionStatus, refreshRequired: true },
+  "session/activity": { mode: "data", response: sessionTimes, sessionRequired: true },
+  "profile/phone": {
+    mode: "data", body: profilePhoneRequestSchema, response: profilePhoneResponseSchema, sessionRequired: true,
+  },
+  "session/unlock": { mode: "unlock", body: z.object({ password, code: code.optional() }), refreshRequired: true },
+  "passkeys/register/options": { mode: "data", response: webAuthnOptions, sessionRequired: true },
+  "passkeys/register": { mode: "message", body: z.object({ credential }), bodyLimit: 32_768, sessionRequired: true },
+  "passkeys/unlock/options": { mode: "data", response: webAuthnOptions, refreshRequired: true },
+  "passkeys/unlock": { mode: "unlock", body: z.object({ credential }), bodyLimit: 32_768, refreshRequired: true },
   "2fa/setup": {
     mode: "setup",
-    body: z.object({ password, currentCode: code.optional() }),
+    body: z.object({ password, currentCode: code.optional(), credential: passkeyAssertionSchema.optional() })
+      .refine((input) => !(input.currentCode && input.credential)),
+    bodyLimit: 32_768,
     sessionRequired: true,
   },
   "2fa/verify": { mode: "confirm", body: z.object({ code }), sessionRequired: true },
@@ -60,6 +121,9 @@ const backendMessage = z.object({
 });
 
 const authIssue = z.object({ user: sessionUserSchema, tokens: authTokensSchema });
+const loginUser = sessionUserSchema.pick({
+  id: true, role: true, status: true, isEmailVerified: true, isTwoFactorEnabled: true,
+});
 const challenge = z.object({
   requires2FA: z.literal(true),
   challengeToken: z.string().min(1).max(3000),
@@ -70,6 +134,7 @@ const factorSetup = z.object({
 });
 const factorConfirmed = z.object({
   backupCodes: z.array(z.string().min(6).max(128)).min(1).max(20),
+  tokens: authTokensSchema,
 });
 
 function json(body: unknown, status = 200) {
@@ -78,33 +143,13 @@ function json(body: unknown, status = 200) {
 
 const unavailable = () => json({ message: "Serviço de autenticação indisponível. Tente novamente." }, 503);
 
-class RequestBodyError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
+function accessExpiry(accessToken: string | undefined) {
+  try {
+    const payload = JSON.parse(Buffer.from(accessToken?.split(".")[1] ?? "", "base64url").toString("utf8"));
+    return typeof payload.exp === "number" && Number.isSafeInteger(payload.exp) ? payload.exp * 1000 : null;
+  } catch {
+    return null;
   }
-}
-
-async function readJson(request: NextRequest): Promise<unknown> {
-  const type = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
-  if (type !== "application/json") {
-    throw new RequestBodyError(415, "Envie os dados em JSON.");
-  }
-
-  const reader = request.body?.getReader();
-  if (!reader) throw new RequestBodyError(400, "Envie os dados da solicitação.");
-  const chunks: Uint8Array[] = [];
-  let bytes = 0;
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    bytes += value.byteLength;
-    if (bytes > maxBodyBytes) {
-      await reader.cancel().catch(() => undefined);
-      throw new RequestBodyError(413, "Os dados da solicitação excedem o limite.");
-    }
-    chunks.push(value);
-  }
-  return JSON.parse(Buffer.concat(chunks, bytes).toString("utf8"));
 }
 
 export async function POST(
@@ -118,7 +163,7 @@ export async function POST(
   try {
     const fetchSite = request.headers.get("sec-fetch-site");
     if ((fetchSite && fetchSite !== "same-origin") ||
-        request.headers.get("origin") !== appOrigin(request.url)) {
+        request.headers.get("origin") !== appOrigin(request.url, request.headers.get("host"))) {
       return json({ message: "Origem da solicitação inválida." }, 403);
     }
   } catch {
@@ -134,28 +179,29 @@ export async function POST(
   let body: unknown;
   try {
     if (action.body) {
-      const parsed = action.body.safeParse(await readJson(request));
+      const parsed = action.body.safeParse(await readJson(request, action.bodyLimit ?? maxBodyBytes));
       if (!parsed.success) return json({ message: "Confira os dados informados." }, 400);
       body = parsed.data;
     }
 
-    if (action.mode === "challenge") {
+    if (action.mode === "challenge" || action.challengeRequired) {
       const challengeToken = request.cookies.get(challengeCookie)?.value;
       if (!challengeToken) {
         return json({ message: "O desafio expirou. Entre novamente.", code: "CHALLENGE_EXPIRED" }, 401);
       }
-      body = { ...(body as { code: string }), challengeToken };
+      body = { ...(body as object | undefined), challengeToken };
     }
 
-    if (action.mode === "refresh" || action.mode === "logout") {
+    if (action.mode === "refresh" || action.mode === "logout" || action.refreshRequired) {
       if (!refreshToken) {
         const response = action.mode === "logout"
           ? json({ success: true })
-          : json({ message: "Sessão expirada. Entre novamente." }, 401);
-        clearSession(response);
+          : json({ message: "Sessão expirada. Entre novamente.", code: "SESSION_EXPIRED" }, 401);
+        // A concurrent refresh can finish after a status request with no refresh cookie.
+        if (action.mode === "logout") clearSession(response);
         return response;
       }
-      body = { refreshToken };
+      body = { ...(body as object | undefined), refreshToken };
     }
   } catch (error) {
     return error instanceof RequestBodyError
@@ -180,7 +226,9 @@ export async function POST(
           "A solicitação foi recusada.",
         code: details.data?.code,
       }, backend.status);
-      if (action.mode === "refresh" && backend.status === 401) clearSession(response);
+      if (action.mode === "refresh" && backend.status === 401 && details.data?.code !== "SESSION_IDLE") {
+        clearSession(response);
+      }
       return response;
     }
 
@@ -196,19 +244,27 @@ export async function POST(
       const issued = authIssue.safeParse(payload);
       if (!issued.success) return unavailable();
       const response = json(
-        path === "register" ? { success: true } : { user: { role: issued.data.user.role } },
+        path === "register" ? { success: true } : { user: loginUser.parse(issued.data.user) },
         backend.status,
       );
       saveSession(response, issued.data.tokens);
       return response;
     }
 
-    if (action.mode === "refresh") {
+    if (action.mode === "refresh" || action.mode === "unlock" || action.mode === "rotate") {
       const tokens = authTokensSchema.safeParse(payload);
       if (!tokens.success) return unavailable();
       const response = json({ success: true });
       saveSession(response, tokens.data);
       return response;
+    }
+
+    if (action.mode === "data") {
+      const parsed = action.response?.safeParse(payload);
+      if (!parsed?.success) return unavailable();
+      return path === "session/status"
+        ? json({ ...(parsed.data as object), accessExpiresAt: accessExpiry(accessToken) })
+        : json(parsed.data);
     }
 
     if (action.mode === "setup") {
@@ -219,8 +275,8 @@ export async function POST(
     if (action.mode === "confirm") {
       const confirmed = factorConfirmed.safeParse(payload);
       if (!confirmed.success) return unavailable();
-      const response = json(confirmed.data);
-      clearSession(response);
+      const response = json({ backupCodes: confirmed.data.backupCodes });
+      saveSession(response, confirmed.data.tokens);
       return response;
     }
 

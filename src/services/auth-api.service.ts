@@ -1,9 +1,25 @@
 import { ApiError } from "@/lib/api-client";
+import type { PasskeyOptions } from "@/features/auth/passkey-contract";
+import type { PasswordChangeChallenge, PasswordChangeGrant } from "@/features/auth/password-change-contract";
+import type { RegistrationEmailChallenge } from "@/features/auth/registration-email-contract";
 import type { SessionUser } from "@/lib/server/auth-backend";
+import type {
+  AuthenticationResponseJSON, PublicKeyCredentialCreationOptionsJSON, PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+} from "@simplewebauthn/browser";
 
-type LoginUser = Pick<SessionUser, "role">;
+type LoginUser = Pick<SessionUser, "id" | "role" | "status" | "isEmailVerified" | "isTwoFactorEnabled">;
 type LoginResult = { requires2FA: true } | { user: LoginUser };
 type Success = { success: true; message?: string };
+const authRequestTimeoutMs = process.env.NODE_ENV === "development" ? 60_000 : 12_000;
+type SessionTimes = { idleExpiresAt: string; absoluteExpiresAt: string };
+export type SessionStatus = SessionTimes & {
+  state: "active" | "locked";
+  requiresMfa: boolean;
+  passkeysEnabled: boolean;
+  hasPasskey: boolean;
+  accessExpiresAt: number | null;
+};
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api/auth/${path}`, {
@@ -12,7 +28,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
-    signal: AbortSignal.timeout(12_000),
+    signal: AbortSignal.timeout(authRequestTimeoutMs),
   }).catch(() => {
     throw new ApiError("Serviço de autenticação indisponível. Tente novamente.", 503);
   });
@@ -31,7 +47,13 @@ export const authApiService = {
   completeLogin(code: string) {
     return post<{ user: LoginUser }>("login/2fa", { code: code.trim() });
   },
-  register(body: { fullName: string; email: string; cpf: string; phone: string; password: string }) {
+  passkeyLoginOptions() {
+    return post<PasskeyOptions>("passkeys/login/options");
+  },
+  completeLoginWithPasskey(credential: AuthenticationResponseJSON) {
+    return post<{ user: LoginUser }>("passkeys/login", { credential });
+  },
+  register(body: { fullName: string; email: string; cpf: string; phone: string; password: string; invitation?: string }) {
     return post<Success>("register", body);
   },
   forgotPassword(email: string) {
@@ -40,22 +62,64 @@ export const authApiService = {
   resetPassword(token: string, newPassword: string) {
     return post<Success>("reset-password", { token, newPassword });
   },
+  requestPasswordChange(expectedUserId: string, confirmedEmail: string, resend: boolean) {
+    return post<PasswordChangeChallenge>("password-change/request", { expectedUserId, confirmedEmail, resend });
+  },
+  verifyPasswordChange(challengeId: string, code: string) {
+    return post<PasswordChangeGrant>("password-change/verify", { challengeId, code });
+  },
+  completePasswordChange(challengeId: string, grant: string, newPassword: string) {
+    return post<Success>("password-change/complete", { challengeId, grant, newPassword });
+  },
   verifyEmail(token: string) {
     return post<Success>("verify-email", { token });
   },
-  resendVerification() {
-    return post<Success>("resend-verification");
+  requestRegistrationEmailCode(confirmedEmail: string, resend = false) {
+    return post<RegistrationEmailChallenge>("email-verification/request", { confirmedEmail, resend });
+  },
+  verifyRegistrationEmailCode(challengeId: string, code: string) {
+    return post<Success>("email-verification/verify", { challengeId, code });
+  },
+  correctRegistrationEmail(confirmedEmail: string, newEmail: string) {
+    return post<Success>("email-verification/correct", { confirmedEmail, newEmail });
   },
   refresh() {
     return post<Success>("refresh");
   },
+  sessionStatus() {
+    return post<SessionStatus>("session/status");
+  },
+  recordActivity() {
+    return post<SessionTimes>("session/activity");
+  },
+  updateProfilePhone(expectedUserId: string, phone: string) {
+    return post<{ phone: string }>("profile/phone", { expectedUserId, phone });
+  },
+  passkeyRegistrationOptions() {
+    return post<PublicKeyCredentialCreationOptionsJSON>("passkeys/register/options");
+  },
+  registerPasskey(credential: RegistrationResponseJSON) {
+    return post<Success>("passkeys/register", { credential });
+  },
+  passkeyUnlockOptions() {
+    return post<PublicKeyCredentialRequestOptionsJSON>("passkeys/unlock/options");
+  },
+  unlockWithPasskey(credential: AuthenticationResponseJSON) {
+    return post<Success>("passkeys/unlock", { credential });
+  },
+  unlockWithPassword(password: string, code?: string) {
+    return post<Success>("session/unlock", { password, code });
+  },
   logout() {
     return post<Success>("logout");
   },
-  setup2FA(password: string, currentCode?: string) {
+  passkeyReplacementOptions() {
+    return post<PasskeyOptions>("passkeys/security/options", { action: "replace-authenticator" });
+  },
+  setup2FA(password: string, factor?: { currentCode: string } | { credential: AuthenticationResponseJSON }) {
     return post<{ secret: string; qrCodeUri: string }>("2fa/setup", {
       password,
-      currentCode: currentCode?.trim() || undefined,
+      ...factor,
     });
   },
   verify2FA(code: string) {

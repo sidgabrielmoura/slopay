@@ -8,7 +8,11 @@ import { usePreferences } from "@/providers/preferences-provider";
 import { queryKeys } from "@/lib/query-keys";
 import { calculatePixFeeInCents, formatCentsToBrl } from "@/lib/money";
 import { demoPolicy } from "@/config/demo-policy.config";
+import { findApplicableApprovalRule } from "@/features/approval-rules/approval-rules";
+import { pixKeyInputMask } from "@/lib/validators";
+import { BrazilianInput } from "@/components/ui/brazilian-input";
 import { Button } from "@/components/ui/button";
+import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,10 +28,7 @@ import {
   ArrowUpRight,
   ArrowLeft,
   ShieldCheck,
-  CheckCircle2,
-  AlertCircle,
   KeyRound,
-  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -56,18 +57,27 @@ export function WithdrawFormScreen() {
     queryKey: queryKeys.account(),
     queryFn: () => service.getAccount(),
   });
+  const rules = useQuery({
+    queryKey: queryKeys.approvalRules(),
+    queryFn: () => service.getApprovalRules(),
+  });
 
   const availableBalance = account?.currentAvailableBalanceInCents ?? 0;
   const feeInCents = calculatePixFeeInCents(amountInCents, "WITHDRAW");
   const totalDebitInCents = amountInCents + feeInCents;
   const balanceRemainingInCents = availableBalance - totalDebitInCents;
 
-  const requiresApproval =
-    amountInCents >= demoPolicy.defaultApprovalThresholdInCents; // R$ 5.000,00
+  const applicableRule = rules.data && findApplicableApprovalRule(rules.data, amountInCents);
 
   // Validação da Etapa 1
   const handleProceedToReview = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!rules.data) {
+      if (rules.isError) void rules.refetch();
+      toast.info("Aguarde a consulta às regras de aprovação.");
+      return;
+    }
 
     if (!pixKey.trim()) {
       toast.error("Informe a chave Pix de destino.");
@@ -103,6 +113,12 @@ export function WithdrawFormScreen() {
       setRecipientName("Fornecedor / Favorecido Fictício");
     }
 
+    if (applicableRule) {
+      toast.warning("Saque sujeito a aprovação", {
+        id: "pix-withdraw-approval",
+        description: `O valor ficará reservado até atingir o quórum da regra “${applicableRule.name}”.`,
+      });
+    }
     setStep(2);
   };
 
@@ -138,7 +154,7 @@ export function WithdrawFormScreen() {
 
       if (result.requiresApproval) {
         toast.info(
-          "Saque registrado! Como o valor é a partir de R$ 5.000,00, a operação aguarda aprovação."
+          "Saque registrado e encaminhado para aprovação."
         );
         router.push(`/aprovacoes/${result.approvalRequestId}`);
       } else {
@@ -165,32 +181,29 @@ export function WithdrawFormScreen() {
             {step === 1
               ? "Etapa 1 de 3: Informe a chave e o valor do saque"
               : step === 2
-              ? "Etapa 2 de 3: Revise os dados e tarifas da transferência"
-              : "Etapa 3 de 3: Confirme com o PIN demonstrativo"}
+                ? "Etapa 2 de 3: Revise os dados e tarifas da transferência"
+                : "Etapa 3 de 3: Confirme com o PIN demonstrativo"}
           </p>
         </div>
 
         <div className="flex items-center gap-1 text-xs font-semibold">
           <span
-            className={`size-6 rounded-full flex items-center justify-center ${
-              step >= 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-            }`}
+            className={`size-6 rounded-full flex items-center justify-center ${step >= 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              }`}
           >
             1
           </span>
           <span className="w-4 h-0.5 bg-border" />
           <span
-            className={`size-6 rounded-full flex items-center justify-center ${
-              step >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-            }`}
+            className={`size-6 rounded-full flex items-center justify-center ${step >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              }`}
           >
             2
           </span>
           <span className="w-4 h-0.5 bg-border" />
           <span
-            className={`size-6 rounded-full flex items-center justify-center ${
-              step === 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-            }`}
+            className={`size-6 rounded-full flex items-center justify-center ${step === 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              }`}
           >
             3
           </span>
@@ -223,9 +236,13 @@ export function WithdrawFormScreen() {
                   </label>
                   <Select
                     value={keyType}
-                    onValueChange={(val) => setKeyType(val as KeyType)}
+                    onValueChange={(value) => {
+                      const type = value as KeyType;
+                      if (pixKeyInputMask(type) || pixKeyInputMask(keyType)) setPixKey("");
+                      setKeyType(type);
+                    }}
                   >
-                    <SelectTrigger className="h-10 bg-card/60">
+                    <SelectTrigger aria-label="Tipo de chave Pix" className="h-10 bg-card/60">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -239,22 +256,24 @@ export function WithdrawFormScreen() {
                 </div>
 
                 <div className="sm:col-span-2 space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <label htmlFor="withdrawal-destination" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Chave Pix de Destino *
                   </label>
-                  <Input
+                  <BrazilianInput
+                    id="withdrawal-destination"
+                    mask={pixKeyInputMask(keyType)}
                     value={pixKey}
                     onChange={(e) => setPixKey(e.target.value)}
                     placeholder={
                       keyType === "EMAIL"
                         ? "exemplo@empresa.com.br"
                         : keyType === "CPF"
-                        ? "000.000.000-00"
-                        : keyType === "CNPJ"
-                        ? "00.000.000/0001-00"
-                        : keyType === "PHONE"
-                        ? "+55 (11) 98765-4321"
-                        : "Cole a chave aleatória"
+                          ? "000.000.000-00"
+                          : keyType === "CNPJ"
+                            ? "00.000.000/0001-00"
+                            : keyType === "PHONE"
+                              ? "+55 (11) 98765-4321"
+                              : "Cole a chave aleatória"
                     }
                     className="h-10"
                     autoFocus
@@ -326,23 +345,12 @@ export function WithdrawFormScreen() {
                   <div className="flex justify-between pt-1 text-[11px]">
                     <span className="text-muted-foreground">Saldo Restante Estimado:</span>
                     <span
-                      className={`font-semibold ${
-                        balanceRemainingInCents < 0 ? "text-destructive" : "text-primary"
-                      }`}
+                      className={`font-semibold ${balanceRemainingInCents < 0 ? "text-destructive" : "text-primary"
+                        }`}
                     >
                       {formatCentsToBrl(balanceRemainingInCents, { hideValue: hideValues })}
                     </span>
                   </div>
-                </div>
-              )}
-
-              {/* Aviso se ultrapassar R$ 5k */}
-              {requiresApproval && (
-                <div className="flex items-start gap-2.5 p-3 rounded-lg bg-[var(--warning-surface)] border border-[#483e29] text-xs">
-                  <AlertCircle className="size-4 text-[var(--warning)] shrink-0 mt-0.5" />
-                  <p className="text-muted-foreground">
-                    <strong className="text-foreground">Política de Alçada:</strong> Operações a partir de R$ 5.000,00 exigem a aprovação de 2 pessoas antes da liquidação bancária.
-                  </p>
                 </div>
               )}
 
@@ -404,19 +412,11 @@ export function WithdrawFormScreen() {
               </div>
             </div>
 
-            {requiresApproval ? (
-              <div className="p-3 rounded-lg bg-[var(--warning-surface)] border border-[#483e29] text-xs flex items-center gap-2">
-                <AlertCircle className="size-4 text-[var(--warning)] shrink-0" />
-                <span>
-                  Esta operação criará uma reserva e será encaminhada para a <strong>Fila de Aprovações</strong>.
-                </span>
-              </div>
-            ) : (
-              <div className="p-3 rounded-lg bg-[var(--success-surface)] border border-[#2a4437] text-xs flex items-center gap-2 text-[var(--success)]">
-                <CheckCircle2 className="size-4 shrink-0" />
-                <span>Saque com liquidação imediata após confirmação do PIN.</span>
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground">
+              {applicableRule
+                ? `Liquidação após ${applicableRule.requiredApprovalsCount} ${applicableRule.requiredApprovalsCount === 1 ? "aprovação" : "aprovações"}.`
+                : rules.data ? "Liquidação após confirmação do PIN." : "Consultando as regras de aprovação."}
+            </p>
 
             <div className="flex gap-3">
               <Button
@@ -492,7 +492,7 @@ export function WithdrawFormScreen() {
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="size-4 animate-spin" />
+                      <LoadingIndicator />
                       <span>Processando Saque...</span>
                     </>
                   ) : (

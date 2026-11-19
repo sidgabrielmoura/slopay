@@ -95,7 +95,7 @@ export default function AdminAberturaDeContasPage() {
               activeTab === tab.id
                 ? "bg-secondary text-foreground font-semibold border border-border"
                 : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-            }`}
+              }`}
           >
             {tab.label}
           </button>

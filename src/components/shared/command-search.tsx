@@ -20,9 +20,9 @@ import {
   Settings,
   Shield,
   Users,
-  Webhook,
   HelpCircle,
 } from "lucide-react";
+import { integrationNavigation } from "@/features/integrations/navigation";
 import { useGatewayService } from "@/providers/demo-provider";
 import type { Transaction } from "@/types/domain";
 import { formatCentsToBrl } from "@/lib/money";
@@ -44,7 +44,7 @@ const navItems = [
   { title: "Segurança & 2FA", path: "/conta/seguranca", icon: Shield, category: "Conta & Integrações" },
   { title: "Gestão de Usuários", path: "/conta/usuarios", icon: Users, category: "Conta & Integrações" },
   { title: "Regras de Aprovação", path: "/conta/regras-de-aprovacao", icon: CheckCircle2, category: "Conta & Integrações" },
-  { title: "Webhooks", path: "/integracoes/webhooks", icon: Webhook, category: "Conta & Integrações" },
+  ...integrationNavigation.map((item) => ({ ...item, category: "Integrações" })),
   { title: "Ajuda & FAQ", path: "/ajuda", icon: HelpCircle, category: "Ajuda" },
 ];
 

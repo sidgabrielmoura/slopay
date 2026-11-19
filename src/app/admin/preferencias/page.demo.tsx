@@ -3,8 +3,10 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Bell,
   Shield,
@@ -53,56 +55,56 @@ export default function AdminPreferenciasPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between py-2 border-b border-border">
-            <div>
-              <span className="text-xs font-semibold text-foreground block">
+          <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 border-b border-border py-2">
+            <span className="min-w-0">
+              <span id="admin-high-value-label" className="block text-xs font-semibold text-foreground">
                 Alerta de Transações de Alto Valor
               </span>
-              <span className="text-[11px] text-muted-foreground">
+              <span id="admin-high-value-description" className="text-[11px] text-muted-foreground">
                 Notifica imediatamente quando um saque ou cobrança exceder o limite estipulado.
               </span>
-            </div>
-            <input
-              type="checkbox"
+            </span>
+            <Checkbox
+              aria-labelledby="admin-high-value-label"
+              aria-describedby="admin-high-value-description"
               checked={notifyHighValue}
               onChange={(e) => setNotifyHighValue(e.target.checked)}
-              className="h-4 w-4 rounded accent-primary bg-background border-border"
             />
-          </div>
+          </label>
 
-          <div className="flex items-center justify-between py-2 border-b border-border">
-            <div>
-              <span className="text-xs font-semibold text-foreground block">
+          <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 border-b border-border py-2">
+            <span className="min-w-0">
+              <span id="admin-new-applications-label" className="block text-xs font-semibold text-foreground">
                 Notificação de Novos Cadastros na Esteira KYC
               </span>
-              <span className="text-[11px] text-muted-foreground">
+              <span id="admin-new-applications-description" className="text-[11px] text-muted-foreground">
                 Sinaliza na fila de abertura de contas sempre que um cliente submeter onboarding.
               </span>
-            </div>
-            <input
-              type="checkbox"
+            </span>
+            <Checkbox
+              aria-labelledby="admin-new-applications-label"
+              aria-describedby="admin-new-applications-description"
               checked={notifyNewApplications}
               onChange={(e) => setNotifyNewApplications(e.target.checked)}
-              className="h-4 w-4 rounded accent-primary bg-background border-border"
             />
-          </div>
+          </label>
 
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <span className="text-xs font-semibold text-foreground block">
+          <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2">
+            <span className="min-w-0">
+              <span id="admin-security-alerts-label" className="block text-xs font-semibold text-foreground">
                 Alertas de Fraude & Bloqueio Preventivo
               </span>
-              <span className="text-[11px] text-muted-foreground">
+              <span id="admin-security-alerts-description" className="text-[11px] text-muted-foreground">
                 Avisa em caso de inconsistência de IP, erro repetido de PIN ou bloqueio judicial MED.
               </span>
-            </div>
-            <input
-              type="checkbox"
+            </span>
+            <Checkbox
+              aria-labelledby="admin-security-alerts-label"
+              aria-describedby="admin-security-alerts-description"
               checked={notifySecurityAlerts}
               onChange={(e) => setNotifySecurityAlerts(e.target.checked)}
-              className="h-4 w-4 rounded accent-primary bg-background border-border"
             />
-          </div>
+          </label>
         </CardContent>
       </Card>
 
@@ -120,35 +122,41 @@ export default function AdminPreferenciasPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">
+              <label htmlFor="admin-session-timeout" className="text-xs font-medium text-foreground">
                 Tempo Limite de Inatividade (Minutos)
               </label>
-              <select
-                value={sessionTimeout}
-                onChange={(e) => setSessionTimeout(e.target.value)}
-                className="w-full h-8 text-xs bg-background border border-border rounded-md px-2 text-foreground"
-              >
-                <option value="15">15 minutos</option>
-                <option value="30">30 minutos (Recomendado)</option>
-                <option value="60">60 minutos</option>
-                <option value="120">2 horas</option>
-              </select>
+              <Select value={sessionTimeout} onValueChange={setSessionTimeout}>
+                <SelectTrigger id="admin-session-timeout" className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="15">15 minutos</SelectItem>
+                    <SelectItem value="30">30 minutos (Recomendado)</SelectItem>
+                    <SelectItem value="60">60 minutos</SelectItem>
+                    <SelectItem value="120">2 horas</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">
+              <label htmlFor="admin-auto-refresh-interval" className="text-xs font-medium text-foreground">
                 Atualização Automática dos Feeds (Live Polling)
               </label>
-              <select
-                value={autoRefreshInterval}
-                onChange={(e) => setAutoRefreshInterval(e.target.value)}
-                className="w-full h-8 text-xs bg-background border border-border rounded-md px-2 text-foreground"
-              >
-                <option value="10">A cada 10 segundos</option>
-                <option value="30">A cada 30 segundos</option>
-                <option value="60">A cada 1 minuto</option>
-                <option value="manual">Apenas manual</option>
-              </select>
+              <Select value={autoRefreshInterval} onValueChange={setAutoRefreshInterval}>
+                <SelectTrigger id="admin-auto-refresh-interval" className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="10">A cada 10 segundos</SelectItem>
+                    <SelectItem value="30">A cada 30 segundos</SelectItem>
+                    <SelectItem value="60">A cada 1 minuto</SelectItem>
+                    <SelectItem value="manual">Apenas manual</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>

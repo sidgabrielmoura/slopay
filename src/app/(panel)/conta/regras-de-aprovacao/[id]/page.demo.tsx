@@ -2,7 +2,7 @@ import { RuleFormScreen } from "@/features/approval-rules/components/rule-form-s
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Editar Regra de Aprovação",
+  title: "Regra de aprovação",
 };
 
 interface PageProps {

@@ -27,10 +27,14 @@ import type {
 import type {
   IGatewayService,
   TransactionFilterParams,
+  UserListFilters,
   PaginatedResult,
   OverviewMetrics,
-  AnalyticsMetrics,
 } from "@/services/contracts";
+import { demoIndicators } from "@/features/analytics/demo-indicators";
+import type { IndicatorPeriod } from "@/features/analytics/indicators";
+import { approvalRuleError, findApplicableApprovalRule, isEligibleApprover } from "@/features/approval-rules/approval-rules";
+import { webhookError } from "@/features/webhooks/webhooks";
 import {
   initialAccount,
   initialUsers,
@@ -64,6 +68,14 @@ function broadcastSync(event: string, payload?: unknown) {
       // Ignora erro de postMessage silenciosamente
     }
   }
+}
+
+function copyApprovalRule(rule: ApprovalRule): ApprovalRule {
+  return { ...rule, eligibleApproverIds: [...rule.eligibleApproverIds] };
+}
+
+function copyWebhook(webhook: WebhookConfig): WebhookConfig {
+  return { ...webhook, eventTypes: webhook.eventTypes?.slice(), headers: webhook.headers.map((header) => ({ ...header })) };
 }
 
 export class DemoRepository implements IGatewayService {
@@ -198,12 +210,12 @@ export class DemoRepository implements IGatewayService {
     return { ...this.account };
   }
 
-  async updateProfile(phone: string): Promise<{ success: boolean; phone: string }> {
+  async updateProfile(phone: string, expectedUserId: string): Promise<{ success: boolean; phone: string }> {
     await this.delay(120);
-    const titular = this.users.find((u) => u.role === "TITULAR");
-    if (titular) {
-      titular.phone = phone;
-    }
+    if (this.currentUser.id !== expectedUserId) throw new Error("A conta da sessão mudou. Recarregue o perfil.");
+    this.currentUser = { ...this.currentUser, phone };
+    const user = this.users.find((item) => item.id === expectedUserId);
+    if (user) user.phone = phone;
     return { success: true, phone };
   }
 
@@ -294,115 +306,9 @@ export class DemoRepository implements IGatewayService {
     };
   }
 
-  async getAnalytics(period?: string): Promise<AnalyticsMetrics> {
+  async getAnalytics(period: IndicatorPeriod) {
     await this.delay(100);
-
-    const inflows = this.transactions.filter(
-      (t) => t.direction === "IN" && t.status === "COMPLETED"
-    );
-    const outflows = this.transactions.filter(
-      (t) => t.direction === "OUT" && t.status === "COMPLETED"
-    );
-
-    const inflowsVolumeInCents = inflows.reduce(
-      (acc, t) => acc + t.amountInCents,
-      0
-    );
-    const inflowsCount = inflows.length;
-    const inflowsAverageTicketInCents =
-      inflowsCount > 0 ? Math.round(inflowsVolumeInCents / inflowsCount) : 0;
-    const inflowsMinTicketInCents =
-      inflowsCount > 0 ? Math.min(...inflows.map((t) => t.amountInCents)) : 0;
-    const inflowsMaxTicketInCents =
-      inflowsCount > 0 ? Math.max(...inflows.map((t) => t.amountInCents)) : 0;
-
-    const outflowsVolumeInCents = outflows.reduce(
-      (acc, t) => acc + t.amountInCents,
-      0
-    );
-    const outflowsCount = outflows.length;
-    const outflowsAverageTicketInCents =
-      outflowsCount > 0 ? Math.round(outflowsVolumeInCents / outflowsCount) : 0;
-    const outflowsMinTicketInCents =
-      outflowsCount > 0 ? Math.min(...outflows.map((t) => t.amountInCents)) : 0;
-    const outflowsMaxTicketInCents =
-      outflowsCount > 0 ? Math.max(...outflows.map((t) => t.amountInCents)) : 0;
-
-    const chargesGeneratedCount = this.charges.length;
-    const chargesPaidCount = this.charges.filter(
-      (c) => c.status === "PAID"
-    ).length;
-    const conversionRate =
-      chargesGeneratedCount > 0
-        ? Math.round((chargesPaidCount / chargesGeneratedCount) * 1000) / 10
-        : 0;
-
-    const apiOutflows = outflows.filter((t) => t.origin === "API");
-    const panelOutflows = outflows.filter((t) => t.origin === "PANEL");
-
-    return {
-      period: period ?? "today",
-      inflowsVolumeInCents,
-      inflowsCount,
-      inflowsAverageTicketInCents,
-      inflowsMinTicketInCents,
-      inflowsMaxTicketInCents,
-      outflowsVolumeInCents,
-      outflowsCount,
-      outflowsAverageTicketInCents,
-      outflowsMinTicketInCents,
-      outflowsMaxTicketInCents,
-      conversionRate,
-      chargesGeneratedCount,
-      chargesPaidCount,
-      outflowsByOrigin: {
-        apiVolumeInCents: apiOutflows.reduce((acc, t) => acc + t.amountInCents, 0),
-        apiCount: apiOutflows.length,
-        panelVolumeInCents: panelOutflows.reduce(
-          (acc, t) => acc + t.amountInCents,
-          0
-        ),
-        panelCount: panelOutflows.length,
-      },
-      temporalSeries: [
-        {
-          date: "01/Set",
-          inflowsAmountInCents: 1200000,
-          outflowsAmountInCents: 400000,
-          inflowsCount: 18,
-          outflowsCount: 4,
-        },
-        {
-          date: "05/Set",
-          inflowsAmountInCents: 1850000,
-          outflowsAmountInCents: 650000,
-          inflowsCount: 26,
-          outflowsCount: 7,
-        },
-        {
-          date: "10/Set",
-          inflowsAmountInCents: 2400000,
-          outflowsAmountInCents: 900000,
-          inflowsCount: 34,
-          outflowsCount: 9,
-        },
-        {
-          date: "15/Set",
-          inflowsAmountInCents: 3100000,
-          outflowsAmountInCents: 1250000,
-          inflowsCount: 41,
-          outflowsCount: 12,
-        },
-      ],
-      monthlyComparison: [
-        { month: "Abr", inflowsInCents: 4200000, outflowsInCents: 2100000 },
-        { month: "Mai", inflowsInCents: 5800000, outflowsInCents: 3200000 },
-        { month: "Jun", inflowsInCents: 6400000, outflowsInCents: 4100000 },
-        { month: "Jul", inflowsInCents: 7900000, outflowsInCents: 4800000 },
-        { month: "Ago", inflowsInCents: 8600000, outflowsInCents: 5400000 },
-        { month: "Set", inflowsInCents: 9200000, outflowsInCents: 5900000 },
-      ],
-    };
+    return demoIndicators(period, demoClock.now(), this.transactions, this.charges);
   }
 
   // --- MOVIMENTAÇÕES & EXTRATO ---
@@ -706,12 +612,10 @@ export class DemoRepository implements IGatewayService {
     const txId = `tx_wd_${Date.now().toString(36)}`;
     const nowIso = demoClock.now().toISOString();
 
-    // Verifica regras de aprovação (a partir de R$ 5.000,00)
-    const applicableRule = this.approvalRules.find(
-      (r) => r.active && params.amountInCents >= r.minAmountInCents
-    );
+    const applicableRule = findApplicableApprovalRule(this.approvalRules, params.amountInCents);
 
     if (applicableRule) {
+      this.ensureApprovalQuorum(applicableRule);
       const approvalId = `appr_${Date.now().toString(36)}`;
       const approvalReq: ApprovalRequest = {
         id: approvalId,
@@ -724,7 +628,7 @@ export class DemoRepository implements IGatewayService {
         counterpartyKey: params.key,
         requesterId: "usr_1",
         requesterName: "Ana Silva",
-        ruleSnapshot: applicableRule,
+        ruleSnapshot: copyApprovalRule(applicableRule),
         requiredApprovals: applicableRule.requiredApprovalsCount,
         currentApprovalsCount: 0,
         decisions: [],
@@ -855,6 +759,10 @@ export class DemoRepository implements IGatewayService {
       throw new Error("O valor mínimo para saques em lote é de R$ 30.000,00.");
     }
 
+    const rule = findApplicableApprovalRule(this.approvalRules, params.totalAmountInCents);
+    if (!rule) throw new Error("O lote precisa de uma regra de aprovação ativa que cubra seu valor.");
+    this.ensureApprovalQuorum(rule);
+
     const partitions = partitionBatchInstallments(params.totalAmountInCents);
     let totalFee = 0;
     const installments = partitions.map((partAmount, idx) => {
@@ -898,8 +806,6 @@ export class DemoRepository implements IGatewayService {
       createdAt: nowIso,
     };
 
-    // Cria requisição de aprovação (lotes sempre ultrapassam R$ 5k)
-    const rule = this.approvalRules[0];
     const approvalId = `appr_${batchId}`;
     const approvalReq: ApprovalRequest = {
       id: approvalId,
@@ -912,7 +818,7 @@ export class DemoRepository implements IGatewayService {
       counterpartyKey: batch.targetKey,
       requesterId: "usr_1",
       requesterName: "Ana Silva",
-      ruleSnapshot: rule,
+      ruleSnapshot: copyApprovalRule(rule),
       requiredApprovals: rule.requiredApprovalsCount,
       currentApprovalsCount: 0,
       decisions: [],
@@ -945,14 +851,42 @@ export class DemoRepository implements IGatewayService {
     return { data, total: data.length, pendingCount };
   }
 
-  async getApprovalById(id: string): Promise<ApprovalRequest | null> {
+  async getApprovalById(id: string) {
     await this.delay(50);
-    const a = this.approvals.find((item) => item.id === id);
-    return a ? { ...a } : null;
+    const request = this.approvals.find((item) => item.id === id);
+    if (!request) return null;
+    const next = request.status === "PENDING" ? this.nextDemoApprover(request) : undefined;
+    return {
+      ...request,
+      decisions: [...request.decisions],
+      ruleSnapshot: copyApprovalRule(request.ruleSnapshot),
+      nextApprover: next ? { id: next.id, name: next.name } : null,
+    };
+  }
+
+  private nextDemoApprover(request: ApprovalRequest) {
+    const voted = new Set(request.decisions.map((decision) => decision.userId));
+    const remaining = request.ruleSnapshot.eligibleApproverIds.filter((id) => !voted.has(id));
+    const candidates = request.ruleSnapshot.ruleType === "SEQUENTIAL" ? remaining.slice(0, 1) : remaining;
+    for (const id of candidates) {
+      const user = this.users.find((item) => item.id === id);
+      if (user && isEligibleApprover(user)) return user;
+    }
+  }
+
+  private ensureApprovalQuorum(rule: ApprovalRule) {
+    const approvers = rule.ruleType === "SEQUENTIAL"
+      ? rule.eligibleApproverIds.slice(0, rule.requiredApprovalsCount)
+      : rule.eligibleApproverIds;
+    const availableIds = new Set(this.users.filter(isEligibleApprover).map((user) => user.id));
+    if (new Set(approvers.filter((id) => availableIds.has(id))).size < rule.requiredApprovalsCount) {
+      throw new Error("A regra de aprovação não tem aprovadores disponíveis para atingir o quórum.");
+    }
   }
 
   async decideApproval(params: {
     requestId: string;
+    approverId: string;
     decision: "APPROVE" | "REJECT";
     reason?: string;
   }): Promise<ApprovalRequest> {
@@ -971,8 +905,11 @@ export class DemoRepository implements IGatewayService {
       throw new Error("Esta solicitação já foi concluída anteriormente.");
     }
 
-    // Registra decisão (usando usuário autenticado da demo: Beatriz Lima - usr_3 ou Daniela - usr_4)
-    const decider = this.users.find((u) => u.id === "usr_3")!;
+    const decider = this.nextDemoApprover(req);
+    if (!decider || params.approverId !== decider.id) {
+      throw new Error("O aprovador desta etapa mudou. Confira a solicitação e tente novamente.");
+    }
+    if (params.decision === "REJECT" && !params.reason?.trim()) throw new Error("Informe o motivo da recusa.");
     req.decisions.push({
       userId: decider.id,
       userName: decider.name,
@@ -1001,9 +938,9 @@ export class DemoRepository implements IGatewayService {
     }
 
     // Se aprovado, incrementa contador
-    req.currentApprovalsCount = req.decisions.filter(
-      (d) => d.decision === "APPROVE"
-    ).length;
+    req.currentApprovalsCount = new Set(
+      req.decisions.filter((decision) => decision.decision === "APPROVE").map((decision) => decision.userId),
+    ).size;
 
     if (req.currentApprovalsCount >= req.requiredApprovals) {
       req.status = "APPROVED";
@@ -1091,7 +1028,14 @@ export class DemoRepository implements IGatewayService {
   // --- REGRAS DE APROVAÇÃO ---
   async getApprovalRules(): Promise<ApprovalRule[]> {
     await this.delay(50);
-    return [...this.approvalRules];
+    return this.approvalRules.map(copyApprovalRule);
+  }
+
+  async getApprovalRuleMembers() {
+    await this.delay(40);
+    return this.users.map((user) => ({
+      id: user.id, name: user.name, role: user.role, eligible: isEligibleApprover(user),
+    }));
   }
 
   async createApprovalRule(
@@ -1101,13 +1045,15 @@ export class DemoRepository implements IGatewayService {
     if (this.activeScenario === "READONLY") {
       throw new Error("Operação bloqueada: o perfil atual (Consulta) possui apenas permissão de leitura.");
     }
-    const newRule: ApprovalRule = {
+    const newRule = copyApprovalRule({
       ...rule,
-      id: `rule_${Date.now().toString(36)}`,
+      name: rule.name.trim(),
+      id: `rule_${crypto.randomUUID()}`,
       createdAt: demoClock.now().toISOString(),
-    };
+    });
+    this.validateApprovalRule(newRule);
     this.approvalRules.push(newRule);
-    return newRule;
+    return copyApprovalRule(newRule);
   }
 
   async updateApprovalRule(
@@ -1120,8 +1066,22 @@ export class DemoRepository implements IGatewayService {
     }
     const rule = this.approvalRules.find((r) => r.id === id);
     if (!rule) throw new Error("Regra não encontrada");
-    Object.assign(rule, ruleUpdate);
-    return { ...rule };
+    const updated = copyApprovalRule({ ...rule, ...ruleUpdate, id: rule.id, createdAt: rule.createdAt });
+    updated.name = updated.name.trim();
+    this.validateApprovalRule(updated);
+    this.approvalRules = this.approvalRules.map((item) => item.id === id ? updated : item);
+    return copyApprovalRule(updated);
+  }
+
+  private validateApprovalRule(rule: ApprovalRule) {
+    const error = approvalRuleError(rule);
+    if (error) throw new Error(error.message);
+    if (rule.active) {
+      const availableIds = new Set(this.users.filter(isEligibleApprover).map((user) => user.id));
+      if (rule.eligibleApproverIds.some((id) => !availableIds.has(id))) {
+        throw new Error("Retire os aprovadores que não têm mais permissão para decidir.");
+      }
+    }
   }
 
   async deleteApprovalRule(id: string): Promise<boolean> {
@@ -1129,18 +1089,17 @@ export class DemoRepository implements IGatewayService {
     if (this.activeScenario === "READONLY") {
       throw new Error("Operação bloqueada: o perfil atual (Consulta) possui apenas permissão de leitura.");
     }
+    const total = this.approvalRules.length;
     this.approvalRules = this.approvalRules.filter((r) => r.id !== id);
-    return true;
+    return this.approvalRules.length < total;
   }
 
   // --- USUÁRIOS ---
-  async getUsers(filters?: {
-    search?: string;
-    page?: number;
-    pageSize?: number;
-  }): Promise<PaginatedResult<User>> {
+  async getUsers(filters?: UserListFilters): Promise<PaginatedResult<User>> {
     await this.delay(60);
-    let result = [...this.users];
+    let result = this.users.filter((user) =>
+      (!filters?.role || user.role === filters.role) && (!filters?.status || user.status === filters.status),
+    );
     if (filters?.search) {
       const q = filters.search.toLowerCase();
       result = result.filter(
@@ -1150,13 +1109,13 @@ export class DemoRepository implements IGatewayService {
           u.document.includes(q)
       );
     }
-    const page = filters?.page ?? 1;
     const pageSize = filters?.pageSize ?? 10;
     const total = result.length;
     const totalPages = Math.ceil(total / pageSize) || 1;
+    const page = Math.min(filters?.page ?? 1, totalPages);
     const startIndex = (page - 1) * pageSize;
     const data = result.slice(startIndex, startIndex + pageSize);
-    return { data, total, page, pageSize, totalPages };
+    return { data: data.map((user) => ({ ...user })), total, page, pageSize, totalPages };
   }
 
   async getUserById(id: string): Promise<User | null> {
@@ -1189,8 +1148,10 @@ export class DemoRepository implements IGatewayService {
     }
     const u = this.users.find((user) => user.id === id);
     if (!u) throw new Error("Usuário não encontrado");
-    Object.assign(u, userUpdate);
-    return { ...u };
+    const updated = { ...u, ...userUpdate };
+    if (updated.role !== "TITULAR" || updated.status !== "ACTIVE") this.ensureActiveOwnerRemains(u);
+    this.users = this.users.map((user) => user.id === id ? updated : user);
+    return { ...updated };
   }
 
   async deleteUser(id: string): Promise<boolean> {
@@ -1201,24 +1162,23 @@ export class DemoRepository implements IGatewayService {
     const user = this.users.find((u) => u.id === id);
     if (!user) return false;
 
-    // Impede remover o último titular
-    if (user.role === "TITULAR") {
-      const titulars = this.users.filter((u) => u.role === "TITULAR");
-      if (titulars.length <= 1) {
-        throw new Error(
-          "Não é possível remover o único usuário Titular da conta."
-        );
-      }
-    }
-
+    this.ensureActiveOwnerRemains(user);
     this.users = this.users.filter((u) => u.id !== id);
     return true;
+  }
+
+  private ensureActiveOwnerRemains(user: User) {
+    if (user.role !== "TITULAR" || user.status !== "ACTIVE") return;
+    const anotherOwner = this.users.some((item) =>
+      item.id !== user.id && item.role === "TITULAR" && item.status === "ACTIVE",
+    );
+    if (!anotherOwner) throw new Error("A conta precisa manter pelo menos um titular ativo.");
   }
 
   // --- WEBHOOKS ---
   async getWebhooks(): Promise<WebhookConfig[]> {
     await this.delay(50);
-    return [...this.webhooks];
+    return this.webhooks.map(copyWebhook);
   }
 
   async createWebhook(
@@ -1228,13 +1188,16 @@ export class DemoRepository implements IGatewayService {
     if (this.activeScenario === "READONLY") {
       throw new Error("Operação bloqueada: o perfil atual (Consulta) possui apenas permissão de leitura.");
     }
-    const newWh: WebhookConfig = {
+    const issue = webhookError(webhook);
+    if (issue) throw new Error(issue.message);
+    const newWh = copyWebhook({
       ...webhook,
-      id: `wh_${Date.now().toString(36)}`,
+      url: webhook.url.trim(),
+      id: `wh_${crypto.randomUUID()}`,
       createdAt: demoClock.now().toISOString(),
-    };
+    });
     this.webhooks.push(newWh);
-    return newWh;
+    return copyWebhook(newWh);
   }
 
   async updateWebhook(
@@ -1247,8 +1210,12 @@ export class DemoRepository implements IGatewayService {
     }
     const wh = this.webhooks.find((item) => item.id === id);
     if (!wh) throw new Error("Webhook não encontrado");
-    Object.assign(wh, webhookUpdate);
-    return { ...wh };
+    const updated = copyWebhook({ ...wh, ...webhookUpdate, id: wh.id, createdAt: wh.createdAt });
+    const issue = webhookError(updated);
+    if (issue) throw new Error(issue.message);
+    updated.url = updated.url.trim();
+    this.webhooks = this.webhooks.map((item) => item.id === id ? updated : item);
+    return copyWebhook(updated);
   }
 
   async deleteWebhook(id: string): Promise<boolean> {
@@ -1256,8 +1223,9 @@ export class DemoRepository implements IGatewayService {
     if (this.activeScenario === "READONLY") {
       throw new Error("Operação bloqueada: o perfil atual (Consulta) possui apenas permissão de leitura.");
     }
+    const total = this.webhooks.length;
     this.webhooks = this.webhooks.filter((wh) => wh.id !== id);
-    return true;
+    return this.webhooks.length < total;
   }
 
   // --- NOTIFICAÇÕES & SEGURANÇA ---
@@ -1267,12 +1235,13 @@ export class DemoRepository implements IGatewayService {
   }
 
   async markNotificationAsRead(id: string): Promise<void> {
-    const notif = this.notifications.find((n) => n.id === id);
-    if (notif) notif.read = true;
+    this.notifications = this.notifications.map((notice) =>
+      notice.id === id && !notice.read ? { ...notice, read: true } : notice,
+    );
   }
 
   async markAllNotificationsAsRead(): Promise<void> {
-    this.notifications.forEach((n) => (n.read = true));
+    this.notifications = this.notifications.map((notice) => notice.read ? notice : { ...notice, read: true });
   }
 
   async getSecurityEvents(): Promise<SecurityEvent[]> {

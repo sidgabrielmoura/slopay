@@ -38,7 +38,7 @@ export function CompanyCombobox({
         Empresa / Credenciado
       </span>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-9 min-w-[220px] max-w-[300px] bg-card border-border text-xs text-foreground">
+        <SelectTrigger aria-label="Empresa ou credenciado" className="h-9 min-w-[220px] max-w-[300px] bg-card border-border text-xs text-foreground">
           <Building2 className="size-3.5 mr-2 text-muted-foreground shrink-0" />
           <SelectValue placeholder="Todas as empresas" />
         </SelectTrigger>
@@ -49,13 +49,8 @@ export function CompanyCombobox({
             </SelectItem>
           )}
           {companies.map((c) => (
-            <SelectItem key={c.id} value={c.id} className="text-xs py-2">
-              <div className="flex flex-col text-left">
-                <span className="font-medium text-foreground">{c.tradeName}</span>
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  {c.cnpjMasked} · {c.legalName.substring(0, 24)}...
-                </span>
-              </div>
+            <SelectItem key={c.id} value={c.id} textValue={c.tradeName}>
+              {c.tradeName} · {c.cnpjMasked} · {c.legalName}
             </SelectItem>
           ))}
         </SelectContent>

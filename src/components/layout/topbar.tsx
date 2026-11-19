@@ -4,11 +4,9 @@ import React, { useState } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Bell,
   Eye,
   EyeOff,
   Search,
-  Check,
   User,
   ShieldCheck,
   HelpCircle,
@@ -31,15 +29,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { CommandSearch } from "@/components/shared/command-search";
 import { ScenarioSwitcher } from "@/components/shared/scenario-switcher";
-import { formatDateTime } from "@/lib/dates";
 import { useDemoScenario } from "@/providers/demo-provider";
+import { PanelTopbarFrame } from "./panel-frame";
+import { DashboardNotifications } from "./dashboard-notifications";
 
 export function Topbar() {
   const router = useRouter();
@@ -61,10 +55,8 @@ export function Topbar() {
     },
   });
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
   return (
-    <header className="h-16 border-b border-border bg-card/70 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-3 sticky top-0 z-40 shrink-0">
+    <PanelTopbarFrame>
       {/* Esquerda: Identificação da Empresa & Badge de Demonstração */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex flex-col min-w-0">
@@ -118,71 +110,11 @@ export function Topbar() {
           <ScenarioSwitcher />
         </div>
 
-        {/* Notificações Popover */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="iconSm"
-              className="size-9 relative border-border/80 text-muted-foreground hover:text-foreground"
-              aria-label="Notificações"
-            >
-              <Bell className="size-4" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
-                  {unreadCount}
-                </span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-80 p-0 shadow-xl border-border bg-card">
-            <div className="p-3 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground">
-                  Notificações
-                </span>
-                {unreadCount > 0 && (
-                  <span className="text-[10px] bg-primary/20 text-primary border border-primary/40 px-1.5 py-0.2 rounded-full font-semibold">
-                    {unreadCount} novas
-                  </span>
-                )}
-              </div>
-              {unreadCount > 0 && (
-                <button
-                  onClick={() => markAllMutation.mutate()}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                >
-                  <Check className="size-3" />
-                  Marcar lidas
-                </button>
-              )}
-            </div>
-            <div className="max-h-72 overflow-y-auto divide-y divide-border/60">
-              {notifications.length === 0 ? (
-                <p className="py-8 text-center text-xs text-muted-foreground">
-                  Nenhuma notificação recente.
-                </p>
-              ) : (
-                notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className={`p-3 text-xs space-y-1 transition-colors ${
-                      !n.read ? "bg-muted/40" : ""
-                    }`}
-                  >
-                    <p className="font-semibold text-foreground">{n.title}</p>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {n.message}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground/70">
-                      {formatDateTime(n.createdAt, "short")}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+        <DashboardNotifications
+          otherNotices={notifications}
+          markingOther={markAllMutation.isPending}
+          onReadOther={() => markAllMutation.mutate()}
+        />
 
         {/* Menu do Usuário */}
         <DropdownMenu>
@@ -271,6 +203,6 @@ export function Topbar() {
       </div>
 
       <CommandSearch open={searchOpen} onOpenChange={setSearchOpen} />
-    </header>
+    </PanelTopbarFrame>
   );
 }

@@ -165,7 +165,7 @@ export type FullOnboardingFormData = z.infer<typeof fullOnboardingSchema>;
 
 /**
  * Validador síncrono de etapas parciais usando os schemas específicos do Zod.
- * Aplica os erros diretamente no formState do react-hook-form para exibição em tela.
+ * Registra os erros dos campos e retorna a primeira mensagem para a notificação.
  */
 export function validateStepWithSchema(
   schema: z.ZodTypeAny,
@@ -173,7 +173,7 @@ export function validateStepWithSchema(
   setError: (field: any, error: { type: string; message: string }) => void,
   clearErrors: (fields?: any) => void,
   fieldKeys: string[]
-): boolean {
+): string | null {
   clearErrors(fieldKeys as any);
   const result = schema.safeParse(data);
   if (!result.success) {
@@ -186,7 +186,7 @@ export function validateStepWithSchema(
         });
       }
     });
-    return false;
+    return result.error.issues[0]?.message ?? "Confira os dados informados.";
   }
-  return true;
+  return null;
 }

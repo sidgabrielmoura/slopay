@@ -1,8 +1,8 @@
 import { ProfileScreen } from "@/features/account/components/profile-screen";
 
 export const metadata = {
-  title: "Perfil da Conta · SloPay",
-  description: "Dados cadastrais da empresa e dados do operador na sessão.",
+  title: "Perfil",
+  description: "Dados de acesso e telefone de contato.",
 };
 
 export default function PerfilPage() {

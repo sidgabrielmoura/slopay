@@ -1,7 +1,7 @@
 import { UsersListScreen } from "@/features/users/components/users-list-screen";
 
 export const metadata = {
-  title: "Gestão de Usuários · SloPay",
+  title: "Usuários",
   description: "Controle de colaboradores, permissões e perfis de acesso.",
 };
 

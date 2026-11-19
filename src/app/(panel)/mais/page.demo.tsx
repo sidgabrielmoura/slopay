@@ -16,11 +16,11 @@ import {
   Users2,
   Lock,
   Building2,
-  Webhook,
   Sliders,
   HelpCircle,
   ChevronRight,
 } from "lucide-react";
+import { integrationsItem } from "@/features/integrations/navigation";
 import { ScenarioSwitcher } from "@/components/shared/scenario-switcher";
 
 export default function MaisPage() {
@@ -105,10 +105,10 @@ export default function MaisPage() {
           desc: "Autenticação em dois fatores e PIN de operações",
         },
         {
-          href: "/integracoes/webhooks",
-          icon: Webhook,
-          title: "Webhooks HTTP",
-          desc: "Notificações em tempo real para seu backend",
+          href: integrationsItem.path,
+          icon: integrationsItem.icon,
+          title: integrationsItem.title,
+          desc: "Chaves de API, segurança, webhooks e logs",
         },
       ],
     },

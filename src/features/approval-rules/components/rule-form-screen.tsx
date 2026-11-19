@@ -1,336 +1,301 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import NextLink from "next/link";
-import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGatewayService } from "@/providers/demo-provider";
-import { queryKeys } from "@/lib/query-keys";
-import { formatCentsToBrl } from "@/lib/money";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { CurrencyInput } from "@/components/ui/currency-input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, GitBranch, Check, Loader2 } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowDown, ArrowLeft, ArrowUp, GitBranch, Save } from "lucide-react";
 import { toast } from "sonner";
-import type { ApprovalRuleType } from "@/types/domain";
+import { PanelAmount } from "@/components/layout/panel-privacy";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { Empty } from "@/components/ui/empty";
+import { GlideSelect } from "@/components/ui/glide-select";
+import { Input } from "@/components/ui/input";
+import { LoadingConfirmation, LoadingIndicator, OperationFailure } from "@/components/ui/loading-indicator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { demoPolicy } from "@/config/demo-policy.config";
+import { queryKeys } from "@/lib/query-keys";
+import { useDemoScenario, useGatewayService } from "@/providers/demo-provider";
+import { userRoles } from "@/features/users/user-access";
+import type { ApprovalRule, ApprovalRuleType } from "@/types/domain";
+import {
+  approvalRuleError, approvalRuleTypes, approvalRulesPath, maxRequiredApprovals,
+  type ApprovalRuleMember, type ApprovalRuleValues,
+} from "../approval-rules";
+
+const typeOptions = Object.entries(approvalRuleTypes).map(([value, { label }]) => ({ value, label }));
+const initialValues: ApprovalRuleValues = {
+  name: "",
+  minAmountInCents: demoPolicy.defaultApprovalThresholdInCents,
+  ruleType: "PARALLEL",
+  eligibleApproverIds: [],
+  requiredApprovalsCount: demoPolicy.defaultRequiredApproversCount,
+  active: true,
+};
+
+function BackToRules() {
+  return (
+    <Button asChild variant="ghost" className="h-11 justify-self-start">
+      <Link href={approvalRulesPath} prefetch={false}><ArrowLeft aria-hidden="true" /> Voltar às regras</Link>
+    </Button>
+  );
+}
 
 export function RuleFormScreen({ ruleId }: { ruleId?: string }) {
-  const router = useRouter();
+  const service = useGatewayService();
+  const { isReadOnly, activeScenario } = useDemoScenario();
+  const rules = useQuery({
+    queryKey: queryKeys.approvalRules(),
+    queryFn: () => service.getApprovalRules(),
+    enabled: Boolean(ruleId),
+  });
+  const members = useQuery({
+    queryKey: queryKeys.users({ purpose: "approval-rules" }),
+    queryFn: () => service.getApprovalRuleMembers(),
+  });
+  const rule = ruleId ? rules.data?.find((item) => item.id === ruleId) : undefined;
+
+  if (members.isPending || (ruleId && rules.isPending)) {
+    return (
+      <div aria-busy="true" aria-label="Carregando configuração da regra" className="grid max-w-5xl gap-5">
+        <BackToRules />
+        <Skeleton className="h-8 w-52 max-w-full" />
+        <Card className="grid gap-4 p-5 sm:grid-cols-2">
+          {[0, 1].map((index) => (
+            <div key={index} aria-hidden="true" className="grid gap-2">
+              <Skeleton className="h-4 w-24" /><Skeleton className="h-11 w-full" />
+            </div>
+          ))}
+        </Card>
+      </div>
+    );
+  }
+  if (members.isError || (ruleId && rules.isError)) {
+    return (
+      <div className="grid max-w-5xl justify-items-start gap-4">
+        <BackToRules />
+        <OperationFailure message="Não foi possível carregar a configuração da regra." animate={false} />
+        <Button type="button" variant="outline" className="h-11" onClick={() => {
+          void members.refetch();
+          if (ruleId) void rules.refetch();
+        }}>Tentar novamente</Button>
+      </div>
+    );
+  }
+  if ((ruleId && !rule) || (!ruleId && isReadOnly)) {
+    return <Empty icon={<GitBranch aria-hidden="true" />}
+      title={ruleId ? "Regra não encontrada" : "Perfil de consulta"}
+      description={ruleId ? undefined : "Seu perfil permite consultar as regras existentes."}
+      action={<BackToRules />} />;
+  }
+  return <RuleForm key={`${activeScenario}:${ruleId ?? "nova"}`} rule={rule} members={members.data} readOnly={isReadOnly} />;
+}
+
+function RuleForm({ rule, members, readOnly }: {
+  rule?: ApprovalRule;
+  members: ApprovalRuleMember[];
+  readOnly: boolean;
+}) {
   const service = useGatewayService();
   const queryClient = useQueryClient();
-
-  const isEditing = Boolean(ruleId);
-
-  const [name, setName] = useState("");
-  const [minAmountInCents, setMinAmountInCents] = useState<number>(500000); // R$ 5k padrão
-  const [ruleType, setRuleType] = useState<ApprovalRuleType>("PARALLEL");
-  const [eligibleApproverIds, setEligibleApproverIds] = useState<string[]>([]);
-  const [requiredApprovalsCount, setRequiredApprovalsCount] = useState<number>(2);
-  const [active, setActive] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-
-  const { data: usersData } = useQuery({
-    queryKey: queryKeys.users(),
-    queryFn: () => service.getUsers(),
-  });
-
-  const { data: existingRule, isLoading: loadingRule } = useQuery({
-    queryKey: queryKeys.approvalRule(ruleId || ""),
-    queryFn: async () => {
-      if (!ruleId) return null;
-      const rules = await service.getApprovalRules();
-      return rules.find((r) => r.id === ruleId) || null;
+  const [draft, setDraft] = useState<ApprovalRuleValues>(rule ?? initialValues);
+  const [invalid, setInvalid] = useState<"name" | "amount" | "type" | "approvers" | "quorum">();
+  const ids = draft.eligibleApproverIds;
+  const ordered = draft.ruleType === "SEQUENTIAL";
+  const memberById = new Map(members.map((member) => [member.id, member]));
+  const selected = ids.map((id) => memberById.get(id) ?? { id, name: "Usuário removido", role: null, eligible: false });
+  const choices = [...selected, ...members.filter((member) => member.eligible && !ids.includes(member.id))];
+  const quorumLimit = Math.min(ids.length, maxRequiredApprovals);
+  const quorumOptions = Array.from({ length: quorumLimit }, (_, index) => ({
+    value: String(index + 1), label: index === 0 ? "1 aprovação" : `${index + 1} aprovações`,
+  }));
+  const quorumValid = draft.requiredApprovalsCount >= 1 && draft.requiredApprovalsCount <= quorumLimit;
+  const save = useMutation({
+    mutationFn: (values: ApprovalRuleValues) => rule
+      ? service.updateApprovalRule(rule.id, values)
+      : service.createApprovalRule(values),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.approvalRules() });
     },
-    enabled: isEditing,
   });
+  const locked = readOnly || save.isPending;
 
-  useEffect(() => {
-    if (existingRule) {
-      setName(existingRule.name);
-      setMinAmountInCents(existingRule.minAmountInCents);
-      setRuleType(existingRule.ruleType);
-      setEligibleApproverIds(existingRule.eligibleApproverIds);
-      setRequiredApprovalsCount(existingRule.requiredApprovalsCount);
-      setActive(existingRule.active);
-    }
-  }, [existingRule]);
+  function update<K extends keyof ApprovalRuleValues>(key: K, value: ApprovalRuleValues[K]) {
+    setDraft((current) => ({ ...current, [key]: value }));
+    setInvalid(undefined);
+    if (save.isError) save.reset();
+  }
 
-  // Filtra apenas usuários elegíveis para aprovação (Aprovador ou Titular)
-  const eligibleUsers = (usersData?.data ?? []).filter(
-    (u) => u.role === "APROVADOR" || u.role === "TITULAR"
-  );
+  function move(index: number, delta: -1 | 1) {
+    if (locked) return;
+    const orderedIds = [...ids];
+    const next = index + delta;
+    if (next < 0 || next >= orderedIds.length) return;
+    [orderedIds[index], orderedIds[next]] = [orderedIds[next], orderedIds[index]];
+    update("eligibleApproverIds", orderedIds);
+  }
 
-  const toggleApprover = (userId: string) => {
-    if (eligibleApproverIds.includes(userId)) {
-      setEligibleApproverIds(eligibleApproverIds.filter((id) => id !== userId));
-    } else {
-      setEligibleApproverIds([...eligibleApproverIds, userId]);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!name.trim()) {
-      toast.error("Informe um nome para a regra de aprovação.");
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (locked || save.isSuccess) return;
+    const unavailable = draft.active && selected.some((member) => !member.eligible);
+    const issue = approvalRuleError(draft) ?? (unavailable
+      ? { field: "approvers" as const, message: "Retire os aprovadores indisponíveis ou salve a regra como inativa." }
+      : undefined);
+    if (issue) {
+      setInvalid(issue.field);
+      toast.error(issue.message);
+      event.currentTarget.querySelector<HTMLElement>(`#rule-${issue.field}`)?.focus();
       return;
     }
-
-    if (minAmountInCents < 0) {
-      toast.error("O valor mínimo não pode ser negativo.");
-      return;
-    }
-
-    if (eligibleApproverIds.length === 0) {
-      toast.error("Selecione ao menos um aprovador elegível.");
-      return;
-    }
-
-    if (requiredApprovalsCount > eligibleApproverIds.length) {
-      toast.error(
-        `O quórum exigido (${requiredApprovalsCount}) não pode ser maior que o total de pessoas selecionadas (${eligibleApproverIds.length}).`
-      );
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      if (isEditing && ruleId) {
-        await service.updateApprovalRule(ruleId, {
-          name: name.trim(),
-          minAmountInCents,
-          ruleType,
-          eligibleApproverIds,
-          requiredApprovalsCount,
-          active,
-        });
-        toast.success("Regra de aprovação atualizada com sucesso!");
-      } else {
-        await service.createApprovalRule({
-          name: name.trim(),
-          minAmountInCents,
-          ruleType,
-          eligibleApproverIds,
-          requiredApprovalsCount,
-          active,
-        });
-        toast.success("Regra de aprovação criada com sucesso!");
-      }
-
-      queryClient.invalidateQueries({ queryKey: queryKeys.approvalRules() });
-      router.push("/conta/regras-de-aprovacao");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao salvar regra de aprovação.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    save.mutate({ ...draft, name: draft.name.trim() });
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push("/conta/regras-de-aprovacao")}
-          className="gap-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-          <span>Voltar às Regras</span>
-        </Button>
-      </div>
+    <div className="grid min-w-0 max-w-5xl gap-5">
+      <BackToRules />
+      <header className="grid gap-1">
+        <h1 className="text-balance text-2xl font-semibold sm:text-3xl">{rule ? readOnly ? "Regra de aprovação" : "Editar regra" : "Nova regra"}</h1>
+        <p className="text-pretty text-sm text-muted-foreground">Configure a alçada e a forma de aprovação dos saques na demonstração.</p>
+      </header>
+      {save.isSuccess ? (
+        <Card role="status" className="grid justify-items-center gap-3 p-6 text-center">
+          <LoadingConfirmation animate />
+          <h2 className="text-balance text-lg font-semibold">{rule ? "Alterações salvas" : "Regra cadastrada"}</h2>
+          <p className="wrap-anywhere text-pretty text-sm text-muted-foreground">{save.data.name}</p>
+          <Button asChild className="h-11">
+            <Link href={approvalRulesPath} prefetch={false} ref={(node) => { node?.focus({ preventScroll: true }); }}>Ver regras</Link>
+          </Button>
+        </Card>
+      ) : (
+        <form className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]" onSubmit={submit}>
+          <fieldset disabled={locked} className="grid min-w-0 gap-4">
+            <Card className="min-w-0">
+              <CardHeader className="space-y-0 p-5">
+                <h2 className="text-balance text-lg font-semibold">Dados da regra</h2>
+              </CardHeader>
+              <CardContent className="grid min-w-0 gap-4 px-5 pb-5 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-1.5 sm:col-span-2">
+                  <label htmlFor="rule-name" className="text-sm font-medium">Nome da regra</label>
+                  <Input id="rule-name" required value={draft.name} onChange={(event) => update("name", event.currentTarget.value)}
+                    aria-invalid={invalid === "name" || undefined} className="h-11 aria-invalid:border-destructive!"
+                    placeholder="Ex. Saques para fornecedores" />
+                </div>
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor={readOnly ? undefined : "rule-amount"} className="text-sm font-medium">Valor mínimo</label>
+                  {readOnly ? (
+                    <p className="flex h-11 items-center text-sm font-medium tabular-nums"><PanelAmount cents={draft.minAmountInCents} /></p>
+                  ) : (
+                    <CurrencyInput id="rule-amount" valueInCents={draft.minAmountInCents} onValueChange={(cents) => update("minAmountInCents", cents)}
+                      className="text-sm font-medium aria-invalid:border-destructive!" aria-invalid={invalid === "amount" || undefined} />
+                  )}
+                </div>
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="rule-type" className="text-sm font-medium">Tipo de aprovação</label>
+                  <GlideSelect id="rule-type" options={typeOptions} value={draft.ruleType} size="lg" className="w-full"
+                    disabled={locked} aria-invalid={invalid === "type" || undefined}
+                    onChange={(value) => update("ruleType", value as ApprovalRuleType)} />
+                </div>
+                <p className="text-pretty text-xs text-muted-foreground sm:col-span-2">{approvalRuleTypes[draft.ruleType].description}</p>
+                <label className="flex min-h-11 w-fit items-center gap-2 text-sm sm:col-span-2">
+                  <Switch checked={draft.active} disabled={locked} onCheckedChange={(active) => update("active", active)} /> Regra ativa
+                </label>
+              </CardContent>
+            </Card>
+            <Card className="min-w-0">
+              <CardHeader className="gap-1 space-y-0 p-5">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="text-balance text-lg font-semibold">Aprovadores</h2>
+                  <span className="text-xs text-muted-foreground tabular-nums">{ids.length} {ids.length === 1 ? "selecionado" : "selecionados"}</span>
+                </div>
+                {ordered && <p className="text-pretty text-xs text-muted-foreground">Use as setas para definir a ordem em que cada pessoa decide.</p>}
+              </CardHeader>
+              <CardContent className="grid min-w-0 gap-4 px-5 pb-5">
+                <div id="rule-approvers" role="group" aria-label="Aprovadores da regra" tabIndex={-1}
+                  aria-invalid={invalid === "approvers" || undefined} className="rounded-lg border aria-invalid:border-destructive!">
+                  {choices.length > 0 ? (
+                    <ul className="max-h-72 divide-y divide-border overflow-x-hidden overflow-y-auto">
+                      {choices.map((member) => {
+                        const index = ids.indexOf(member.id);
+                        const checked = index >= 0;
+                        return (
+                          <li key={member.id} className="flex min-w-0 items-center justify-between gap-1 px-3">
+                            <label className="flex min-h-12 min-w-0 flex-1 items-center gap-2 py-2">
+                              <Checkbox checked={checked} disabled={locked || (!checked && !member.eligible)}
+                                onChange={(event) => update("eligibleApproverIds", event.currentTarget.checked
+                                  ? [...ids, member.id] : ids.filter((id) => id !== member.id))} />
+                              {ordered && checked && <span aria-hidden="true" className="text-xs text-muted-foreground tabular-nums">{index + 1}.</span>}
+                              <span className="min-w-0">
+                                <span className="block wrap-anywhere text-sm font-medium">{member.name}</span>
+                                <span className="block text-xs text-muted-foreground">{member.eligible && member.role ? userRoles[member.role].label : "Indisponível"}</span>
+                              </span>
+                            </label>
+                            {ordered && checked && !readOnly && (
+                              <div className="flex shrink-0">
+                                <Button type="button" variant="ghost" size="icon" className="size-11" disabled={locked || index === 0}
+                                  aria-label={`Mover ${member.name} para cima`} onClick={() => move(index, -1)}><ArrowUp aria-hidden="true" /></Button>
+                                <Button type="button" variant="ghost" size="icon" className="size-11" disabled={locked || index === ids.length - 1}
+                                  aria-label={`Mover ${member.name} para baixo`} onClick={() => move(index, 1)}><ArrowDown aria-hidden="true" /></Button>
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : <p className="p-4 text-pretty text-sm text-muted-foreground">Nenhum usuário ativo tem permissão para aprovar.</p>}
+                </div>
+                <div className="grid min-w-0 gap-1.5 sm:max-w-xs">
+                  <label htmlFor="rule-quorum" className="text-sm font-medium">Aprovações exigidas</label>
+                  <GlideSelect id="rule-quorum" options={quorumOptions} value={quorumValid ? String(draft.requiredApprovalsCount) : ""}
+                    placeholder={quorumLimit ? "Selecione o quórum" : "Selecione os aprovadores"} size="lg" className="w-full"
+                    disabled={locked || !quorumLimit} aria-invalid={invalid === "quorum" || undefined}
+                    onChange={(value) => update("requiredApprovalsCount", Number(value))} />
+                </div>
+              </CardContent>
+            </Card>
+          </fieldset>
 
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-          {isEditing ? "Editar Regra de Aprovação" : "Nova Regra de Aprovação"}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Configure a faixa de valor e as pessoas responsáveis pela liberação de saques.
-        </p>
-      </div>
-
-      <Card className="border-border bg-card">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <GitBranch className="size-4 text-primary" />
-            <span>Parâmetros de Alçada</span>
-          </CardTitle>
-          <CardDescription className="text-xs">
-            A regra é aplicada automaticamente quando um saque atinge ou supera o valor mínimo.
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Nome da Regra */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Nome da Regra *
-              </label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Saques Corporativos Acima de R$ 5.000"
-                disabled={submitting}
-                autoFocus
-              />
+          <Card className="min-w-0">
+            <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 space-y-0 p-5">
+              <h2 className="text-balance text-lg font-semibold">Resumo</h2>
+              <Badge variant={draft.active ? "success" : "secondary"}>{draft.active ? "Ativa" : "Inativa"}</Badge>
+            </CardHeader>
+            <CardContent className="grid gap-3 px-5 pb-5">
+              <dl className="grid gap-3 text-sm">
+                <div>
+                  <dt className="text-muted-foreground">Saques a partir de</dt>
+                  <dd className="wrap-anywhere font-semibold tabular-nums"><PanelAmount cents={draft.minAmountInCents} /></dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Fluxo</dt>
+                  <dd>{approvalRuleTypes[draft.ruleType].label}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Quórum</dt>
+                  <dd className="tabular-nums">{quorumValid ? `${draft.requiredApprovalsCount} de ${ids.length}` : "A definir"}</dd>
+                </div>
+              </dl>
+              {rule && <p className="border-t pt-3 text-pretty text-xs text-muted-foreground">As alterações valem para novas solicitações.</p>}
+            </CardContent>
+          </Card>
+          {save.isError && <OperationFailure message={save.error.message} className="xl:col-span-2" />}
+          {!readOnly && (
+            <div className="flex flex-wrap justify-end gap-2 xl:col-span-2">
+              <Button asChild variant="outline" className="h-11">
+                <Link href={approvalRulesPath} prefetch={false}>Cancelar</Link>
+              </Button>
+              <Button type="submit" disabled={save.isPending} className="h-11">
+                {save.isPending ? <LoadingIndicator /> : <Save aria-hidden="true" />}
+                {save.isPending ? "Salvando…" : rule ? "Salvar alterações" : "Criar regra"}
+              </Button>
             </div>
-
-            {/* Valor Mínimo */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Valor Mínimo de Disparo (R$) *
-              </label>
-              <CurrencyInput
-                valueInCents={minAmountInCents}
-                onValueChange={setMinAmountInCents}
-                disabled={submitting}
-                placeholder="R$ 5.000,00"
-              />
-            </div>
-
-            {/* Tipo de Fluxo: Paralela vs Sequencial */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Tipo de Fluxo de Aprovação
-              </label>
-              <Select
-                value={ruleType}
-                onValueChange={(val) => setRuleType(val as ApprovalRuleType)}
-              >
-                <SelectTrigger className="h-10 bg-card/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PARALLEL">
-                    Paralela (Qualquer ordem entre os selecionados)
-                  </SelectItem>
-                  <SelectItem value="SEQUENTIAL">
-                    Sequencial (Aprovações devem seguir ordem estrita)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Aprovadores Elegíveis */}
-            <div className="space-y-3">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
-                Selecione os Aprovadores Elegíveis ({eligibleApproverIds.length} selecionados) *
-              </label>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
-                {eligibleUsers.map((user) => {
-                  const isSelected = eligibleApproverIds.includes(user.id);
-                  return (
-                    <div
-                      key={user.id}
-                      onClick={() => toggleApprover(user.id)}
-                      className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${isSelected
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border bg-card/60 text-muted-foreground hover:border-border/80"
-                        }`}
-                    >
-                      <div>
-                        <p className="text-xs font-semibold text-foreground">
-                          {user.name}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {user.role} • {user.email}
-                        </p>
-                      </div>
-                      <div
-                        className={`size-5 rounded-md border flex items-center justify-center ${isSelected
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-input"
-                          }`}
-                      >
-                        {isSelected && <Check className="size-3.5 stroke-[3]" />}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Quórum Necessário */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Quantidade Necessária de Aprovações (Quórum) *
-              </label>
-              <Select
-                value={String(requiredApprovalsCount)}
-                onValueChange={(val) => setRequiredApprovalsCount(Number(val))}
-              >
-                <SelectTrigger className="h-10 bg-card/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <SelectItem
-                      key={n}
-                      value={String(n)}
-                      disabled={n > eligibleApproverIds.length && eligibleApproverIds.length > 0}
-                    >
-                      {n} {n === 1 ? "aprovação" : "aprovações"} necessárias
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Status Ativo / Inativo */}
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-              <div>
-                <span className="text-xs font-semibold text-foreground block">
-                  Regra Ativa
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  Quando desativada, não interceptará novas operações.
-                </span>
-              </div>
-              <Switch checked={active} onCheckedChange={setActive} />
-            </div>
-
-            {/* Resumo Gerado em Tempo Real */}
-            <div className="p-4 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground space-y-1">
-              <span className="font-semibold text-foreground block">
-                Resumo da Política de Governança:
-              </span>
-              <p className="text-foreground">
-                &ldquo;Saques a partir de <strong>{formatCentsToBrl(minAmountInCents)}</strong> exigem{" "}
-                <strong>{requiredApprovalsCount} {requiredApprovalsCount === 1 ? "aprovação" : "aprovações"}</strong>{" "}
-                entre as {eligibleApproverIds.length} pessoas selecionadas ({ruleType === "PARALLEL" ? "em qualquer ordem" : "em fila sequencial"}).&rdquo;
-              </p>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={submitting || !name.trim() || eligibleApproverIds.length === 0}
-              className="w-full h-11 text-base font-semibold"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin mr-2" />
-                  <span>Salvando Regra...</span>
-                </>
-              ) : isEditing ? (
-                "Salvar Alterações da Regra"
-              ) : (
-                "Criar Regra de Aprovação"
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          )}
+        </form>
+      )}
     </div>
   );
 }

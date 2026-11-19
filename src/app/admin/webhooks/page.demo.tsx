@@ -26,7 +26,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { WebhookConfig } from "@/types/domain";
+import { webhookEvents } from "@/features/webhooks/webhooks";
+import type { WebhookConfig, WebhookEventType } from "@/types/domain";
 
 export default function AdminWebhooksPage() {
   const queryClient = useQueryClient();
@@ -61,7 +62,7 @@ export default function AdminWebhooksPage() {
     }, 800);
   };
 
-  const renderEventBadge = (evt: string) => {
+  const renderEventBadge = (evt: WebhookEventType) => {
     switch (evt) {
       case "PIX_RECEIVED":
         return (
@@ -82,7 +83,7 @@ export default function AdminWebhooksPage() {
           </Badge>
         );
       default:
-        return <Badge variant="outline">{evt}</Badge>;
+        return <Badge variant="outline" title={evt}>{webhookEvents[evt].label}</Badge>;
     }
   };
 

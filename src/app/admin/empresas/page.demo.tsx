@@ -215,15 +215,15 @@ export default function AdminEmpresasPage() {
                           c.status === "ACTIVE"
                             ? "border-primary/40 text-primary bg-primary/10"
                             : c.status === "SUSPENDED"
-                            ? "border-destructive/40 text-destructive bg-destructive/10"
-                            : "border-border text-muted-foreground"
+                              ? "border-destructive/40 text-destructive bg-destructive/10"
+                              : "border-border text-muted-foreground"
                         }
                       >
                         {c.status === "ACTIVE"
                           ? "Ativa"
                           : c.status === "SUSPENDED"
-                          ? "Suspensa"
-                          : "Desativada"}
+                            ? "Suspensa"
+                            : "Desativada"}
                       </Badge>
                     </td>
 
@@ -374,8 +374,8 @@ export default function AdminEmpresasPage() {
               {statusMutation.isPending
                 ? "Gravando..."
                 : statusDialogTarget?.nextStatus === "SUSPENDED"
-                ? "Confirmar Suspensão"
-                : "Reativar Empresa"}
+                  ? "Confirmar Suspensão"
+                  : "Reativar Empresa"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { sessionService } from "@/services/session.service";
 import { useDemoScenario } from "@/providers/demo-provider";
-import { Loader2 } from "lucide-react";
+import { LoadingIndicator } from "@/components/ui/loading-indicator";
 
 export function AccountStatusGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -47,7 +47,7 @@ export function AccountStatusGate({ children }: { children: React.ReactNode }) {
   if (!isChecked) {
     return (
       <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background text-muted-foreground gap-3">
-        <Loader2 className="size-8 animate-spin text-primary" />
+        <LoadingIndicator size={32} />
         <span className="text-xs font-mono">Verificando credenciais e status da conta...</span>
       </div>
     );

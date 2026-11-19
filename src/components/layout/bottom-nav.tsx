@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -13,41 +13,53 @@ import {
   Layers,
   BarChart3,
   Percent,
-  User,
   ShieldCheck,
   Users2,
   GitBranch,
-  Webhook,
+  ChevronRight,
   HelpCircle,
   Settings,
-  Sparkles,
   ExternalLink,
 } from "lucide-react";
+import { integrationsItem, isIntegrationRoute } from "@/features/integrations/navigation";
 import { cn } from "@/lib/utils";
+import { useDevelopmentFeatures } from "@/providers/app-providers";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useQuery } from "@tanstack/react-query";
-import { useGatewayService } from "@/providers/demo-provider";
-import { queryKeys } from "@/lib/query-keys";
-import { ScenarioSwitcher } from "@/components/shared/scenario-switcher";
+import { IntegrationNavigation, IntegrationsBackButton } from "./integration-navigation";
 
-export function BottomNav() {
+export function BottomNav({ pendingApprovals = 0, demoControls, member = false }: {
+  pendingApprovals?: number;
+  demoControls?: ReactNode;
+  member?: boolean;
+}) {
   const pathname = usePathname();
+  const development = useDevelopmentFeatures();
   const router = useRouter();
-  const service = useGatewayService();
   const [pixSheetOpen, setPixSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const [integrationsOpen, setIntegrationsOpen] = useState(false);
+  const moreTrigger = useRef<HTMLButtonElement>(null);
+  const integrationsTrigger = useRef<HTMLButtonElement>(null);
+  const integrationsBack = useRef<HTMLButtonElement>(null);
+  const moveMenuFocus = useRef(false);
+  const demo = Boolean(demoControls);
+  const currentIntegration = development && !member && isIntegrationRoute(pathname);
 
-  const { data: approvalsData } = useQuery({
-    queryKey: queryKeys.approvals("PENDING"),
-    queryFn: () => service.getApprovals("PENDING"),
-  });
+  useLayoutEffect(() => {
+    if (!moreSheetOpen || !moveMenuFocus.current) return;
+    moveMenuFocus.current = false;
+    (integrationsOpen ? integrationsBack : integrationsTrigger).current?.focus();
+  }, [integrationsOpen, moreSheetOpen]);
 
-  const pendingApprovals = approvalsData?.pendingCount ?? 0;
+  function switchMoreMenu(open: boolean) {
+    moveMenuFocus.current = true;
+    setIntegrationsOpen(open);
+  }
 
   const navigateTo = (path: string) => {
     setPixSheetOpen(false);
@@ -57,10 +69,12 @@ export function BottomNav() {
 
   return (
     <>
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 h-16 border-t border-border bg-card/95 backdrop-blur-lg px-2 pb-[env(safe-area-inset-bottom)] flex items-center justify-around">
+      <nav aria-label="Menu do painel no celular" className="lg:hidden fixed bottom-0 left-0 right-0 z-40 h-16 border-t border-border bg-card/95 backdrop-blur-lg px-2 pb-[env(safe-area-inset-bottom)] flex items-center justify-around">
         {/* 1. Início */}
         <NextLink
           href="/inicio"
+          prefetch={demo ? undefined : false}
+          aria-current={pathname === "/inicio" ? "page" : undefined}
           className={cn(
             "flex flex-col items-center justify-center gap-1 w-16 h-full text-[10px] font-medium transition-colors",
             pathname === "/inicio"
@@ -72,9 +86,12 @@ export function BottomNav() {
           <span>Início</span>
         </NextLink>
 
+        {development && <>
         {/* 2. Movimentações */}
         <NextLink
           href="/movimentacoes"
+          prefetch={demo ? undefined : false}
+          aria-current={pathname?.startsWith("/movimentacoes") ? "page" : undefined}
           className={cn(
             "flex flex-col items-center justify-center gap-1 w-16 h-full text-[10px] font-medium transition-colors",
             pathname?.startsWith("/movimentacoes")
@@ -85,9 +102,14 @@ export function BottomNav() {
           <ReceiptText className="size-4" />
           <span>Extrato</span>
         </NextLink>
+        </>}
 
+        {development && !member && <>
         {/* 3. Pix Hub (Botão Central) */}
         <button
+          type="button"
+          aria-expanded={pixSheetOpen}
+          aria-haspopup="dialog"
           onClick={() => setPixSheetOpen(true)}
           className="flex flex-col items-center justify-center gap-1 w-16 h-full text-[10px] font-medium text-foreground relative"
         >
@@ -100,6 +122,8 @@ export function BottomNav() {
         {/* 4. Aprovações */}
         <NextLink
           href="/aprovacoes"
+          prefetch={demo ? undefined : false}
+          aria-current={pathname?.startsWith("/aprovacoes") ? "page" : undefined}
           className={cn(
             "flex flex-col items-center justify-center gap-1 w-16 h-full text-[10px] font-medium transition-colors relative",
             pathname?.startsWith("/aprovacoes")
@@ -117,13 +141,21 @@ export function BottomNav() {
           </div>
           <span>Aprovações</span>
         </NextLink>
+        </>}
 
         {/* 5. Mais */}
         <button
-          onClick={() => setMoreSheetOpen(true)}
+          ref={moreTrigger}
+          type="button"
+          aria-expanded={moreSheetOpen}
+          aria-haspopup="dialog"
+          onClick={() => {
+            setIntegrationsOpen(currentIntegration);
+            setMoreSheetOpen(true);
+          }}
           className={cn(
             "flex flex-col items-center justify-center gap-1 w-16 h-full text-[10px] font-medium transition-colors",
-            moreSheetOpen ? "text-primary font-semibold" : "text-muted-foreground hover:text-foreground"
+            moreSheetOpen || currentIntegration ? "text-primary font-semibold" : "text-muted-foreground hover:text-foreground"
           )}
         >
           <Menu className="size-4" />
@@ -132,8 +164,8 @@ export function BottomNav() {
       </nav>
 
       {/* Drawer: Ações Rápidas Pix */}
-      <Sheet open={pixSheetOpen} onOpenChange={setPixSheetOpen}>
-        <SheetContent side="bottom" className="p-5 max-w-md mx-auto">
+      {development && !member && <Sheet open={pixSheetOpen} onOpenChange={setPixSheetOpen}>
+        <SheetContent side="bottom" aria-describedby={undefined} className="p-5 max-w-md mx-auto">
           <SheetHeader className="text-left pb-4 border-b border-border">
             <SheetTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
               <span className="text-primary font-bold">PIX</span> Operações Imediatas
@@ -149,7 +181,9 @@ export function BottomNav() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-foreground">Receber com Pix</p>
-                <p className="text-xs text-muted-foreground">Gerar cobrança com QR Code dinâmico</p>
+                <p className="text-xs text-muted-foreground">
+                  {demo ? "Gerar cobrança com QR Code dinâmico" : "Disponibilidade de cobranças Pix"}
+                </p>
               </div>
             </button>
 
@@ -162,7 +196,9 @@ export function BottomNav() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-foreground">Saque Direto</p>
-                <p className="text-xs text-muted-foreground">Transferir para qualquer chave Pix com PIN</p>
+                <p className="text-xs text-muted-foreground">
+                  {demo ? "Transferir para qualquer chave Pix com PIN" : "Disponibilidade de saques"}
+                </p>
               </div>
             </button>
 
@@ -175,7 +211,9 @@ export function BottomNav() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-foreground">Saques em Lote</p>
-                <p className="text-xs text-muted-foreground">Particionar montantes em parcelas de até R$ 15k</p>
+                <p className="text-xs text-muted-foreground">
+                  {demo ? "Particionar montantes em parcelas de até R$ 15k" : "Disponibilidade de lotes"}
+                </p>
               </div>
             </button>
           </div>
@@ -190,19 +228,27 @@ export function BottomNav() {
             </button>
           </div>
         </SheetContent>
-      </Sheet>
+      </Sheet>}
 
       {/* Drawer: Mais Opções de Gestão & Conta */}
       <Sheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen}>
-        <SheetContent side="bottom" className="p-5 max-w-md mx-auto max-h-[85dvh] overflow-y-auto">
-          <SheetHeader className="text-left pb-3 border-b border-border">
+        <SheetContent
+          side="bottom"
+          aria-describedby={undefined}
+          className="mx-auto max-h-[85dvh] max-w-md overflow-x-hidden overflow-y-auto p-5"
+          onCloseAutoFocus={(event) => { event.preventDefault(); moreTrigger.current?.focus(); }}
+        >
+          <SheetHeader className="flex-row items-center gap-2 space-y-0 border-b border-border pb-3 pr-8 text-left">
+            {integrationsOpen && <IntegrationsBackButton ref={integrationsBack} onClick={() => switchMoreMenu(false)} />}
             <SheetTitle className="text-base font-semibold text-foreground">
-              Menu Completo
+              {integrationsOpen ? "Integrações" : "Menu Completo"}
             </SheetTitle>
           </SheetHeader>
 
-          <div className="py-2 space-y-4">
-            <div className="space-y-1">
+          {integrationsOpen ? (
+            <IntegrationNavigation className="py-3" onNavigate={() => setMoreSheetOpen(false)} />
+          ) : <div className="py-2 space-y-4">
+            {development && <div className="space-y-1">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
                 Gestão & Métricas
               </p>
@@ -213,14 +259,14 @@ export function BottomNav() {
                 <BarChart3 className="size-4 text-muted-foreground" />
                 <span>Indicadores Pix</span>
               </button>
-              <button
+              {!member && <button
                 onClick={() => navigateTo("/conta/taxas-e-limites")}
                 className="flex items-center gap-3 w-full p-2.5 rounded-lg text-sm text-foreground hover:bg-accent text-left"
               >
                 <Percent className="size-4 text-muted-foreground" />
                 <span>Taxas e Limites</span>
-              </button>
-            </div>
+              </button>}
+            </div>}
 
             <div className="space-y-1">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
@@ -233,20 +279,13 @@ export function BottomNav() {
                 <Users2 className="size-4 text-muted-foreground" />
                 <span>Gestão de Usuários</span>
               </button>
-              <button
+              {development && !member && <button
                 onClick={() => navigateTo("/conta/regras-de-aprovacao")}
                 className="flex items-center gap-3 w-full p-2.5 rounded-lg text-sm text-foreground hover:bg-accent text-left"
               >
                 <GitBranch className="size-4 text-muted-foreground" />
                 <span>Regras de Aprovação</span>
-              </button>
-              <button
-                onClick={() => navigateTo("/integracoes/webhooks")}
-                className="flex items-center gap-3 w-full p-2.5 rounded-lg text-sm text-foreground hover:bg-accent text-left"
-              >
-                <Webhook className="size-4 text-muted-foreground" />
-                <span>Configuração de Webhooks</span>
-              </button>
+              </button>}
               <button
                 onClick={() => navigateTo("/conta/seguranca")}
                 className="flex items-center gap-3 w-full p-2.5 rounded-lg text-sm text-foreground hover:bg-accent text-left"
@@ -256,16 +295,34 @@ export function BottomNav() {
               </button>
             </div>
 
+            {development && !member && <button
+              ref={integrationsTrigger}
+              type="button"
+              onClick={() => switchMoreMenu(true)}
+              className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 text-left text-sm text-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <integrationsItem.icon aria-hidden="true" className="size-4 text-muted-foreground" />
+              {integrationsItem.title}
+              <ChevronRight aria-hidden="true" className="ml-auto size-4 text-muted-foreground" />
+            </button>}
+
             <div className="space-y-1 pt-2 border-t border-border">
-              <div className="p-1">
-                <ScenarioSwitcher />
-              </div>
+              {demoControls && <div className="p-1">{demoControls}</div>}
+              {!demo && (
+                <button
+                  onClick={() => navigateTo("/mais")}
+                  className="flex items-center gap-3 w-full p-2.5 rounded-lg text-sm text-foreground hover:bg-accent text-left"
+                >
+                  <Menu className="size-4 text-muted-foreground" />
+                  <span>Todos os módulos</span>
+                </button>
+              )}
               <button
                 onClick={() => navigateTo("/ajuda")}
                 className="flex items-center gap-3 w-full p-2.5 rounded-lg text-sm text-foreground hover:bg-accent text-left"
               >
                 <HelpCircle className="size-4 text-muted-foreground" />
-                <span>Ajuda & Documentação Demo</span>
+                <span>{demo ? "Ajuda & Documentação Demo" : "Ajuda"}</span>
               </button>
               <button
                 onClick={() => navigateTo("/preferencias")}
@@ -275,7 +332,7 @@ export function BottomNav() {
                 <span>Preferências de Interface</span>
               </button>
             </div>
-          </div>
+          </div>}
         </SheetContent>
       </Sheet>
     </>

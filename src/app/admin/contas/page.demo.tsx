@@ -343,8 +343,8 @@ export default function AdminContasPage() {
               {statusMutation.isPending
                 ? "Salvando..."
                 : statusDialogTarget?.nextStatus === "SUSPENDED"
-                ? "Confirmar Bloqueio"
-                : "Desbloquear Conta"}
+                  ? "Confirmar Bloqueio"
+                  : "Desbloquear Conta"}
             </Button>
           </DialogFooter>
         </DialogContent>

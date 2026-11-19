@@ -8,6 +8,7 @@ import { formatDateTime } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -190,7 +191,7 @@ export default function AdminTaxasELimitesPage() {
             activeTab === "PRICING"
               ? "bg-secondary text-foreground font-semibold border border-border"
               : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-          }`}
+            }`}
         >
           <Percent className="size-3.5 text-primary" />
           Políticas de Tarifas ({pricingPolicies.length})
@@ -202,7 +203,7 @@ export default function AdminTaxasELimitesPage() {
             activeTab === "LIMITS"
               ? "bg-secondary text-foreground font-semibold border border-border"
               : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-          }`}
+            }`}
         >
           <Sliders className="size-3.5 text-primary" />
           Políticas de Limites ({limitPolicies.length})
@@ -445,16 +446,16 @@ export default function AdminTaxasELimitesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">
-                    Tarifa Pix In Fixa (centavos)
+                  <label htmlFor="pricing-inflow-fixed-fee" className="text-xs font-medium text-foreground">
+                    Tarifa Pix In Fixa
                   </label>
-                  <Input
-                    type="number"
-                    value={pricingForm.inflowFeeFixedInCents}
-                    onChange={(e) =>
+                  <CurrencyInput
+                    id="pricing-inflow-fixed-fee"
+                    valueInCents={pricingForm.inflowFeeFixedInCents}
+                    onValueChange={(inflowFeeFixedInCents) =>
                       setPricingForm({
                         ...pricingForm,
-                        inflowFeeFixedInCents: parseInt(e.target.value) || 0,
+                        inflowFeeFixedInCents,
                       })
                     }
                     className="h-8 text-xs bg-background border-border text-foreground"
@@ -480,16 +481,16 @@ export default function AdminTaxasELimitesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">
-                    Tarifa Pix Out Fixa (centavos)
+                  <label htmlFor="pricing-outflow-fixed-fee" className="text-xs font-medium text-foreground">
+                    Tarifa Pix Out Fixa
                   </label>
-                  <Input
-                    type="number"
-                    value={pricingForm.outflowFeeFixedInCents}
-                    onChange={(e) =>
+                  <CurrencyInput
+                    id="pricing-outflow-fixed-fee"
+                    valueInCents={pricingForm.outflowFeeFixedInCents}
+                    onValueChange={(outflowFeeFixedInCents) =>
                       setPricingForm({
                         ...pricingForm,
-                        outflowFeeFixedInCents: parseInt(e.target.value) || 0,
+                        outflowFeeFixedInCents,
                       })
                     }
                     className="h-8 text-xs bg-background border-border text-foreground"
@@ -554,63 +555,54 @@ export default function AdminTaxasELimitesPage() {
             <div className="space-y-4 pt-2">
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">
-                    Limite por Transação Única (em centavos)
+                  <label htmlFor="pricing-transaction-limit" className="text-xs font-medium text-foreground">
+                    Limite por Transação Única
                   </label>
-                  <Input
-                    type="number"
-                    value={limitForm.transactionLimitInCents}
-                    onChange={(e) =>
+                  <CurrencyInput
+                    id="pricing-transaction-limit"
+                    valueInCents={limitForm.transactionLimitInCents}
+                    onValueChange={(transactionLimitInCents) =>
                       setLimitForm({
                         ...limitForm,
-                        transactionLimitInCents: parseInt(e.target.value) || 0,
+                        transactionLimitInCents,
                       })
                     }
                     className="h-8 text-xs bg-background border-border text-foreground"
                   />
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    Equivale a: {formatCentsToBrl(limitForm.transactionLimitInCents)}
-                  </span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">
-                    Limite Diário Global (em centavos)
+                  <label htmlFor="pricing-daily-limit" className="text-xs font-medium text-foreground">
+                    Limite Diário Global
                   </label>
-                  <Input
-                    type="number"
-                    value={limitForm.dailyLimitInCents}
-                    onChange={(e) =>
+                  <CurrencyInput
+                    id="pricing-daily-limit"
+                    valueInCents={limitForm.dailyLimitInCents}
+                    onValueChange={(dailyLimitInCents) =>
                       setLimitForm({
                         ...limitForm,
-                        dailyLimitInCents: parseInt(e.target.value) || 0,
+                        dailyLimitInCents,
                       })
                     }
                     className="h-8 text-xs bg-background border-border text-foreground"
                   />
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    Equivale a: {formatCentsToBrl(limitForm.dailyLimitInCents)}
-                  </span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">
-                    Limite Noturno 20h às 06h (em centavos)
+                  <label htmlFor="pricing-nightly-limit" className="text-xs font-medium text-foreground">
+                    Limite Noturno 20h às 06h
                   </label>
-                  <Input
-                    type="number"
-                    value={limitForm.nightlyLimitInCents}
-                    onChange={(e) =>
+                  <CurrencyInput
+                    id="pricing-nightly-limit"
+                    valueInCents={limitForm.nightlyLimitInCents}
+                    onValueChange={(nightlyLimitInCents) =>
                       setLimitForm({
                         ...limitForm,
-                        nightlyLimitInCents: parseInt(e.target.value) || 0,
+                        nightlyLimitInCents,
                       })
                     }
                     className="h-8 text-xs bg-background border-border text-foreground"
                   />
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    Equivale a: {formatCentsToBrl(limitForm.nightlyLimitInCents)}
-                  </span>
                 </div>
               </div>
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useTransition } from "react";
 import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { AuthHeading } from "@/features/auth/components/auth-form-controls";
 import { AuthShell } from "@/features/auth/components/auth-shell";
 import { toast } from "sonner";
 import { useGatewayService } from "@/providers/demo-provider";
@@ -24,6 +25,8 @@ import {
   stepReviewSchema,
   validateStepWithSchema,
 } from "../schemas/onboarding.schema";
+
+const onboardingSteps = ONBOARDING_STEPS.map(({ title }) => title);
 
 export function OnboardingFlow() {
   const router = useRouter();
@@ -114,52 +117,52 @@ export function OnboardingFlow() {
   // Validação do Passo 1 (Responsável)
   const handleNextStep1 = () => {
     const data = form.getValues();
-    const isValid = validateStepWithSchema(
+    const validationError = validateStepWithSchema(
       step1Schema,
       data,
       form.setError,
       form.clearErrors,
       ["cpf", "fullName", "email", "phone", "roleInCompany", "roleOther"]
     );
-    if (isValid) {
-      goToStep("empresa");
-    } else {
-      toast.error("Por favor, preencha todos os campos obrigatórios do responsável.");
+    if (validationError) {
+      toast.error(validationError, { id: "onboarding-validation" });
+      return;
     }
+    goToStep("empresa");
   };
 
   // Validação do Passo 2 (Empresa)
   const handleNextStep2 = () => {
     const data = form.getValues();
-    const isValid = validateStepWithSchema(
+    const validationError = validateStepWithSchema(
       step2Schema,
       data,
       form.setError,
       form.clearErrors,
       ["cnpj", "businessSegment", "companySize", "website"]
     );
-    if (isValid) {
-      goToStep("acesso");
-    } else {
-      toast.error("Por favor, preencha todos os campos obrigatórios da empresa.");
+    if (validationError) {
+      toast.error(validationError, { id: "onboarding-validation" });
+      return;
     }
+    goToStep("acesso");
   };
 
   // Validação do Passo 3 (Acesso)
   const handleNextStep3 = () => {
     const data = form.getValues();
-    const isValid = validateStepWithSchema(
+    const validationError = validateStepWithSchema(
       stepAccessSchema,
       data,
       form.setError,
       form.clearErrors,
       ["accessEmail", "password", "confirmPassword"]
     );
-    if (isValid) {
-      goToStep("revisao");
-    } else {
-      toast.error("A senha deve atender a todos os requisitos de segurança.");
+    if (validationError) {
+      toast.error(validationError, { id: "onboarding-validation" });
+      return;
     }
+    goToStep("revisao");
   };
 
   // Submissão no Passo 4 (Revisão)
@@ -167,57 +170,57 @@ export function OnboardingFlow() {
     const data = form.getValues();
 
     // 1. Valida Passo 1
-    const isStep1Valid = validateStepWithSchema(
+    const step1Error = validateStepWithSchema(
       step1Schema,
       data,
       form.setError,
       form.clearErrors,
       ["cpf", "fullName", "email", "phone", "roleInCompany", "roleOther"]
     );
-    if (!isStep1Valid) {
-      toast.error("Dados do responsável incompletos. Redirecionando para preenchimento...");
+    if (step1Error) {
+      toast.error(step1Error, { id: "onboarding-validation" });
       goToStep("responsavel");
       return;
     }
 
     // 2. Valida Passo 2
-    const isStep2Valid = validateStepWithSchema(
+    const step2Error = validateStepWithSchema(
       step2Schema,
       data,
       form.setError,
       form.clearErrors,
       ["cnpj", "businessSegment", "companySize", "website"]
     );
-    if (!isStep2Valid) {
-      toast.error("Dados da empresa incompletos. Redirecionando para preenchimento...");
+    if (step2Error) {
+      toast.error(step2Error, { id: "onboarding-validation" });
       goToStep("empresa");
       return;
     }
 
     // 3. Valida Passo 3
-    const isStep3Valid = validateStepWithSchema(
+    const step3Error = validateStepWithSchema(
       stepAccessSchema,
       data,
       form.setError,
       form.clearErrors,
       ["accessEmail", "password", "confirmPassword"]
     );
-    if (!isStep3Valid) {
-      toast.error("Credenciais de acesso incompletas. Redirecionando para preenchimento...");
+    if (step3Error) {
+      toast.error(step3Error, { id: "onboarding-validation" });
       goToStep("acesso");
       return;
     }
 
     // 4. Valida Passo 4 (Declaração)
-    const isStep4Valid = validateStepWithSchema(
+    const step4Error = validateStepWithSchema(
       stepReviewSchema,
       data,
       form.setError,
       form.clearErrors,
       ["declarationAccepted"]
     );
-    if (!isStep4Valid) {
-      toast.error("Você deve declarar a veracidade das informações para continuar.");
+    if (step4Error) {
+      toast.error(step4Error, { id: "onboarding-validation" });
       return;
     }
 
@@ -236,10 +239,15 @@ export function OnboardingFlow() {
   };
 
   return (
-    <AuthShell contentMaxWidthClass="max-w-[600px]">
+    <AuthShell
+      contentMaxWidthClass="max-w-[600px]"
+      step={currentStepIndex}
+      progress={{ steps: onboardingSteps, current: currentStepIndex, showOnMobile: false }}
+    >
       <div className="w-full space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-baseline justify-end gap-1 border-b border-border/40 pb-3">
-          <div className="text-[11px] text-muted-foreground">
+        <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/40 pb-3">
+          <AuthHeading>Criar conta</AuthHeading>
+          <div className="text-sm text-muted-foreground">
             <span>Já possui conta? </span>
             <NextLink
               href="/entrar"
@@ -248,7 +256,7 @@ export function OnboardingFlow() {
               Acessar
             </NextLink>
           </div>
-        </div>
+        </header>
 
         {/* Stepper Navigation */}
         <OnboardingStepper

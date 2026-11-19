@@ -1,8 +1,8 @@
-import { WebhookFormScreen } from "@/features/webhooks/components/webhook-form-screen";
+import { DemoWebhookForm } from "@/features/webhooks/components/demo-webhook-screens";
 
 export const metadata = {
-  title: "Editar Webhook · SloPay",
-  description: "Atualize os parâmetros do endpoint de webhook.",
+  title: "Webhook",
+  description: "Consulte a configuração de um webhook da demonstração.",
 };
 
 interface EditWebhookPageProps {
@@ -11,5 +11,5 @@ interface EditWebhookPageProps {
 
 export default async function EditWebhookPage({ params }: EditWebhookPageProps) {
   const { id } = await params;
-  return <WebhookFormScreen webhookId={id} />;
+  return <DemoWebhookForm webhookId={id} />;
 }

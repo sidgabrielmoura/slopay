@@ -1,0 +1,89 @@
+/* Transitions.dev — Checkbox check */
+:root {
+  --check-box: 150ms;
+  --check-draw: 350ms;
+  --check-delay: 0ms;
+  --check-uncheck: 150ms;
+  --check-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.t-check {
+  --check-len: 16; /* Rounded length of the official path plus 1. */
+  --checkbox-surface: var(--background);
+  --checkbox-fill: var(--primary);
+  --checkbox-stroke: var(--primary-foreground);
+  --checkbox-border: var(--input);
+  --checkbox-focus: var(--ring);
+  background: var(--checkbox-surface);
+  box-shadow: inset 0 0 0 1px var(--checkbox-border);
+  color: var(--checkbox-stroke);
+  transition:
+    background var(--check-box) var(--check-ease),
+    box-shadow var(--check-box) var(--check-ease);
+}
+
+.t-check svg path {
+  stroke-dasharray: var(--check-len, 15);
+  stroke-dashoffset: var(--check-len, 15);
+  transition: stroke-dashoffset var(--check-uncheck) var(--check-ease);
+}
+
+.t-check[aria-checked="true"] svg path,
+input[data-slot="checkbox"]:checked:not(:indeterminate) + .t-check svg path,
+[role="menuitemcheckbox"][aria-checked="true"] > .t-check svg path {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset var(--check-draw) var(--check-ease) var(--check-delay);
+}
+
+input[data-slot="checkbox"]:is(:checked, :indeterminate) + .t-check,
+[role="menuitemcheckbox"]:is([aria-checked="true"], [aria-checked="mixed"]) > .t-check {
+  background: var(--checkbox-fill);
+  box-shadow: inset 0 0 0 1px var(--checkbox-fill);
+}
+
+.t-check svg line {
+  display: none;
+}
+
+input[data-slot="checkbox"]:indeterminate + .t-check svg path,
+[role="menuitemcheckbox"][aria-checked="mixed"] > .t-check svg path {
+  visibility: hidden;
+}
+
+input[data-slot="checkbox"]:indeterminate + .t-check svg line,
+[role="menuitemcheckbox"][aria-checked="mixed"] > .t-check svg line {
+  display: inline;
+}
+
+input[data-slot="checkbox"]:focus-visible + .t-check {
+  outline: 2px solid var(--checkbox-focus);
+  outline-offset: 2px;
+}
+
+input[data-slot="checkbox"][aria-invalid="true"] + .t-check {
+  box-shadow: inset 0 0 0 1px var(--destructive);
+}
+
+input[data-slot="checkbox"]:disabled + .t-check {
+  opacity: 0.5;
+}
+
+:root.reduce-motion .t-check,
+:root.reduce-motion .t-check svg path {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-check, .t-check svg path { transition: none !important; }
+}
+
+@media (forced-colors: active) {
+  .t-check {
+    forced-color-adjust: none;
+    --checkbox-surface: Canvas;
+    --checkbox-fill: Highlight;
+    --checkbox-stroke: HighlightText;
+    --checkbox-border: CanvasText;
+    --checkbox-focus: Highlight;
+  }
+}

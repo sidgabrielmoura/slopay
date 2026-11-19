@@ -153,7 +153,7 @@ export default function AdminUsuariosPage() {
                   roleFilter === tab.id
                     ? "bg-secondary text-foreground font-semibold border border-border"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -271,7 +271,7 @@ export default function AdminUsuariosPage() {
                             u.status === "ACTIVE"
                               ? "text-red-400 hover:text-red-300 hover:bg-red-500/10"
                               : "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
-                          }`}
+                            }`}
                         >
                           {u.status === "ACTIVE" ? (
                             <>

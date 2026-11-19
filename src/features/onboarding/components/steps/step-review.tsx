@@ -4,7 +4,9 @@ import React from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FullOnboardingFormData } from "../../schemas/onboarding.schema";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, ArrowRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { AuthActionButton } from "@/features/auth/components/auth-form-controls";
 import { maskCPF, maskCNPJ } from "@/lib/validators";
 
 interface StepReviewProps {
@@ -49,10 +51,10 @@ export function StepReview({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-semibold tracking-tight text-foreground">
+        <h2 className="text-lg font-semibold tracking-tight">
           Revisão e Envio da Proposta
         </h2>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="mt-1 text-sm text-muted-foreground">
           Confira os dados antes de submeter para análise de compliance.
         </p>
       </div>
@@ -173,10 +175,12 @@ export function StepReview({
 
         {/* Termo e Declaração de Veracidade */}
         <div className="p-3.5 rounded-lg bg-card/30 border border-border space-y-2">
-          <div className="flex items-start gap-2.5">
-            <input
-              type="checkbox"
+          <label htmlFor="declarationAccepted" className="flex min-h-11 cursor-pointer select-none items-start gap-2.5">
+            <Checkbox
               id="declarationAccepted"
+              required
+              aria-invalid={Boolean(errors.declarationAccepted)}
+              aria-describedby={errors.declarationAccepted ? "declarationAccepted-error" : undefined}
               {...register("declarationAccepted", {
                 onChange: () => {
                   if (errors.declarationAccepted) {
@@ -184,54 +188,43 @@ export function StepReview({
                   }
                 },
               })}
-              className="mt-0.5 size-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-background cursor-pointer"
+              className="mt-0.5"
             />
-            <label
-              htmlFor="declarationAccepted"
-              className="text-xs text-muted-foreground leading-relaxed cursor-pointer select-none"
-            >
+            <span className="text-xs leading-relaxed text-muted-foreground">
               Declaro sob as penas da lei que todas as informações prestadas são verdadeiras e precisas, que possuo poderes legais de representação da sociedade perante o SloPay e o Banco Central do Brasil, e autorizo a análise cadastral e de conformidade.
-            </label>
-          </div>
+            </span>
+          </label>
           {errors.declarationAccepted && (
-            <p className="text-[11px] text-destructive pl-6">
+            <span id="declarationAccepted-error" className="sr-only">
               {errors.declarationAccepted.message}
-            </p>
+            </span>
           )}
         </div>
       </div>
 
       {/* Botões de Ação */}
-      <div className="flex items-center justify-between pt-4 border-t border-border">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <Button
           type="button"
           variant="outline"
           onClick={onPrev}
           disabled={isSubmitting}
-          className="h-10 px-4 text-xs gap-2"
+          className="h-11"
         >
           <ArrowLeft className="size-4" />
           <span>Voltar para Acesso</span>
         </Button>
 
-        <Button
+        <AuthActionButton
           type="button"
           onClick={onSubmit}
-          disabled={isSubmitting}
-          className="h-10 px-6 font-medium gap-2"
+          pending={isSubmitting}
+          pendingLabel="Enviando proposta…"
+          endIcon={<ArrowRight />}
+          className="h-auto min-h-11 max-w-full whitespace-normal text-center"
         >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              <span>Enviando Proposta...</span>
-            </>
-          ) : (
-            <>
-              <span>Submeter Cadastro para Análise</span>
-              <ArrowRight className="size-4" />
-            </>
-          )}
-        </Button>
+          Submeter Cadastro para Análise
+        </AuthActionButton>
       </div>
     </div>
   );

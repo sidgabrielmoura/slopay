@@ -91,20 +91,20 @@ export function BatchDetailScreen({ batchId }: { batchId: string }) {
             batch.status === "COMPLETED"
               ? "success"
               : batch.status === "PENDING_APPROVAL"
-              ? "warning"
-              : batch.status === "PARTIALLY_COMPLETED"
-              ? "destructive"
-              : "secondary"
+                ? "warning"
+                : batch.status === "PARTIALLY_COMPLETED"
+                  ? "destructive"
+                  : "secondary"
           }
           className="text-xs px-3 py-1"
         >
           {batch.status === "COMPLETED"
             ? "Lote Concluído"
             : batch.status === "PENDING_APPROVAL"
-            ? "Aguardando Aprovação"
-            : batch.status === "PARTIALLY_COMPLETED"
-            ? "Parcialmente Concluído"
-            : batch.status}
+              ? "Aguardando Aprovação"
+              : batch.status === "PARTIALLY_COMPLETED"
+                ? "Parcialmente Concluído"
+                : batch.status}
         </Badge>
       </div>
 
@@ -212,20 +212,20 @@ export function BatchDetailScreen({ batchId }: { batchId: string }) {
                         inst.status === "COMPLETED"
                           ? "success"
                           : inst.status === "PENDING_APPROVAL"
-                          ? "warning"
-                          : inst.status === "FAILED"
-                          ? "destructive"
-                          : "secondary"
+                            ? "warning"
+                            : inst.status === "FAILED"
+                              ? "destructive"
+                              : "secondary"
                       }
                       className="text-[10px]"
                     >
                       {inst.status === "COMPLETED"
                         ? "Concluído"
                         : inst.status === "PENDING_APPROVAL"
-                        ? "Aguardando"
-                        : inst.status === "FAILED"
-                        ? "Falhou"
-                        : inst.status}
+                          ? "Aguardando"
+                          : inst.status === "FAILED"
+                            ? "Falhou"
+                            : inst.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right text-sm font-semibold tabular-nums text-foreground">

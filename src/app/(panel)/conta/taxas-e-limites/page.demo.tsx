@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Taxas e Limites",
+  title: "Taxas e limites",
 };
 
 export default function TaxasLimitesPage() {

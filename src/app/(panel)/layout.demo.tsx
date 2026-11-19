@@ -1,40 +1,40 @@
+"use client";
+
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/sidebar";
+import { DashboardPixNoticesProvider } from "@/components/layout/dashboard-pix-notices";
 import { Topbar } from "@/components/layout/topbar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { AccountStatusGate } from "@/components/layout/account-status-gate";
-import { DemoProvider } from "@/providers/demo-provider";
+import { PanelFrame } from "@/components/layout/panel-frame";
+import { ScenarioSwitcher } from "@/components/shared/scenario-switcher";
+import { DemoProvider, useDemoScenario, useGatewayService } from "@/providers/demo-provider";
+import { queryKeys } from "@/lib/query-keys";
 
 function PanelShell({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const service = useGatewayService();
+  const { activeScenario } = useDemoScenario();
+  const { data: approvals } = useQuery({
+    queryKey: queryKeys.approvals("PENDING"),
+    queryFn: () => service.getApprovals("PENDING"),
+  });
+
   return (
     <AccountStatusGate>
-      <div className="flex h-screen w-full overflow-hidden bg-background">
-        {/* Sidebar Desktop */}
-        <Sidebar />
-
-        {/* Conteúdo Principal + Topbar */}
-        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-          <Topbar />
-
-          {/* 
-            Modelo de Scroll Híbrido:
-            - Desktop (lg:): container interno rola de forma independente (overflow-y-auto), mantendo topbar e sidebar travados
-            - Mobile: container com rolagem fluida e padding inferior reservado para o BottomNav
-          */}
-          <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8 pb-24 lg:pb-12">
-            <div className="mx-auto w-full max-w-[1440px] space-y-8 animate-in fade-in-50 duration-150">
-              {children}
-            </div>
-          </main>
-
-          {/* Barra de Navegação Mobile Fixa */}
-          <BottomNav />
-        </div>
-      </div>
+      <DashboardPixNoticesProvider mode="demo" accountId={activeScenario}>
+        <PanelFrame
+          sidebar={<Sidebar demo pendingApprovals={approvals?.pendingCount} />}
+          topbar={<Topbar />}
+          bottomNav={<BottomNav pendingApprovals={approvals?.pendingCount} demoControls={<ScenarioSwitcher />} />}
+        >
+          {children}
+        </PanelFrame>
+      </DashboardPixNoticesProvider>
     </AccountStatusGate>
   );
 }

@@ -1,229 +1,257 @@
 "use client";
 
-import React, { useState } from "react";
-import NextLink from "next/link";
-import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGatewayService } from "@/providers/demo-provider";
-import { queryKeys } from "@/lib/query-keys";
-import { formatDateTime } from "@/lib/dates";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useRef, useState, type ChangeEvent } from "react";
+import Link from "next/link";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
-import { Users2, Plus, RotateCcw, Search, Edit, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-import type { User } from "@/types/domain";
+import { GlideSelect } from "@/components/ui/glide-select";
+import { Input } from "@/components/ui/input";
+import { LoadingConfirmation, LoadingIndicator, OperationFailure } from "@/components/ui/loading-indicator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatDateTime } from "@/lib/dates";
+import { queryKeys } from "@/lib/query-keys";
+import { cn } from "@/lib/utils";
+import { useDemoScenario, useGatewayService } from "@/providers/demo-provider";
+import type { User, UserRole, UserStatus } from "@/types/domain";
+import { newUserPath, userRoles, usersPath, userStatusLabels } from "../user-access";
+import { UserIdentity } from "./user-identity";
+
+const roleOptions = [
+  { value: "ALL", label: "Todos os perfis" },
+  ...Object.entries(userRoles).map(([value, role]) => ({ value, label: role.label })),
+];
+const statusOptions = [
+  { value: "ALL", label: "Todos os status" },
+  ...Object.entries(userStatusLabels).map(([value, label]) => ({ value, label })),
+];
+const activeOwnerFilter = { role: "TITULAR", status: "ACTIVE", pageSize: 1 } as const;
+const rowLayout = "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-5 lg:grid-cols-[minmax(0,1fr)_7rem_4rem_7.5rem_5.5rem] lg:gap-x-4";
+
+function UsersSkeleton() {
+  return (
+    <ul className="divide-y divide-border" aria-label="Carregando usuários" aria-busy="true">
+      {Array.from({ length: 5 }, (_, index) => (
+        <li key={index} aria-hidden="true" className={rowLayout}>
+          <div className="col-span-2 flex min-w-0 items-center gap-3 lg:col-span-1">
+            <Skeleton className="size-10 shrink-0 rounded-full" />
+            <div className="grid min-w-0 gap-2">
+              <Skeleton className="h-3 w-28 max-w-full" />
+              <Skeleton className="h-3 w-36 max-w-full" />
+            </div>
+          </div>
+          <Skeleton className="hidden h-4 w-16 lg:block" />
+          <Skeleton className="hidden h-4 w-12 lg:block" />
+          <Skeleton className="hidden h-3 w-24 lg:block" />
+          <Skeleton className="h-4 w-20 lg:hidden" />
+          <Skeleton className="h-7 w-12 justify-self-end" />
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function UsersListScreen() {
-  const router = useRouter();
   const service = useGatewayService();
-  const queryClient = useQueryClient();
-
+  const { currentUser, isReadOnly, activeScenario } = useDemoScenario();
+  const client = useQueryClient();
+  const searchField = useRef<HTMLInputElement>(null);
+  const removeTrigger = useRef<HTMLButtonElement | null>(null);
   const [search, setSearch] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
-
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: queryKeys.users({ search }),
-    queryFn: () => service.getUsers({ search }),
+  const [role, setRole] = useState<UserRole | "ALL">("ALL");
+  const [status, setStatus] = useState<UserStatus | "ALL">("ALL");
+  const [page, setPage] = useState(1);
+  const [target, setTarget] = useState<User | null>(null);
+  const filters = {
+    search: search.trim(), role: role === "ALL" ? undefined : role,
+    status: status === "ALL" ? undefined : status, page, scenario: activeScenario,
+  };
+  const list = useQuery({
+    queryKey: queryKeys.users(filters),
+    queryFn: () => service.getUsers(filters),
+    placeholderData: keepPreviousData,
+  });
+  const owners = useQuery({
+    queryKey: queryKeys.users({ ...activeOwnerFilter, scenario: activeScenario }),
+    queryFn: () => service.getUsers(activeOwnerFilter),
+    enabled: !isReadOnly,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => service.deleteUser(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.users() });
-      toast.success("Usuário removido da demonstração com sucesso.");
-      setDeleteTarget(null);
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      if (!(await service.deleteUser(id))) throw new Error("Usuário não encontrado.");
+      return id;
     },
-    onError: (err: any) => {
-      toast.error(err.message || "Erro ao remover usuário.");
+    onSuccess: async (id) => {
+      client.removeQueries({ queryKey: queryKeys.user(id) });
+      await client.invalidateQueries({ queryKey: queryKeys.users() });
     },
   });
+
+  const data = list.data;
+  const filtered = Boolean(filters.search || filters.role || filters.status);
+
+  function changeSearch(event: ChangeEvent<HTMLInputElement>) {
+    setSearch(event.currentTarget.value);
+    setPage(1);
+  }
+
+  function clearFilters() {
+    setSearch("");
+    setRole("ALL");
+    setStatus("ALL");
+    setPage(1);
+    searchField.current?.focus();
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            Gestão de Usuários
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Controle de colaboradores, perfis de acesso e permissões granulares por módulo.
-          </p>
+    <div className="grid min-w-0 gap-5">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="grid gap-1">
+          <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Usuários</h1>
+          <p className="text-pretty text-sm text-muted-foreground">Consulte os colaboradores e seus perfis de acesso.</p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            className="gap-1.5"
-          >
-            <RotateCcw className="size-3.5" />
-            <span>Atualizar</span>
+        {!isReadOnly && (
+          <Button asChild className="h-11 w-full sm:w-auto">
+            <Link href={newUserPath} prefetch={false}><Plus aria-hidden="true" /> Novo usuário</Link>
           </Button>
-          <Button asChild size="sm" className="gap-1.5 font-semibold">
-            <NextLink href="/conta/usuarios/novo">
-              <Plus className="size-4" />
-              <span>Novo Usuário</span>
-            </NextLink>
-          </Button>
-        </div>
-      </div>
-
-      {/* Busca */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nome, e-mail ou documento..."
-          className="pl-9 h-10 bg-card/80"
-        />
-      </div>
-
-      <Card className="border-border bg-card/80 overflow-hidden">
-        {isLoading ? (
-          <div className="p-6 space-y-4">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        ) : !data || data.data.length === 0 ? (
-          <div className="p-8">
-            <Empty
-              title="Nenhum usuário encontrado"
-              description="Tente ajustar os termos da busca."
-            />
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Colaborador</TableHead>
-                <TableHead>Documento</TableHead>
-                <TableHead>Perfil</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Contato</TableHead>
-                <TableHead>Último Acesso</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.data.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-foreground">
-                        {user.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground font-mono">
-                        {user.email}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground font-mono">
-                    {user.document}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        user.role === "TITULAR"
-                          ? "default"
-                          : user.role === "APROVADOR"
-                          ? "warning"
-                          : "secondary"
-                      }
-                      className="text-[10px]"
-                    >
-                      {user.role === "TITULAR"
-                        ? "Titular"
-                        : user.role === "OPERADOR"
-                        ? "Operador"
-                        : user.role === "APROVADOR"
-                        ? "Aprovador"
-                        : "Consulta"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="size-1.5 rounded-full bg-primary" />
-                      Ativo
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {user.phone}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {formatDateTime(user.lastAccessAt, "short")}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="iconSm"
-                        onClick={() => router.push(`/conta/usuarios/${user.id}`)}
-                        title="Editar usuário"
-                      >
-                        <Edit className="size-3.5 text-muted-foreground hover:text-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="iconSm"
-                        onClick={() => setDeleteTarget(user)}
-                        title="Excluir usuário"
-                        disabled={user.role === "TITULAR" && data.data.filter(u => u.role === "TITULAR").length <= 1}
-                      >
-                        <Trash2 className="size-3.5 text-destructive hover:text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
         )}
+      </header>
+
+      <Card className="min-w-0">
+        <CardHeader className="gap-4 space-y-0 p-4 sm:p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-balance text-lg font-semibold">Colaboradores</h2>
+            <p className="text-xs text-muted-foreground tabular-nums" role="status">
+              {list.isPlaceholderData ? "Atualizando resultados…" : data && !list.isError
+                ? `${data.total} ${data.total === 1 ? "usuário" : "usuários"}`
+                : null}
+            </p>
+          </div>
+          <div className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+            <div className="relative col-span-2 min-w-0 lg:col-span-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input ref={searchField} type="search" aria-label="Buscar usuários por nome, e-mail ou CPF"
+                value={search} onChange={changeSearch} placeholder="Nome, e-mail ou CPF" className="h-11 pl-9" />
+            </div>
+            <GlideSelect ariaLabel="Filtrar por perfil" className="min-w-0" size="lg"
+              options={roleOptions} value={role} onChange={(next) => { setRole(next as typeof role); setPage(1); }} />
+            <GlideSelect ariaLabel="Filtrar por status" className="min-w-0" size="lg"
+              options={statusOptions} value={status} onChange={(next) => { setStatus(next as typeof status); setPage(1); }} />
+          </div>
+        </CardHeader>
+
+        <div className="border-t" aria-busy={list.isFetching}>
+          {list.isPending ? <UsersSkeleton /> : list.isError ? (
+            <div className="grid justify-items-start gap-3 p-4 sm:p-5">
+              <OperationFailure message="Não foi possível carregar os usuários." animate={false} />
+              <Button type="button" variant="outline" className="h-11" onClick={() => void list.refetch()}>Tentar novamente</Button>
+            </div>
+          ) : data?.data.length ? (
+            <>
+              <div aria-hidden="true" className={cn(rowLayout, "hidden border-b bg-muted/50 text-xs font-medium text-muted-foreground lg:grid")}>
+                <span>Usuário</span><span>Perfil</span><span>Status</span><span>Último acesso</span><span className="text-right">Ações</span>
+              </div>
+              <ul className="divide-y divide-border" aria-label="Usuários encontrados">
+                {data.data.map((user) => {
+                  const protectedOwner = user.role === "TITULAR" && user.status === "ACTIVE" && (owners.data?.total ?? 1) <= 1;
+                  const label = isReadOnly ? "Ver" : "Editar";
+                  return (
+                    <li key={user.id} className={rowLayout}>
+                      <div className="col-span-2 min-w-0 lg:col-span-1">
+                        <UserIdentity name={user.name} email={user.email} current={user.id === currentUser?.id} />
+                      </div>
+                      <div className="col-start-1 row-start-2 flex flex-wrap items-center gap-2 lg:contents">
+                        <span className="text-sm text-muted-foreground">{userRoles[user.role].label}</span>
+                        <Badge variant={user.status === "ACTIVE" ? "success" : "secondary"} className="justify-self-start">
+                          {userStatusLabels[user.status]}
+                        </Badge>
+                      </div>
+                      <time dateTime={user.lastAccessAt} className="col-start-1 row-start-3 text-xs text-muted-foreground tabular-nums lg:col-auto lg:row-auto">
+                        <span className="lg:sr-only">Último acesso </span>{formatDateTime(user.lastAccessAt, "short")}
+                      </time>
+                      <div className="col-start-2 row-span-2 row-start-2 flex justify-end lg:col-auto lg:row-auto">
+                        <Button asChild variant="ghost" size="icon" className="size-11">
+                          <Link href={`${usersPath}/${encodeURIComponent(user.id)}`} prefetch={false} aria-label={`${label} ${user.name}`}>
+                            {isReadOnly ? <ChevronRight aria-hidden="true" /> : <Pencil aria-hidden="true" />}
+                          </Link>
+                        </Button>
+                        {!isReadOnly && (
+                          <Button type="button" variant="ghost" size="icon" className="size-11 text-muted-foreground hover:text-destructive"
+                            aria-label={`Remover ${user.name}`} title={protectedOwner ? "A conta precisa manter pelo menos um titular ativo." : undefined}
+                            disabled={protectedOwner || list.isPlaceholderData}
+                            onClick={(event) => {
+                              removeTrigger.current = event.currentTarget;
+                              remove.reset();
+                              setTarget(user);
+                            }}>
+                            <Trash2 aria-hidden="true" />
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              {data.totalPages > 1 && (
+                <nav aria-label="Páginas de usuários" className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 sm:px-5">
+                  <p className="text-xs text-muted-foreground tabular-nums">Página {data.page} de {data.totalPages}</p>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="icon" className="size-11" aria-label="Página anterior"
+                      disabled={data.page <= 1 || list.isPlaceholderData} onClick={() => setPage(data.page - 1)}><ChevronLeft aria-hidden="true" /></Button>
+                    <Button type="button" variant="outline" size="icon" className="size-11" aria-label="Próxima página"
+                      disabled={data.page >= data.totalPages || list.isPlaceholderData} onClick={() => setPage(data.page + 1)}><ChevronRight aria-hidden="true" /></Button>
+                  </div>
+                </nav>
+              )}
+            </>
+          ) : (
+            <Empty icon={<Users aria-hidden="true" />} className="rounded-none border-0"
+              title={filtered ? "Nenhum usuário encontrado" : "Nenhum colaborador cadastrado"}
+              description={filtered ? "Ajuste a busca ou os filtros." : undefined}
+              action={filtered ? <Button type="button" variant="outline" className="h-11" onClick={clearFilters}>Limpar filtros</Button>
+                : !isReadOnly ? <Button asChild className="h-11"><Link href={newUserPath} prefetch={false}>Novo usuário</Link></Button> : undefined} />
+          )}
+        </div>
       </Card>
 
-      {/* Confirmação de Exclusão */}
-      <AlertDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <AlertDialogContent>
+      <AlertDialog open={target !== null} onOpenChange={(open) => { if (!open && !remove.isPending) setTarget(null); }}>
+        <AlertDialogContent className="max-w-[calc(100%-2rem)] sm:max-w-md"
+          onEscapeKeyDown={(event) => { if (remove.isPending) event.preventDefault(); }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            const trigger = removeTrigger.current;
+            if (trigger?.isConnected && !trigger.disabled) trigger.focus();
+            else searchField.current?.focus();
+          }}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover Colaborador?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-muted-foreground">
-              Você está prestes a remover o acesso demonstrativo de &ldquo;{deleteTarget?.name}&rdquo; ({deleteTarget?.email}). Nenhum convite real é cancelado.
+            <AlertDialogTitle className="text-balance">{remove.isSuccess ? "Usuário removido" : "Remover usuário?"}</AlertDialogTitle>
+            <AlertDialogDescription className="wrap-anywhere text-pretty">
+              {remove.isSuccess
+                ? `O cadastro de ${target?.name} foi removido da demonstração.`
+                : `O cadastro de ${target?.name} (${target?.email}) será removido da demonstração.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {remove.isSuccess && <div className="justify-self-center"><LoadingConfirmation animate /></div>}
+          {remove.isError && <OperationFailure message={remove.error.message} />}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Remover Usuário
-            </AlertDialogAction>
+            <AlertDialogCancel className="h-11" disabled={remove.isPending}>
+              {remove.isSuccess ? "Fechar" : "Cancelar"}
+            </AlertDialogCancel>
+            {!remove.isSuccess && (
+              <Button type="button" variant="destructive" className="h-11" disabled={remove.isPending || isReadOnly}
+                onClick={() => { if (target) remove.mutate(target.id); }}>
+                {remove.isPending && <LoadingIndicator />}
+                {remove.isPending ? "Removendo…" : "Remover usuário"}
+              </Button>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

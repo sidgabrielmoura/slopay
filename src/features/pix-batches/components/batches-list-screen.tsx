@@ -148,20 +148,20 @@ export function BatchesListScreen() {
                         batch.status === "COMPLETED"
                           ? "success"
                           : batch.status === "PENDING_APPROVAL"
-                          ? "warning"
-                          : batch.status === "PARTIALLY_COMPLETED"
-                          ? "destructive"
-                          : "secondary"
+                            ? "warning"
+                            : batch.status === "PARTIALLY_COMPLETED"
+                              ? "destructive"
+                              : "secondary"
                       }
                       className="text-[11px]"
                     >
                       {batch.status === "COMPLETED"
                         ? "Concluído"
                         : batch.status === "PENDING_APPROVAL"
-                        ? "Aguardando Aprovação"
-                        : batch.status === "PARTIALLY_COMPLETED"
-                        ? "Parcialmente Concluído"
-                        : batch.status}
+                          ? "Aguardando Aprovação"
+                          : batch.status === "PARTIALLY_COMPLETED"
+                            ? "Parcialmente Concluído"
+                            : batch.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right text-sm font-bold tabular-nums text-foreground">

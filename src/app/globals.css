@@ -52,6 +52,7 @@
   --chart-3: #C6B080;
   --chart-4: #AB9ABD;
   --chart-5: #91B7AD;
+  --chart-expense-other: #C99782;
 
   /* Raios */
   --radius: 0.625rem;
@@ -118,9 +119,39 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root.density-compact .panel-operation-table :is(th, td) {
+  padding-block: 0.5rem;
+}
+
+:root.density-compact .admin-panel main table td {
+  padding-block: 0.5rem;
+}
+
+:root.density-compact .admin-panel main table th {
+  height: 2.5rem;
+  padding-block: 0.5rem;
+}
+
+/* Radix dialogs disable pointer events on body while they are open. */
+[data-sonner-toast][data-visible="true"]:not([data-removed="true"]) {
+  pointer-events: auto;
+}
+
+:root.reduce-motion *,
+:root.reduce-motion *::before,
+:root.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 /* Redução de movimento */
 @media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
+
+  *,
+  ::before,
+  ::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -134,10 +165,22 @@ body {
     background-color: #ffffff !important;
     color: #000000 !important;
   }
+
   .no-print {
     display: none !important;
   }
+
   .print-only {
     display: block !important;
   }
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  background-color: var(--accent);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--primary);
+  border-radius: 100px;
 }

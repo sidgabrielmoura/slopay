@@ -2,6 +2,7 @@
 
 import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { ToastNotice } from "@/components/ui/toast-notice";
 import { AlertCircle, RefreshCcw } from "lucide-react";
 
 export default function PanelError({
@@ -23,10 +24,7 @@ export default function PanelError({
       <h3 className="text-lg font-semibold text-foreground">
         Ocorreu um erro ao carregar esta área
       </h3>
-      <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
-        {error.message ||
-          "Houve uma falha inesperada na renderização da visualização demonstrativa."}
-      </p>
+      <ToastNotice message="Houve uma falha ao carregar a visualização demonstrativa." persistent />
       <div className="mt-6 flex gap-3">
         <Button onClick={() => reset()} className="gap-2">
           <RefreshCcw className="size-4" />

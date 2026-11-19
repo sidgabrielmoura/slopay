@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import {
   FullOnboardingFormData,
   step1Schema,
   validateStepWithSchema,
 } from "../../schemas/onboarding.schema";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { AuthField, AuthLoadingStatus } from "@/features/auth/components/auth-form-controls";
+import { ToastNotice } from "@/components/ui/toast-notice";
 import {
   Select,
   SelectContent,
@@ -16,8 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowRight, Loader2, Check, AlertCircle } from "lucide-react";
-import { formatCPF, formatPhone, isValidCPF, cleanDocument } from "@/lib/validators";
+import { ArrowRight } from "lucide-react";
+import { isValidCPF, cleanDocument } from "@/lib/validators";
 import { lookupPersonByCpf, PersonLookupResponse } from "@/services/lookup.service";
 import { toast } from "sonner";
 
@@ -41,15 +42,18 @@ export function StepResponsible({ form, onNext }: StepResponsibleProps) {
   const phoneValue = watch("phone") || "";
 
   const [isSearching, setIsSearching] = useState(false);
-  const [searchStatus, setSearchStatus] = useState<
-    "idle" | "loading" | "verified_manual" | "success" | "error"
-  >("idle");
+  const [searchStatus, setSearchStatus] = useState<"idle" | "verified_manual" | "success">("idle");
   const [inconsistencyMessage, setInconsistencyMessage] = useState<string | null>(null);
   const [lastSearchedCpf, setLastSearchedCpf] = useState<string>("");
+  const lookupSequence = useRef(0);
+
+  useEffect(() => () => { lookupSequence.current += 1; }, []);
 
   const handleCpfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCPF(e.target.value);
-    setValue("cpf", formatted, { shouldValidate: true });
+    const lookupId = ++lookupSequence.current;
+    const formatted = e.target.value;
+    setValue("cpf", formatted);
+    setIsSearching(false);
     if (errors.cpf) clearErrors("cpf");
 
     const clean = cleanDocument(formatted);
@@ -63,11 +67,12 @@ export function StepResponsible({ form, onNext }: StepResponsibleProps) {
     // Dispara a validação e consulta assim que atinge 11 dígitos
     if (clean.length === 11) {
       if (!isValidCPF(clean)) {
+        const message = "CPF inválido. Verifique os dígitos verificadores informados.";
         setError("cpf", {
           type: "manual",
-          message: "CPF inválido. Verifique os dígitos verificadores informados.",
+          message,
         });
-        setSearchStatus("error");
+        toast.error(message, { id: "onboarding-validation" });
         return;
       }
 
@@ -75,14 +80,14 @@ export function StepResponsible({ form, onNext }: StepResponsibleProps) {
 
       if (clean !== lastSearchedCpf) {
         setIsSearching(true);
-        setSearchStatus("loading");
         try {
           const result: PersonLookupResponse = await lookupPersonByCpf(clean);
+          if (lookupSequence.current !== lookupId) return;
+
           setLastSearchedCpf(clean);
 
           if (result.inconsistencyAlert) {
             setInconsistencyMessage(result.inconsistencyAlert);
-            setSearchStatus("error");
             setError("cpf", {
               type: "manual",
               message: result.inconsistencyAlert,
@@ -98,33 +103,37 @@ export function StepResponsible({ form, onNext }: StepResponsibleProps) {
             setSearchStatus("verified_manual");
           }
         } catch (err: any) {
-          setSearchStatus("error");
+          if (lookupSequence.current !== lookupId) return;
+
           setLastSearchedCpf(clean);
+          const message = err.message || "Erro ao consultar CPF.";
           setError("cpf", {
             type: "manual",
-            message: err.message || "Erro ao consultar CPF.",
+            message,
           });
+          toast.error(message, { id: "onboarding-validation" });
         } finally {
-          setIsSearching(false);
+          if (lookupSequence.current === lookupId) setIsSearching(false);
         }
       }
     }
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhone(e.target.value);
-    setValue("phone", formatted, { shouldValidate: true });
+    setValue("phone", e.target.value, { shouldValidate: true });
     if (errors.phone) clearErrors("phone");
   };
 
   const handleAdvance = () => {
+    if (isSearching) return;
+
     if (inconsistencyMessage) {
       toast.error("Corrija o impedimento cadastral do CPF antes de avançar.");
       return;
     }
 
     const data = form.getValues();
-    const isValid = validateStepWithSchema(
+    const validationError = validateStepWithSchema(
       step1Schema,
       data,
       setError,
@@ -132,8 +141,8 @@ export function StepResponsible({ form, onNext }: StepResponsibleProps) {
       ["cpf", "fullName", "phone", "email", "roleInCompany", "roleOther"]
     );
 
-    if (!isValid) {
-      toast.error("Preencha todos os campos obrigatórios corretamente antes de prosseguir.");
+    if (validationError) {
+      toast.error(validationError, { id: "onboarding-validation" });
       return;
     }
 
@@ -143,10 +152,10 @@ export function StepResponsible({ form, onNext }: StepResponsibleProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-semibold tracking-tight text-foreground">
+        <h2 className="text-lg font-semibold tracking-tight">
           Dados do Responsável Legal
         </h2>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="mt-1 text-sm text-muted-foreground">
           Informe o CPF do titular para validação cadastral e credenciamento oficial.
         </p>
       </div>
@@ -154,153 +163,91 @@ export function StepResponsible({ form, onNext }: StepResponsibleProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* CPF no Topo com Consulta Real e Loader */}
         <div className="space-y-1.5 md:col-span-2">
-          <div className="flex items-center justify-between">
-            <label htmlFor="cpf" className="text-xs font-medium text-foreground">
-              CPF do Responsável *
-            </label>
-            {isSearching && (
-              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                <Loader2 className="size-3 animate-spin text-primary" />
-                Validando documento na Receita Federal...
-              </span>
-            )}
-          </div>
-          <div className="relative">
-            <Input
-              id="cpf"
-              {...register("cpf")}
-              value={cpfValue}
-              onChange={handleCpfChange}
-              placeholder="000.000.000-00"
-              maxLength={14}
-              className={`h-10 text-xs font-mono bg-background/50 pr-9 ${errors.cpf ? "border-destructive focus-visible:ring-destructive" : ""
-                }`}
-              aria-invalid={Boolean(errors.cpf)}
-            />
-            {isSearching && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <Loader2 className="size-4 animate-spin text-muted-foreground" />
-              </div>
-            )}
-            {!isSearching && (searchStatus === "success" || searchStatus === "verified_manual") && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-primary">
-                <Check className="size-4 stroke-[2.5]" />
-              </div>
-            )}
-            {!isSearching && searchStatus === "error" && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive">
-                <AlertCircle className="size-4" />
-              </div>
-            )}
-          </div>
-
-          {errors.cpf && (
-            <p className="text-[11px] text-destructive">{errors.cpf.message}</p>
-          )}
-
-          {!errors.cpf && searchStatus === "success" && (
-            <p className="text-[11px] text-primary flex items-center gap-1.5 mt-1">
-              <Check className="size-3" />
-              <span>Titular validado com sucesso na Receita Federal.</span>
-            </p>
-          )}
-
-          {!errors.cpf && searchStatus === "verified_manual" && (
-            <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-1">
-              <Check className="size-3 text-primary" />
-              <span>Preencha seus dados de identificação abaixo.</span>
-            </p>
-          )}
-
-          {inconsistencyMessage && (
-            <p className="text-[11px] text-destructive flex items-center gap-1.5 mt-1">
-              <AlertCircle className="size-3" />
-              <span>{inconsistencyMessage}</span>
-            </p>
+          <AuthField
+            id="cpf"
+            label="CPF do responsável"
+            {...register("cpf")}
+            value={cpfValue}
+            onChange={handleCpfChange}
+            mask="CPF"
+            placeholder="000.000.000-00"
+            required
+            error={inconsistencyMessage ?? errors.cpf?.message}
+            aria-describedby={isSearching || searchStatus === "verified_manual" ? "cpf-lookup-status" : undefined}
+          />
+          <ToastNotice message={inconsistencyMessage} persistent />
+          {isSearching ? (
+            <AuthLoadingStatus id="cpf-lookup-status" className="text-xs">Validando CPF…</AuthLoadingStatus>
+          ) : searchStatus === "verified_manual" && (
+            <p id="cpf-lookup-status" className="text-xs text-muted-foreground">Preencha seus dados de identificação abaixo.</p>
           )}
         </div>
 
         {/* Nome Completo */}
-        <div className="space-y-1.5 md:col-span-2">
-          <label htmlFor="fullName" className="text-xs font-medium text-foreground">
-            Nome Completo do Responsável *
-          </label>
-          <Input
+        <div className="md:col-span-2">
+          <AuthField
             id="fullName"
+            label="Nome completo do responsável"
+            autoComplete="name"
+            required
             {...register("fullName", {
               onChange: () => {
                 if (errors.fullName) clearErrors("fullName");
               },
             })}
             placeholder="Nome e sobrenome completos"
-            className={`h-10 text-xs bg-background/50 ${errors.fullName ? "border-destructive focus-visible:ring-destructive" : ""
-              }`}
-            aria-invalid={Boolean(errors.fullName)}
+            error={errors.fullName?.message}
           />
-          {errors.fullName && (
-            <p className="text-[11px] text-destructive">{errors.fullName.message}</p>
-          )}
         </div>
 
         {/* Telefone / Celular */}
-        <div className="space-y-1.5">
-          <label htmlFor="phone" className="text-xs font-medium text-foreground">
-            Celular / WhatsApp *
-          </label>
-          <Input
+          <AuthField
             id="phone"
+            label="Celular / WhatsApp"
+            mask="PHONE"
+            autoComplete="tel"
+            required
             {...register("phone")}
             value={phoneValue}
             onChange={handlePhoneChange}
             placeholder="(11) 99999-9999"
-            maxLength={15}
-            className={`h-10 text-xs font-mono bg-background/50 ${errors.phone ? "border-destructive focus-visible:ring-destructive" : ""
-              }`}
-            aria-invalid={Boolean(errors.phone)}
+            error={errors.phone?.message}
           />
-          {errors.phone && (
-            <p className="text-[11px] text-destructive">{errors.phone.message}</p>
-          )}
-        </div>
 
         {/* E-mail Corporativo */}
-        <div className="space-y-1.5">
-          <label htmlFor="email" className="text-xs font-medium text-foreground">
-            E-mail Corporativo do Responsável *
-          </label>
-          <Input
+          <AuthField
             id="email"
+            label="E-mail corporativo"
             type="email"
+            autoComplete="email"
+            required
             {...register("email", {
               onChange: () => {
                 if (errors.email) clearErrors("email");
               },
             })}
             placeholder="nome@empresa.com.br"
-            className={`h-10 text-xs bg-background/50 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""
-              }`}
-            aria-invalid={Boolean(errors.email)}
+            error={errors.email?.message}
           />
-          {errors.email && (
-            <p className="text-[11px] text-destructive">{errors.email.message}</p>
-          )}
-        </div>
 
         {/* Vínculo com a Empresa */}
         <div className="space-y-1.5 md:col-span-2">
-          <label className="text-xs font-medium text-foreground">
+          <label htmlFor="roleInCompany" className="block text-sm font-medium">
             Vínculo / Cargo na Empresa *
           </label>
           <Select
             value={roleInCompany}
-            onValueChange={(val: any) => {
-              setValue("roleInCompany", val, { shouldValidate: true });
+            required
+            onValueChange={(value: FullOnboardingFormData["roleInCompany"]) => {
+              setValue("roleInCompany", value, { shouldValidate: true });
               if (errors.roleInCompany) clearErrors("roleInCompany");
             }}
           >
             <SelectTrigger
-              className={`h-10 text-xs bg-background/50 ${errors.roleInCompany ? "border-destructive" : ""
-                }`}
+              id="roleInCompany"
+              className="h-11 w-full aria-invalid:border-destructive"
+              aria-invalid={Boolean(errors.roleInCompany)}
+              aria-describedby={errors.roleInCompany ? "roleInCompany-error" : undefined}
             >
               <SelectValue placeholder="Selecione seu vínculo legal" />
             </SelectTrigger>
@@ -312,30 +259,25 @@ export function StepResponsible({ form, onNext }: StepResponsibleProps) {
             </SelectContent>
           </Select>
           {errors.roleInCompany && (
-            <p className="text-[11px] text-destructive">{errors.roleInCompany.message}</p>
+            <span id="roleInCompany-error" className="sr-only">{errors.roleInCompany.message}</span>
           )}
         </div>
 
         {/* Campo Condicional se Vínculo for "OUTRO" */}
         {roleInCompany === "OUTRO" && (
-          <div className="space-y-1.5 md:col-span-2 animate-in fade-in-50">
-            <label htmlFor="roleOther" className="text-xs font-medium text-foreground">
-              Especifique seu cargo ou vínculo societário *
-            </label>
-            <Input
+          <div className="md:col-span-2">
+            <AuthField
               id="roleOther"
+              label="Especifique seu cargo ou vínculo societário"
+              required
               {...register("roleOther", {
                 onChange: () => {
                   if (errors.roleOther) clearErrors("roleOther");
                 },
               })}
               placeholder="Ex: Gerente Financeiro ou Tesoureiro Geral"
-              className={`h-10 text-xs bg-background/50 ${errors.roleOther ? "border-destructive focus-visible:ring-destructive" : ""
-                }`}
+              error={errors.roleOther?.message}
             />
-            {errors.roleOther && (
-              <p className="text-[11px] text-destructive">{errors.roleOther.message}</p>
-            )}
           </div>
         )}
       </div>
@@ -345,7 +287,8 @@ export function StepResponsible({ form, onNext }: StepResponsibleProps) {
         <Button
           type="button"
           onClick={handleAdvance}
-          className="h-10 px-6 font-medium gap-2"
+          disabled={isSearching}
+          className="h-auto min-h-11 whitespace-normal"
         >
           <span>Avançar para Dados da Empresa</span>
           <ArrowRight className="size-4" />

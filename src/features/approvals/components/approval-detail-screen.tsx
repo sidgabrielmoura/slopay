@@ -2,14 +2,17 @@
 
 import React, { useState } from "react";
 import NextLink from "next/link";
+import { ToastNotice } from "@/components/ui/toast-notice";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGatewayService, useDemoScenario } from "@/providers/demo-provider";
 import { usePreferences } from "@/providers/preferences-provider";
+import { PanelAmount } from "@/components/layout/panel-privacy";
 import { queryKeys } from "@/lib/query-keys";
 import { formatCentsToBrl } from "@/lib/money";
 import { formatDateTime } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
+import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,8 +34,6 @@ import {
   ShieldCheck,
   User,
   AlertTriangle,
-  Loader2,
-  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,6 +47,7 @@ export function ApprovalDetailScreen({ approvalId }: { approvalId: string }) {
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [decisionApprover, setDecisionApprover] = useState<{ id: string; name: string } | null>(null);
 
   const { data: approval, isLoading, isError } = useQuery({
     queryKey: queryKeys.approval(approvalId),
@@ -54,11 +56,12 @@ export function ApprovalDetailScreen({ approvalId }: { approvalId: string }) {
 
   const decideMutation = useMutation({
     mutationFn: (params: { decision: "APPROVE" | "REJECT"; reason?: string }) => {
-      if (isReadOnly) {
+      if (isReadOnly || !decisionApprover) {
         throw new Error("Perfil de apenas consulta não possui permissão para aprovar ou recusar operações.");
       }
       return service.decideApproval({
         requestId: approvalId,
+        approverId: decisionApprover.id,
         decision: params.decision,
         reason: params.reason,
       });
@@ -81,8 +84,9 @@ export function ApprovalDetailScreen({ approvalId }: { approvalId: string }) {
       setApproveDialogOpen(false);
       setRejectDialogOpen(false);
     },
-    onError: (err: any) => {
-      toast.error(err.message || "Erro ao registrar decisão.");
+    onError: (error) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.approval(approvalId) });
+      toast.error(error.message || "Erro ao registrar decisão.");
     },
   });
 
@@ -113,8 +117,7 @@ export function ApprovalDetailScreen({ approvalId }: { approvalId: string }) {
   }
 
   const isPending = approval.status === "PENDING";
-  // Verifica se o usuário ativo da simulação (usr_3 - Beatriz Lima) já votou
-  const userHasVoted = approval.decisions.some((d) => d.userId === "usr_3");
+  const nextApprover = approval.nextApprover;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -134,16 +137,16 @@ export function ApprovalDetailScreen({ approvalId }: { approvalId: string }) {
             approval.status === "APPROVED"
               ? "success"
               : isPending
-              ? "warning"
-              : "destructive"
+                ? "warning"
+                : "destructive"
           }
           className="text-xs px-3 py-1"
         >
           {approval.status === "APPROVED"
             ? "Aprovado e Liquidado"
             : isPending
-            ? "Aguardando Decisão"
-            : "Recusado"}
+              ? "Aguardando Decisão"
+              : "Recusado"}
         </Badge>
       </div>
 
@@ -253,26 +256,23 @@ export function ApprovalDetailScreen({ approvalId }: { approvalId: string }) {
           {isPending && (
             <div className="pt-4 border-t border-border flex flex-col sm:flex-row gap-3">
               {isReadOnly ? (
-                <div className="p-3 w-full rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs flex items-center justify-center gap-2 text-amber-500">
-                  <Lock className="size-3.5 shrink-0" />
-                  <span>Seu perfil demonstrativo atual (Consulta) possui acesso de apenas leitura. Votação desabilitada.</span>
-                </div>
-              ) : userHasVoted ? (
+                <ToastNotice variant="warning" message="A votação está desabilitada no perfil de consulta." persistent />
+              ) : !nextApprover ? (
                 <div className="p-3 w-full rounded-xl bg-muted/50 border border-border text-xs text-center text-muted-foreground">
-                  Você já registrou seu voto nesta solicitação. Aguardando os demais membros elegíveis.
+                  Nenhum aprovador está disponível para esta etapa da regra.
                 </div>
               ) : (
                 <>
                   <Button
                     variant="outline"
-                    onClick={() => setRejectDialogOpen(true)}
+                    onClick={() => { setDecisionApprover(nextApprover); setRejectDialogOpen(true); }}
                     className="flex-1 text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10 gap-2"
                   >
                     <XCircle className="size-4" />
                     <span>Recusar Operação</span>
                   </Button>
                   <Button
-                    onClick={() => setApproveDialogOpen(true)}
+                    onClick={() => { setDecisionApprover(nextApprover); setApproveDialogOpen(true); }}
                     className="flex-1 font-semibold gap-2"
                   >
                     <CheckCircle2 className="size-4" />
@@ -291,8 +291,8 @@ export function ApprovalDetailScreen({ approvalId }: { approvalId: string }) {
           <DialogHeader>
             <DialogTitle>Confirmar Aprovação da Operação</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Você está aprovando o débito de{" "}
-              <strong className="text-foreground">{formatCentsToBrl(approval.totalInCents)}</strong> para{" "}
+              Registre a aprovação simulada de <strong>{decisionApprover?.name}</strong> para o débito de{" "}
+              <strong className="text-foreground"><PanelAmount cents={approval.totalInCents} /></strong> a{" "}
               <strong className="text-foreground">{approval.counterpartyName}</strong>.
             </DialogDescription>
           </DialogHeader>
@@ -309,7 +309,7 @@ export function ApprovalDetailScreen({ approvalId }: { approvalId: string }) {
               className="gap-2 font-semibold"
             >
               {decideMutation.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
+                <LoadingIndicator />
               ) : (
                 <CheckCircle2 className="size-4" />
               )}
@@ -325,7 +325,7 @@ export function ApprovalDetailScreen({ approvalId }: { approvalId: string }) {
           <DialogHeader>
             <DialogTitle className="text-destructive">Recusar Operação Pix</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              A recusa cancelará a operação e liberará imediatamente a reserva de saldo.
+              Registre a recusa simulada de <strong>{decisionApprover?.name}</strong>. A operação será cancelada e a reserva será liberada.
             </DialogDescription>
           </DialogHeader>
 
@@ -357,7 +357,7 @@ export function ApprovalDetailScreen({ approvalId }: { approvalId: string }) {
               className="gap-2 font-semibold"
             >
               {decideMutation.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
+                <LoadingIndicator />
               ) : (
                 <XCircle className="size-4" />
               )}

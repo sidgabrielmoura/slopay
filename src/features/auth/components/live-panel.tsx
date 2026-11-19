@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "./live-auth-forms";
+import { SessionMonitor } from "./session-monitor";
 
 export function LivePanel({ title, message }: { title: string; message: string }) {
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-12 sm:py-20">
+      <SessionMonitor />
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
         <Link href="/inicio" className="font-semibold text-primary">SloPay</Link>
         <LogoutButton />

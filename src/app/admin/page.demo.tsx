@@ -16,11 +16,11 @@ import {
   ShieldCheck,
   Clock,
   CheckCircle2,
-  AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ToastNotice } from "@/components/ui/toast-notice";
 import { formatCentsToBrl } from "@/lib/money";
 
 export default function AdminDashboardPage() {
@@ -76,28 +76,13 @@ export default function AdminDashboardPage() {
       </div>
 
       {(pendingSummary?.totalUrgentTasks ?? 0) > 0 && (
-        <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="size-8 rounded-lg bg-destructive/20 border border-destructive/40 flex items-center justify-center shrink-0">
-              <AlertTriangle className="size-4 text-destructive" />
-            </div>
-            <div>
-              <h2 className="text-xs font-semibold text-foreground">
-                Existem {pendingSummary?.totalUrgentTasks} tarefas com atenção requerida
-              </h2>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                {pendingSummary?.pendingApplicationsCount} novas solicitações aguardando parecer e{" "}
-                {pendingSummary?.pendingFinancialApprovalsCount} saques extraordinários pendentes.
-              </p>
-            </div>
-          </div>
-          <NextLink href="/admin/pendencias">
-            <Button size="sm" variant="destructive" className="h-8 text-xs shrink-0 font-medium">
-              Resolver Pendências
-              <ArrowRight className="size-3 ml-1" />
-            </Button>
-          </NextLink>
-        </div>
+        <ToastNotice
+          variant="warning"
+          message={`${pendingSummary?.totalUrgentTasks} pendências requerem atenção.`}
+          description={`${pendingSummary?.pendingApplicationsCount} solicitações aguardando parecer e ${pendingSummary?.pendingFinancialApprovalsCount} saques extraordinários pendentes.`}
+          href="/admin/pendencias"
+          actionLabel="Ver pendências"
+        />
       )}
 
       {/* Grid de Métricas Principais (6 Cards) */}

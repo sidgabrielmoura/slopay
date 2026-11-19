@@ -28,30 +28,17 @@ export function isValidCPF(cpf: string): boolean {
 }
 
 export function isValidCNPJ(cnpj: string): boolean {
-  const clean = cleanDocument(cnpj);
-  if (clean.length !== 14) return false;
+  const clean = cnpj.replace(/[./\s-]/g, "").toUpperCase();
+  if (!/^[A-Z0-9]{12}\d{2}$/.test(clean) || /^(\d)\1{13}$/.test(clean)) return false;
 
-  if (/^(\d)\1{13}$/.test(clean)) return false;
-
-  const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-  let sum = 0;
-  for (let i = 0; i < 12; i++) {
-    sum += parseInt(clean.charAt(i), 10) * weights1[i];
+  function checkDigit(length: number) {
+    let total = 0;
+    for (let i = 0; i < length; i++) {
+      total += (clean.charCodeAt(length - i - 1) - 48) * (2 + i % 8);
+    }
+    return total % 11 < 2 ? 0 : 11 - total % 11;
   }
-  let rest = sum % 11;
-  const digit1 = rest < 2 ? 0 : 11 - rest;
-  if (digit1 !== parseInt(clean.charAt(12), 10)) return false;
-
-  const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-  sum = 0;
-  for (let i = 0; i < 13; i++) {
-    sum += parseInt(clean.charAt(i), 10) * weights2[i];
-  }
-  rest = sum % 11;
-  const digit2 = rest < 2 ? 0 : 11 - rest;
-  if (digit2 !== parseInt(clean.charAt(13), 10)) return false;
-
-  return true;
+  return checkDigit(12) === Number(clean[12]) && checkDigit(13) === Number(clean[13]);
 }
 
 export function formatCPF(val: string): string {
@@ -63,12 +50,11 @@ export function formatCPF(val: string): string {
 }
 
 export function formatCNPJ(val: string): string {
-  const clean = cleanDocument(val).slice(0, 14);
-  return clean
-    .replace(/^(\d{2})(\d)/, "$1.$2")
-    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/\.(\d{3})(\d)/, ".$1/$2")
-    .replace(/(\d{4})(\d)/, "$1-$2");
+  const clean = val.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 14);
+  const prefix = [clean.slice(0, 2), clean.slice(2, 5), clean.slice(5, 8)].filter(Boolean).join(".");
+  const order = clean.slice(8, 12);
+  const checkDigits = clean.slice(12);
+  return prefix + (order ? "/" + order : "") + (checkDigits ? "-" + checkDigits : "");
 }
 
 export function formatPhone(val: string): string {
@@ -81,6 +67,30 @@ export function formatPhone(val: string): string {
   return clean
     .replace(/^(\d{2})(\d)/, "($1) $2")
     .replace(/(\d{5})(\d)/, "$1-$2");
+}
+
+export type BrazilianInputMask = "CPF" | "CNPJ" | "CNPJ_NUMERIC" | "PHONE" | "CPF_OR_CNPJ";
+
+export function pixKeyInputMask(type: string): BrazilianInputMask | undefined {
+  if (type === "CPF" || type === "CNPJ" || type === "PHONE") return type;
+}
+
+export function formatBrazilianInput(mask: BrazilianInputMask, value: string): string | null {
+  const text = value.trim();
+  if (mask === "PHONE") {
+    if (!/^\+?[\d().\s-]*$/.test(text)) return null;
+    const digits = cleanDocument(text);
+    if (/^55\d{10,11}$/.test(digits)) return "+55 " + formatPhone(digits.slice(2));
+    if (!text.startsWith("+")) return digits.length <= 11 ? formatPhone(digits) : null;
+    if ("55".startsWith(digits)) return "+" + digits;
+    return /^55\d{1,11}$/.test(digits) ? "+55 " + formatPhone(digits.slice(2)) : null;
+  }
+
+  const document = text.replace(/[./\s-]/g, "");
+  const cpf = mask === "CPF" || (mask === "CPF_OR_CNPJ" && /^\d{0,11}$/.test(document));
+  if (cpf) return /^\d{0,11}$/.test(document) ? formatCPF(document) : null;
+  if (mask === "CNPJ_NUMERIC" && !/^\d*$/.test(document)) return null;
+  return /^[A-Z0-9]{0,12}\d{0,2}$/i.test(document) ? formatCNPJ(document) : null;
 }
 
 export function maskCPF(cpf: string): string {

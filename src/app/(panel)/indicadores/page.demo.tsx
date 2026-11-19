@@ -1,4 +1,4 @@
-import { AnalyticsScreen } from "@/features/analytics/components/analytics-screen";
+import { DemoAnalyticsScreen } from "@/features/analytics/components/demo-analytics-screen";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -6,5 +6,5 @@ export const metadata: Metadata = {
 };
 
 export default function IndicadoresPage() {
-  return <AnalyticsScreen />;
+  return <DemoAnalyticsScreen />;
 }

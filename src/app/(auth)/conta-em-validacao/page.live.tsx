@@ -1,29 +1,27 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { AuthShell } from "@/features/auth/components/auth-shell";
-import { LogoutButton, ResendVerificationButton } from "@/features/auth/components/live-auth-forms";
+import { AuthHeading } from "@/features/auth/components/auth-form-controls";
+import { AuthShell, accountSetupSteps } from "@/features/auth/components/auth-shell";
+import { LogoutButton } from "@/features/auth/components/live-auth-forms";
+import { SessionMonitor } from "@/features/auth/components/session-monitor";
+import { onboardingDestination, registrationCompletePath } from "@/lib/auth-navigation";
 import { requireSession } from "@/lib/server/session";
 
 export default async function ContaEmValidacaoPage() {
   const user = await requireSession("/conta-em-validacao");
-  if (user.status === "ACTIVE" && user.isEmailVerified) {
-    redirect(user.isTwoFactorEnabled && user.mfaVerified
-      ? user.role === "ADMIN" ? "/admin" : "/inicio"
-      : "/conta/seguranca");
+  const destination = onboardingDestination(user);
+  if (destination !== "/conta-em-validacao") {
+    redirect(destination ?? registrationCompletePath(user));
   }
+  if (user.role === "MERCHANT") redirect("/inicio");
 
   return (
-    <AuthShell>
+    <AuthShell progress={{ steps: accountSetupSteps, current: 3 }}>
+      <SessionMonitor />
       <section className="space-y-5">
         <header className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight">Confirme seu e-mail</h1>
-          <p className="text-sm text-muted-foreground">
-            Use o link de confirmação enviado para <strong className="text-foreground">{user.email}</strong> antes de continuar.
-          </p>
+          <AuthHeading>Conta em validação</AuthHeading>
+          <p className="text-sm text-muted-foreground">Seu e-mail foi confirmado. O acesso ao painel aguarda a liberação da conta.</p>
         </header>
-        <Button asChild><Link href="/verify-email">Informar código de confirmação</Link></Button>
-        <ResendVerificationButton />
         <LogoutButton />
       </section>
     </AuthShell>

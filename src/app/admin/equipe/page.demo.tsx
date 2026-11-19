@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableHeader,
@@ -251,7 +252,7 @@ export default function AdminEquipePage() {
                               m.status === "ACTIVE"
                                 ? "text-red-400 hover:text-red-300 hover:bg-red-500/10"
                                 : "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
-                            }`}
+                              }`}
                           >
                             {m.status === "ACTIVE" ? (
                               <>
@@ -292,44 +293,50 @@ export default function AdminEquipePage() {
 
             <div className="space-y-4 pt-2">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground">
+                <label htmlFor="team-member-role" className="text-xs font-medium text-foreground">
                   Papel Institucional
                 </label>
-                <select
+                <Select
                   value={roleForm.role}
-                  onChange={(e) =>
-                    setRoleForm({
-                      ...roleForm,
-                      role: e.target.value as AdminUser["role"],
-                    })
+                  onValueChange={(role) =>
+                    setRoleForm((current) => ({ ...current, role: role as AdminUser["role"] }))
                   }
-                  className="w-full h-8 text-xs bg-background border border-border rounded-md px-2 text-foreground"
                 >
-                  <option value="SUPERADMIN">Superadmin (Acesso Total)</option>
-                  <option value="ONBOARDING_ANALYST">Analista KYC / Onboarding</option>
-                  <option value="OPERATIONS">Operações & Liquidação</option>
-                  <option value="SUPPORT">Suporte N3</option>
-                  <option value="AUDITOR">Auditor de Compliance</option>
-                </select>
+                  <SelectTrigger id="team-member-role" className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="SUPERADMIN">Superadmin (Acesso Total)</SelectItem>
+                      <SelectItem value="ONBOARDING_ANALYST">Analista KYC / Onboarding</SelectItem>
+                      <SelectItem value="OPERATIONS">Operações & Liquidação</SelectItem>
+                      <SelectItem value="SUPPORT">Suporte N3</SelectItem>
+                      <SelectItem value="AUDITOR">Auditor de Compliance</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground">
+                <label htmlFor="team-member-scope" className="text-xs font-medium text-foreground">
                   Escopo de Atuação
                 </label>
-                <select
+                <Select
                   value={roleForm.scope}
-                  onChange={(e) =>
-                    setRoleForm({
-                      ...roleForm,
-                      scope: e.target.value as AdminUser["scope"],
-                    })
+                  onValueChange={(scope) =>
+                    setRoleForm((current) => ({ ...current, scope: scope as AdminUser["scope"] }))
                   }
-                  className="w-full h-8 text-xs bg-background border border-border rounded-md px-2 text-foreground"
                 >
-                  <option value="GLOBAL">Global (Todas as empresas e operações)</option>
-                  <option value="ASSIGNED">Específico (Somente carteira designada)</option>
-                </select>
+                  <SelectTrigger id="team-member-scope" className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="GLOBAL">Global (Todas as empresas e operações)</SelectItem>
+                      <SelectItem value="ASSIGNED">Específico (Somente carteira designada)</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

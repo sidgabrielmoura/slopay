@@ -1,7 +1,7 @@
 import { UserFormScreen } from "@/features/users/components/user-form-screen";
 
 export const metadata = {
-  title: "Novo Colaborador · SloPay",
+  title: "Novo usuário",
   description: "Cadastre um novo usuário com papel e acessos granulares.",
 };
 

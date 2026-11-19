@@ -7,9 +7,10 @@ import {
   stepAccessSchema,
   validateStepWithSchema,
 } from "../../schemas/onboarding.schema";
-import { Input } from "@/components/ui/input";
+import { AuthField, AuthPasswordToggle, PasswordRequirements } from "@/features/auth/components/auth-form-controls";
+import authStyles from "@/features/auth/components/auth-shell.module.css";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, ArrowRight, ArrowLeft, Check, AlertTriangle, ShieldCheck } from "lucide-react";
+import { ArrowRight, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { calculatePasswordStrength } from "@/lib/password-strength";
 import { toast } from "sonner";
@@ -67,14 +68,14 @@ export function StepAccess({ form, onNext, onPrev }: StepAccessProps) {
       { label: "Pelo menos um caractere especial (!@#$%)", met: /[^A-Za-z0-9]/.test(password) },
       {
         label: "Sem dados pessoais (CPF, nome ou e-mail)",
-        met: !strength.warnings.some((w) => w.includes("CPF") || w.includes("nome") || w.includes("e-mail")),
+        met: Boolean(password) && !strength.warnings.some((w) => w.includes("CPF") || w.includes("nome") || w.includes("e-mail")),
       },
     ];
   }, [password, strength.warnings]);
 
   const handleAdvance = () => {
     const data = form.getValues();
-    const isValid = validateStepWithSchema(
+    const validationError = validateStepWithSchema(
       stepAccessSchema,
       data,
       setError,
@@ -82,8 +83,8 @@ export function StepAccess({ form, onNext, onPrev }: StepAccessProps) {
       ["accessEmail", "password", "confirmPassword"]
     );
 
-    if (!isValid) {
-      toast.error("Preencha as credenciais de acesso corretamente.");
+    if (validationError) {
+      toast.error(validationError, { id: "onboarding-validation" });
       return;
     }
 
@@ -92,7 +93,7 @@ export function StepAccess({ form, onNext, onPrev }: StepAccessProps) {
         strength.warnings[0] ||
         "A senha informada não atinge o nível de segurança e entropia exigido.";
       setError("password", { type: "manual", message: warningMsg });
-      toast.error(warningMsg);
+      toast.error(warningMsg, { id: "onboarding-validation" });
       return;
     }
 
@@ -102,124 +103,86 @@ export function StepAccess({ form, onNext, onPrev }: StepAccessProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-semibold tracking-tight text-foreground">
+        <h2 className="text-lg font-semibold tracking-tight">
           Credenciais de Acesso ao Console
         </h2>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="mt-1 text-sm text-muted-foreground">
           Defina o e-mail corporativo e a senha mestre com alto padrão criptográfico.
         </p>
       </div>
 
       <div className="space-y-4">
-        {/* E-mail de Acesso Corporativo */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label htmlFor="accessEmail" className="text-xs font-medium text-foreground">
-              E-mail de Acesso Corporativo *
-            </label>
-            {responsibleEmail && accessEmail !== responsibleEmail && (
-              <button
-                type="button"
-                onClick={() => setValue("accessEmail", responsibleEmail, { shouldValidate: true })}
-                className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
-              >
-                Usar e-mail do responsável ({responsibleEmail})
-              </button>
-            )}
-          </div>
-          <Input
+        <div className="space-y-2">
+          <AuthField
             id="accessEmail"
+            label="E-mail de acesso corporativo"
             type="email"
+            autoComplete="email"
             {...register("accessEmail", {
               onChange: () => {
                 if (errors.accessEmail) clearErrors("accessEmail");
               },
             })}
-            placeholder="acesso@empresa.com.br"
-            className={`h-10 text-xs bg-background/50 ${errors.accessEmail ? "border-destructive focus-visible:ring-destructive" : ""
-              }`}
-            aria-invalid={Boolean(errors.accessEmail)}
+            error={errors.accessEmail?.message}
+            aria-describedby="onboarding-email-help"
+            required
           />
-          <p className="text-[10px] text-muted-foreground">
+          <p id="onboarding-email-help" className="text-xs text-muted-foreground">
             Será a chave primária de login para autenticação no painel da SloPay.
           </p>
-          {errors.accessEmail && (
-            <p className="text-[11px] text-destructive">{errors.accessEmail.message}</p>
+          {responsibleEmail && accessEmail !== responsibleEmail && (
+            <button
+              type="button"
+              onClick={() => setValue("accessEmail", responsibleEmail, { shouldValidate: true })}
+              className="min-h-11 text-left text-xs text-primary underline underline-offset-4 [overflow-wrap:anywhere]"
+            >
+              Usar e-mail do responsável ({responsibleEmail})
+            </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-          {/* Senha */}
-          <div className="space-y-1.5">
-            <label htmlFor="password" className="text-xs font-medium text-foreground">
-              Senha de Acesso (mínimo 12 caracteres) *
-            </label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                {...register("password", {
-                  onChange: () => {
-                    if (errors.password) clearErrors("password");
-                  },
-                })}
-                placeholder="••••••••••••"
-                className={`pr-10 h-10 text-xs font-mono bg-background/50 ${errors.password ? "border-destructive focus-visible:ring-destructive" : ""
-                  }`}
-                aria-invalid={Boolean(errors.password)}
+        <div className="grid gap-4 md:grid-cols-2">
+          <AuthField
+            id="password"
+            label="Senha de acesso"
+            type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
+            {...register("password", {
+              onChange: () => {
+                if (errors.password) clearErrors("password");
+              },
+            })}
+            error={errors.password?.message}
+            aria-describedby="onboarding-password-help"
+            required
+            endControl={(
+              <AuthPasswordToggle
+                visible={showPassword}
+                onToggle={() => setShowPassword(!showPassword)}
+                controls="password"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
-                aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
-                aria-pressed={showPassword}
-              >
-                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
-            {errors.password && (
-              <p className="text-[11px] text-destructive">{errors.password.message}</p>
             )}
-          </div>
-
-          {/* Confirmar Senha */}
-          <div className="space-y-1.5">
-            <label htmlFor="confirmPassword" className="text-xs font-medium text-foreground">
-              Confirmar Senha de Acesso *
-            </label>
-            <div className="relative">
-              <Input
-                id="confirmPassword"
-                type={showConfirmPassword ? "text" : "password"}
-                {...register("confirmPassword", {
-                  onChange: () => {
-                    if (errors.confirmPassword) clearErrors("confirmPassword");
-                  },
-                })}
-                placeholder="••••••••••••"
-                className={`pr-10 h-10 text-xs font-mono bg-background/50 ${errors.confirmPassword
-                  ? "border-destructive focus-visible:ring-destructive"
-                  : ""
-                  }`}
-                aria-invalid={Boolean(errors.confirmPassword)}
+          />
+          <AuthField
+            id="confirmPassword"
+            label="Confirmar senha"
+            type={showConfirmPassword ? "text" : "password"}
+            autoComplete="new-password"
+            {...register("confirmPassword", {
+              onChange: () => {
+                if (errors.confirmPassword) clearErrors("confirmPassword");
+              },
+            })}
+            error={errors.confirmPassword?.message}
+            required
+            endControl={(
+              <AuthPasswordToggle
+                visible={showConfirmPassword}
+                onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+                controls="confirmPassword"
               />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
-                aria-label={showConfirmPassword ? "Ocultar senha" : "Exibir senha"}
-                aria-pressed={showConfirmPassword}
-              >
-                {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
-            {errors.confirmPassword && (
-              <p className="text-[11px] text-destructive">
-                {errors.confirmPassword.message}
-              </p>
             )}
-          </div>
+          />
         </div>
 
         {/* Medidor Matemático de Força e Entropia da Senha */}
@@ -238,53 +201,26 @@ export function StepAccess({ form, onNext, onPrev }: StepAccessProps) {
 
           <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden">
             <div
-              className={cn("h-full transition-all duration-300", strength.barColorClass)}
-              style={{ width: `${strength.score}%` }}
+              className={cn("h-full w-full origin-left", authStyles.strengthBar, strength.barColorClass)}
+              style={{ transform: `scaleX(${strength.score / 100})` }}
             />
           </div>
 
-          {/* Avisos de Vulnerabilidade ou Inconsistência */}
-          {strength.warnings.length > 0 && (
-            <div className="p-2.5 rounded bg-destructive/10 border border-destructive/20 text-[11px] text-destructive space-y-1">
-              {strength.warnings.map((warn, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  <AlertTriangle className="size-3.5 shrink-0" />
-                  <span>{warn}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Requisitos de Segurança */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-[11px]">
-            {requirements.map((req, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <span
-                  className={cn(
-                    "flex size-3.5 rounded-full items-center justify-center text-[9px]",
-                    req.met
-                      ? "bg-primary/20 text-primary"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {req.met ? <Check className="size-2.5 stroke-[3]" /> : "·"}
-                </span>
-                <span className={req.met ? "text-foreground" : "text-muted-foreground"}>
-                  {req.label}
-                </span>
-              </div>
-            ))}
-          </div>
+          <PasswordRequirements
+            id="onboarding-password-help"
+            requirements={requirements}
+            className="grid-cols-1 pt-1 sm:grid-cols-2"
+          />
         </div>
       </div>
 
       {/* Botões de Ação */}
-      <div className="flex items-center justify-between pt-4 border-t border-border">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <Button
           type="button"
           variant="outline"
           onClick={onPrev}
-          className="h-10 px-4 text-xs gap-2"
+          className="h-11"
         >
           <ArrowLeft className="size-4" />
           <span>Voltar para Empresa</span>
@@ -293,7 +229,7 @@ export function StepAccess({ form, onNext, onPrev }: StepAccessProps) {
         <Button
           type="button"
           onClick={handleAdvance}
-          className="h-10 px-6 font-medium gap-2"
+          className="h-11"
         >
           <span>Avançar para Revisão</span>
           <ArrowRight className="size-4" />

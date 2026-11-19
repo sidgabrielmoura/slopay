@@ -223,10 +223,26 @@ export interface ApprovalRequest {
   resolvedAt?: string;
 }
 
+export type WebhookEventType =
+  | "PIX_CHARGE_CREATED"
+  | "PIX_RECEIVED"
+  | "PIX_CHARGE_EXPIRED"
+  | "PIX_REFUNDED"
+  | "WITHDRAWAL_REQUESTED"
+  | "APPROVAL_REQUIRED"
+  | "PIX_SENT"
+  | "WITHDRAWAL_FAILED";
+
 export interface WebhookConfig {
   id: string;
-  eventType: "PIX_RECEIVED" | "PIX_SENT" | "APPROVAL_REQUIRED";
+  eventType: WebhookEventType;
+  eventTypes?: WebhookEventType[];
+  name?: string;
   url: string;
+  notificationEmail?: string;
+  deliveryMode?: "SEQUENTIAL" | "PARALLEL";
+  hasAuthToken?: boolean;
+  queueInterrupted?: boolean;
   retryEnabled: boolean;
   headers: { key: string; value: string }[];
   active: boolean;

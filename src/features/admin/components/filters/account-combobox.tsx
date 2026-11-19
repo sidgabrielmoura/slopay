@@ -40,7 +40,7 @@ export function AccountCombobox({
         Conta Operacional
       </span>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-9 min-w-[200px] max-w-[260px] bg-card border-border text-xs text-foreground">
+        <SelectTrigger aria-label="Conta operacional" className="h-9 min-w-[200px] max-w-[260px] bg-card border-border text-xs text-foreground">
           <Wallet className="size-3.5 mr-2 text-muted-foreground shrink-0" />
           <SelectValue placeholder="Todas as contas" />
         </SelectTrigger>
@@ -51,17 +51,8 @@ export function AccountCombobox({
             </SelectItem>
           )}
           {accounts.map((a) => (
-            <SelectItem key={a.id} value={a.id} className="text-xs py-1.5">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-foreground font-medium">
-                  {a.accountNumber}
-                </span>
-                {a.companyTradeName && (
-                  <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-                    ({a.companyTradeName})
-                  </span>
-                )}
-              </div>
+            <SelectItem key={a.id} value={a.id} textValue={a.accountNumber}>
+              {a.accountNumber}{a.companyTradeName ? ` (${a.companyTradeName})` : ""}
             </SelectItem>
           ))}
         </SelectContent>

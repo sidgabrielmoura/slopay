@@ -1,305 +1,272 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import NextLink from "next/link";
-import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGatewayService } from "@/providers/demo-provider";
-import { queryKeys } from "@/lib/query-keys";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ArrowLeft,
-  Save,
-  Webhook,
-  ShieldCheck,
-  Plus,
-  Trash2,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
-} from "lucide-react";
+import { useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Plus, Save, Trash2, Webhook } from "lucide-react";
 import { toast } from "sonner";
-import type { WebhookConfig } from "@/types/domain";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Empty } from "@/components/ui/empty";
+import { GlideSelect } from "@/components/ui/glide-select";
+import { Input } from "@/components/ui/input";
+import { LoadingConfirmation, LoadingIndicator, OperationFailure } from "@/components/ui/loading-indicator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { IntegrationHeading } from "@/features/integrations/components/integration-heading";
+import type { WebhookConfig, WebhookEventType } from "@/types/domain";
+import { subscribedEvents, webhookDeliveryOptions, webhookError, webhooksPath, type WebhookValues, type WebhookWorkspace } from "../webhooks";
+import { WebhookEventsField } from "./webhook-events-field";
 
-interface WebhookFormScreenProps {
-  webhookId?: string;
+const initialHeaders = [{ key: "Content-Type", value: "application/json" }];
+const requiredEventToastId = "webhook-event-required";
+
+function BackToWebhooks() {
+  return (
+    <Button asChild variant="ghost" className="h-11 justify-self-start">
+      <Link href={webhooksPath} prefetch={false}><ArrowLeft aria-hidden="true" /> Voltar aos webhooks</Link>
+    </Button>
+  );
 }
 
-export function WebhookFormScreen({ webhookId }: WebhookFormScreenProps) {
-  const router = useRouter();
-  const service = useGatewayService();
-  const queryClient = useQueryClient();
-  const isEditing = Boolean(webhookId);
-
-  const [eventType, setEventType] = useState<WebhookConfig["eventType"]>("PIX_RECEIVED");
-  const [url, setUrl] = useState("");
-  const [retryEnabled, setRetryEnabled] = useState(true);
-  const [active, setActive] = useState(true);
-  const [headers, setHeaders] = useState<{ key: string; value: string }[]>([
-    { key: "Content-Type", value: "application/json" },
-  ]);
-
-  const { data: existingWebhook, isLoading: isLoadingExisting } = useQuery({
-    queryKey: queryKeys.webhooks(),
+export function WebhookFormScreen({ webhookId, service, queryKey, readOnly }: { webhookId?: string } & WebhookWorkspace) {
+  const endpoints = useQuery({
+    queryKey,
     queryFn: () => service.getWebhooks(),
-    select: (list) => list.find((w) => w.id === webhookId),
-    enabled: isEditing,
+    enabled: Boolean(webhookId),
   });
+  const webhook = webhookId ? endpoints.data?.find((item) => item.id === webhookId) : undefined;
 
-  useEffect(() => {
-    if (existingWebhook) {
-      setEventType(existingWebhook.eventType);
-      setUrl(existingWebhook.url);
-      setRetryEnabled(existingWebhook.retryEnabled);
-      setActive(existingWebhook.active);
-      if (existingWebhook.headers && existingWebhook.headers.length > 0) {
-        setHeaders(existingWebhook.headers);
-      }
-    }
-  }, [existingWebhook]);
-
-  const handleAddHeader = () => {
-    setHeaders((prev) => [...prev, { key: "", value: "" }]);
-  };
-
-  const handleRemoveHeader = (index: number) => {
-    setHeaders((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleHeaderChange = (index: number, field: "key" | "value", val: string) => {
-    setHeaders((prev) =>
-      prev.map((h, i) => (i === index ? { ...h, [field]: val } : h))
-    );
-  };
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const trimmedUrl = url.trim();
-      if (!trimmedUrl) {
-        throw new Error("Informe a URL de destino do webhook.");
-      }
-      if (!trimmedUrl.startsWith("https://")) {
-        throw new Error("A URL de destino deve obrigatoriamente utilizar o protocolo seguro HTTPS.");
-      }
-
-      const validHeaders = headers.filter((h) => h.key.trim().length > 0);
-
-      if (isEditing && webhookId) {
-        return service.updateWebhook(webhookId, {
-          eventType,
-          url: trimmedUrl,
-          retryEnabled,
-          active,
-          headers: validHeaders,
-        });
-      } else {
-        return service.createWebhook({
-          eventType,
-          url: trimmedUrl,
-          retryEnabled,
-          active,
-          headers: validHeaders,
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.webhooks() });
-      toast.success(
-        isEditing
-          ? "Endpoint atualizado com sucesso na demonstração."
-          : "Novo webhook cadastrado com sucesso."
-      );
-      router.push("/integracoes/webhooks");
-    },
-    onError: (err: any) => {
-      toast.error(err.message || "Erro ao salvar webhook.");
-    },
-  });
-
-  if (isEditing && isLoadingExisting) {
+  if (webhookId && endpoints.isPending) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
+      <div aria-busy="true" aria-label="Carregando webhook" className="grid max-w-4xl gap-5">
+        <BackToWebhooks />
+        <Skeleton className="h-8 w-52 max-w-full" />
+        <Card className="grid gap-4 p-5 sm:grid-cols-2">
+          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-11 w-full" />
+        </Card>
       </div>
     );
   }
+  if (webhookId && endpoints.isError) {
+    return (
+      <div className="grid max-w-4xl justify-items-start gap-4">
+        <BackToWebhooks />
+        <OperationFailure message="Não foi possível carregar o webhook." animate={false} />
+        <Button type="button" variant="outline" className="h-11" onClick={() => void endpoints.refetch()}>Tentar novamente</Button>
+      </div>
+    );
+  }
+  if ((webhookId && !webhook) || (!webhookId && readOnly)) {
+    return <Empty icon={<Webhook aria-hidden="true" />}
+      title={webhookId ? "Webhook não encontrado" : "Perfil de consulta"}
+      description={webhookId ? undefined : "Seu perfil permite consultar os webhooks existentes."}
+      action={<BackToWebhooks />} />;
+  }
+
+  return <WebhookForm key={webhookId ?? "novo"} webhook={webhook} service={service} queryKey={queryKey} readOnly={readOnly} />;
+}
+
+function WebhookForm({ webhook, service, queryKey, readOnly }: { webhook?: WebhookConfig } & WebhookWorkspace) {
+  const queryClient = useQueryClient();
+  const [events, setEvents] = useState<WebhookEventType[]>(() => webhook ? subscribedEvents(webhook) : ["PIX_RECEIVED"]);
+  const [url, setUrl] = useState(webhook?.url ?? "");
+  const [deliveryMode, setDeliveryMode] = useState(webhook?.deliveryMode ?? "SEQUENTIAL");
+  const [retryEnabled, setRetryEnabled] = useState(webhook?.retryEnabled ?? true);
+  const [active, setActive] = useState(webhook?.active ?? true);
+  const [headers, setHeaders] = useState(() => (webhook?.headers ?? initialHeaders).map((header, id) => ({ ...header, id })));
+  const nextHeaderId = useRef(headers.length);
+  const addHeaderButton = useRef<HTMLButtonElement>(null);
+  const [invalid, setInvalid] = useState<"event" | "url" | "headers">();
+  const save = useMutation({
+    mutationFn: (values: WebhookValues) => webhook
+      ? service.updateWebhook(webhook.id, values)
+      : service.createWebhook(values),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey });
+    },
+  });
+  const locked = readOnly || save.isPending;
+
+  function clearError() {
+    setInvalid(undefined);
+    if (save.isError) save.reset();
+  }
+
+  function updateHeader(id: number, field: "key" | "value", text: string) {
+    setHeaders((current) => current.map((header) => header.id === id ? { ...header, [field]: text } : header));
+    clearError();
+  }
+
+  function changeEvents(next: readonly WebhookEventType[], checked: boolean) {
+    setEvents((current) => checked
+      ? [...new Set([...current, ...next])]
+      : current.filter((event) => !next.includes(event)));
+    if (checked && invalid === "event") toast.dismiss(requiredEventToastId);
+    clearError();
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (locked || save.isSuccess) return;
+    if (!events.length) {
+      setInvalid("event");
+      toast.error("Selecione pelo menos um evento.", { id: requiredEventToastId });
+      event.currentTarget.querySelector<HTMLInputElement>("#webhook-event input")?.focus();
+      return;
+    }
+    const form = new FormData(event.currentTarget);
+    const hasAuthToken = Boolean(String(form.get("token") ?? "").trim()) || Boolean(webhook?.hasAuthToken && !form.has("removeToken"));
+    const values = {
+      eventType: events[0], eventTypes: events, url: url.trim(), active, retryEnabled, deliveryMode, hasAuthToken,
+      name: String(form.get("name") ?? "").trim() || undefined,
+      notificationEmail: String(form.get("notificationEmail") ?? "").trim() || undefined,
+      headers: headers.map(({ key, value }) => ({ key: key.trim(), value: value.trim() }))
+        .filter((header) => header.key || header.value),
+    };
+    const issue = webhookError(values);
+    if (issue) {
+      setInvalid(issue.field);
+      toast.error(issue.message);
+      event.currentTarget.querySelector<HTMLElement>(`#webhook-${issue.field}`)?.focus();
+      return;
+    }
+    save.mutate(values);
+  }
 
   return (
-    <div className="space-y-6 pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="iconSm">
-            <NextLink href="/integracoes/webhooks">
-              <ArrowLeft className="size-4" />
-            </NextLink>
+    <div className="grid min-w-0 max-w-4xl mx-auto gap-5">
+      <BackToWebhooks />
+      <IntegrationHeading preview title={webhook ? readOnly ? "Webhook" : "Editar webhook" : "Novo webhook"}
+        description={readOnly ? "Consulte o destino e os eventos associados a este webhook." : "Defina onde sua aplicação recebe os eventos e quais notificações deseja acompanhar."} />
+      {save.isSuccess ? (
+        <Card className="grid justify-items-center gap-3 p-6 text-center" role="status">
+          <LoadingConfirmation animate />
+          <h2 className="text-balance text-lg font-semibold">{webhook ? "Alterações salvas" : "Webhook cadastrado"}</h2>
+          <p className="max-w-full wrap-anywhere text-pretty text-sm text-muted-foreground">{save.data.url}</p>
+          <Button asChild className="h-11">
+            <Link href={webhooksPath} prefetch={false} ref={(node) => { node?.focus({ preventScroll: true }); }}>Ver webhooks</Link>
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {isEditing ? "Editar Endpoint de Webhook" : "Novo Endpoint de Webhook"}
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Configure as chamadas HTTP enviadas automaticamente para o seu servidor.
-            </p>
-          </div>
-        </div>
+        </Card>
+      ) : (
+        <form className="grid min-w-0 gap-4" onSubmit={submit}>
+          <fieldset disabled={locked} className="min-w-0">
+            <Card className="min-w-0">
+              <CardHeader className="space-y-0 p-5">
+                <h2 className="text-balance text-lg font-semibold">Destino e entrega</h2>
+              </CardHeader>
+              <CardContent className="grid min-w-0 gap-4 px-5 pb-5">
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="webhook-name" className="text-sm font-medium">Nome <span className="text-muted-foreground">(opcional)</span></label>
+                  <Input id="webhook-name" name="name" autoComplete="off" maxLength={80} defaultValue={webhook?.name}
+                    className="h-11" placeholder="Ex. Conciliação Pix" />
+                </div>
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="webhook-url" className="text-sm font-medium">URL de destino</label>
+                  <Input id="webhook-url" type="url" required spellCheck={false} autoComplete="off"
+                    value={url} placeholder="https://api.suaempresa.com.br/webhooks/slopay"
+                    className="h-11 font-mono text-xs aria-invalid:border-destructive!" aria-invalid={invalid === "url" || undefined}
+                    onChange={(event) => { setUrl(event.target.value); clearError(); }} />
+                </div>
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                  <div className="grid min-w-0 gap-1.5">
+                    <label htmlFor="webhook-alert-email" className="text-sm font-medium">E-mail de alertas <span className="text-muted-foreground">(opcional)</span></label>
+                    <Input id="webhook-alert-email" name="notificationEmail" type="email" autoComplete="off" defaultValue={webhook?.notificationEmail}
+                      className="h-11" placeholder="integracoes@example.com" />
+                  </div>
+                  <div className="grid min-w-0 gap-1.5">
+                    <label htmlFor="webhook-delivery" className="text-sm font-medium">Modo de envio</label>
+                    <GlideSelect id="webhook-delivery" options={webhookDeliveryOptions} value={deliveryMode} size="lg" className="w-full"
+                      disabled={locked} onChange={(value) => { setDeliveryMode(value === "PARALLEL" ? "PARALLEL" : "SEQUENTIAL"); clearError(); }} />
+                  </div>
+                </div>
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="webhook-token" className="text-sm font-medium">Token de exemplo <span className="text-muted-foreground">(opcional)</span></label>
+                  <Input id="webhook-token" name="token" type="password" autoComplete="new-password" className="h-11"
+                    placeholder={webhook?.hasAuthToken ? "Token de exemplo configurado" : undefined} />
+                  {webhook?.hasAuthToken && !readOnly && (
+                    <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                      <Checkbox name="removeToken" />
+                      Remover token de exemplo atual
+                    </label>
+                  )}
+                </div>
+                <div className="divide-y divide-border border-y">
+                  <label className="flex min-h-12 items-center justify-between gap-3 text-sm font-medium">
+                    Webhook ativo
+                    <Switch checked={active} disabled={locked} onCheckedChange={(value) => { setActive(value); clearError(); }} />
+                  </label>
+                  <label className="flex min-h-12 items-center justify-between gap-3 text-sm font-medium">
+                    Retentativas automáticas
+                    <Switch checked={retryEnabled} disabled={locked} onCheckedChange={(value) => { setRetryEnabled(value); clearError(); }} />
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+          </fieldset>
 
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <NextLink href="/integracoes/webhooks">Cancelar</NextLink>
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-            className="gap-1.5 font-semibold"
-          >
-            <Save className="size-4" />
-            <span>{saveMutation.isPending ? "Salvando..." : isEditing ? "Salvar Alterações" : "Criar Endpoint"}</span>
-          </Button>
-        </div>
-      </div>
+          <WebhookEventsField events={events} disabled={locked} invalid={invalid === "event"} onChange={changeEvents} />
 
-      {/* Card Configuração Principal */}
-      <Card className="border-border bg-card/80">
-        <CardHeader className="pb-4 border-b border-border/50">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Webhook className="size-4 text-primary" />
-            Parâmetros do Endpoint
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Escolha o evento Pix a ser escutado e informe o endereço receptor HTTPS.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-5 space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-foreground">Evento Acionador *</label>
-            <Select
-              value={eventType}
-              onValueChange={(val) => setEventType(val as WebhookConfig["eventType"])}
-            >
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Selecione o evento" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PIX_RECEIVED">
-                  Pix Recebido (PIX_RECEIVED) · Dispara quando um QR Code é liquidado com sucesso
-                </SelectItem>
-                <SelectItem value="PIX_SENT">
-                  Pix Enviado (PIX_SENT) · Dispara quando uma transferência externa é finalizada
-                </SelectItem>
-                <SelectItem value="APPROVAL_REQUIRED">
-                  Aprovação Pendente (APPROVAL_REQUIRED) · Dispara quando uma alçada é acionada
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-foreground">URL de Destino (HTTPS) *</label>
-              <span className="text-[10px] text-muted-foreground">Exige SSL/TLS Válido</span>
-            </div>
-            <Input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://api.suaempresa.com.br/webhooks/slopay"
-              className="h-10 font-mono text-xs"
-            />
-          </div>
-
-          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg bg-background/50 border border-border/60">
-            <div>
-              <p className="text-sm font-medium text-foreground">Retentativas Automáticas com Backoff</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Caso seu servidor retorne status 5xx ou timeout, a SloPay tentará entregar até 5 vezes em intervalos progressivos (1m, 5m, 15m, 1h, 6h).
-              </p>
-            </div>
-            <Switch checked={retryEnabled} onCheckedChange={setRetryEnabled} />
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg bg-background/50 border border-border/60">
-            <div>
-              <p className="text-sm font-medium text-foreground">Status do Endpoint</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Quando pausado, novos eventos gerados na plataforma não serão enviados a esta URL.
-              </p>
-            </div>
-            <Switch checked={active} onCheckedChange={setActive} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Headers Personalizados */}
-      <Card className="border-border bg-card/80">
-        <CardHeader className="pb-4 border-b border-border/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base flex items-center gap-2">
-                <ShieldCheck className="size-4 text-primary" />
-                Headers HTTP Customizados
-              </CardTitle>
-              <CardDescription className="text-xs mt-0.5">
-                Envie tokens de autorização estáticos ou cabeçalhos proprietários do seu gateway/WAF.
-              </CardDescription>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAddHeader}
-              className="gap-1 text-xs"
-            >
-              <Plus className="size-3.5" />
-              <span>Adicionar Header</span>
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-5 space-y-3">
-          {headers.map((h, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <Input
-                value={h.key}
-                onChange={(e) => handleHeaderChange(index, "key", e.target.value)}
-                placeholder="Ex: X-Webhook-Token"
-                className="h-9 font-mono text-xs flex-1"
-              />
-              <Input
-                value={h.value}
-                onChange={(e) => handleHeaderChange(index, "value", e.target.value)}
-                placeholder="Ex: secret_abc123"
-                className="h-9 font-mono text-xs flex-1"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="iconSm"
-                onClick={() => handleRemoveHeader(index)}
-                title="Remover Header"
-                className="text-muted-foreground hover:text-destructive shrink-0"
-              >
-                <Trash2 className="size-4" />
+          <fieldset disabled={locked} className="min-w-0">
+            <Card className="min-w-0">
+              <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0 p-5">
+                <div className="grid gap-1">
+                  <h2 className="text-balance text-lg font-semibold">Cabeçalhos HTTP</h2>
+                  {!readOnly && <p className="text-pretty text-xs text-muted-foreground">Use valores fictícios para testar a configuração.</p>}
+                </div>
+                {!readOnly && (
+                  <Button ref={addHeaderButton} type="button" variant="outline" className="h-11" onClick={() => {
+                    const id = nextHeaderId.current++;
+                    setHeaders((current) => [...current, { key: "", value: "", id }]);
+                    clearError();
+                  }}><Plus aria-hidden="true" /> Adicionar cabeçalho</Button>
+                )}
+              </CardHeader>
+              <CardContent id="webhook-headers" tabIndex={-1} aria-invalid={invalid === "headers" || undefined}
+                className="grid min-w-0 gap-3 px-5 pb-5">
+                {headers.map((header, index) => (
+                  <div key={header.id} className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+                    <div className="grid min-w-0 gap-1.5">
+                      <label htmlFor={`header-name-${header.id}`} className="text-xs font-medium">Nome</label>
+                      <Input id={`header-name-${header.id}`} aria-label={`Nome do cabeçalho ${index + 1}`} className="h-11 font-mono text-xs"
+                        spellCheck={false} value={header.key} placeholder="Content-Type"
+                        onChange={(event) => updateHeader(header.id, "key", event.currentTarget.value)} />
+                    </div>
+                    <div className="grid min-w-0 gap-1.5">
+                      <label htmlFor={`header-value-${header.id}`} className="text-xs font-medium">Valor</label>
+                      <Input id={`header-value-${header.id}`} aria-label={`Valor do cabeçalho ${index + 1}`} className="h-11 font-mono text-xs"
+                        spellCheck={false} autoComplete="off" value={readOnly && header.value ? "••••••" : header.value} placeholder="application/json"
+                        onChange={(event) => updateHeader(header.id, "value", event.currentTarget.value)} />
+                    </div>
+                    {!readOnly && (
+                      <Button type="button" variant="ghost" size="icon" className="size-11 justify-self-end text-muted-foreground hover:text-destructive"
+                        aria-label={`Remover cabeçalho ${index + 1}`}
+                        onClick={() => {
+                          setHeaders((current) => current.filter((item) => item.id !== header.id));
+                          clearError();
+                          addHeaderButton.current?.focus();
+                        }}><Trash2 aria-hidden="true" /></Button>
+                    )}
+                  </div>
+                ))}
+                {headers.length === 0 && <p className="text-pretty text-sm text-muted-foreground">Nenhum cabeçalho configurado.</p>}
+              </CardContent>
+            </Card>
+          </fieldset>
+          {save.isError && <OperationFailure message={save.error.message} />}
+          {!readOnly && (
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button asChild variant="outline" className="h-11"><Link href={webhooksPath} prefetch={false}>Cancelar</Link></Button>
+              <Button type="submit" disabled={save.isPending} className="h-11">
+                {save.isPending ? <LoadingIndicator /> : <Save aria-hidden="true" />}
+                {save.isPending ? "Salvando…" : webhook ? "Salvar alterações" : "Criar webhook"}
               </Button>
             </div>
-          ))}
-
-          <p className="text-[11px] text-muted-foreground pt-1">
-            * O cabeçalho <code>X-SloPay-Signature</code> com a assinatura criptográfica é anexado automaticamente em todas as mensagens.
-          </p>
-        </CardContent>
-      </Card>
+          )}
+        </form>
+      )}
     </div>
   );
 }

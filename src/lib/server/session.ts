@@ -4,7 +4,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import type { NextResponse } from "next/server";
-import { authEntry } from "@/lib/auth-navigation";
+import { accountOpeningPath, authEntry, needsAccountOpening, onboardingDestination } from "@/lib/auth-navigation";
 import { requestAuthBackend, sessionUserSchema, type AuthTokens } from "./auth-backend";
 
 const secure = process.env.NODE_ENV === "production";
@@ -26,7 +26,10 @@ export function setAuthCookie(response: NextResponse, name: string, value: strin
 
 export function saveSession(response: NextResponse, tokens: AuthTokens) {
   setAuthCookie(response, accessCookie, tokens.accessToken, tokens.expiresIn);
-  setAuthCookie(response, refreshCookie, tokens.refreshToken, 7 * 24 * 60 * 60);
+  const remaining = tokens.absoluteExpiresAt
+    ? Math.max(0, Math.ceil((Date.parse(tokens.absoluteExpiresAt) - Date.now()) / 1000))
+    : 8 * 60 * 60;
+  setAuthCookie(response, refreshCookie, tokens.refreshToken, remaining);
   setAuthCookie(response, challengeCookie, "", 0);
 }
 
@@ -46,7 +49,7 @@ const loadSession = cache(async () => {
     const response = await requestAuthBackend("me", { method: "GET", accessToken });
     if (response.status === 401) {
       const error = await response.json().catch(() => null);
-      const canRenewAccess = error?.code === "TOKEN_EXPIRED" || error?.code === "INVALID_SESSION";
+      const canRenewAccess = ["TOKEN_EXPIRED", "INVALID_SESSION", "SESSION_IDLE"].includes(error?.code);
       return { state: canRefresh && canRenewAccess ? "expired" : "absent" } as const;
     }
     if (response.status === 403) return { state: "absent" } as const;
@@ -63,7 +66,7 @@ const loadSession = cache(async () => {
 
 export async function requireSession(
   returnTo: string,
-  { operations = false, admin = false } = {},
+  { operations = false, admin = false, allowOpening = false } = {},
 ) {
   const result = await loadSession();
   if (result.state === "expired") redirect(authEntry("/renovar", returnTo));
@@ -72,11 +75,12 @@ export async function requireSession(
 
   const user = result.user;
   if (admin && user.role !== "ADMIN") notFound();
+  if (user.isTwoFactorEnabled && !user.mfaVerified) redirect(authEntry("/entrar", returnTo));
 
   if (operations || admin) {
-    if (user.status !== "ACTIVE" || !user.isEmailVerified) redirect("/conta-em-validacao");
-    if (!user.isTwoFactorEnabled) redirect("/conta/seguranca");
-    if (!user.mfaVerified) redirect(authEntry("/entrar", returnTo));
+    const destination = onboardingDestination(user);
+    if (destination) redirect(destination);
+    if (!allowOpening && needsAccountOpening(user)) redirect(accountOpeningPath);
   }
 
   return user;

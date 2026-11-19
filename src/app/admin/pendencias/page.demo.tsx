@@ -101,8 +101,8 @@ export default function AdminPendenciasPage() {
                         {app.status === "RECEIVED"
                           ? "Nova Entrada"
                           : app.status === "RESUBMITTED"
-                          ? "Reenviada pelo Cliente"
-                          : "Em Análise"}
+                            ? "Reenviada pelo Cliente"
+                            : "Em Análise"}
                       </Badge>
                       <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <Clock className="size-3" />

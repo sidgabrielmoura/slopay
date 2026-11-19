@@ -1,9 +1,52 @@
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Ambientes do gateway
+
+Configure `AMBIENTE=dev` para desenvolvimento e `AMBIENTE=producao` no frontend e no backend de produção. `NODE_ENV=production` também bloqueia as funções de desenvolvimento. Flags de demonstração, simulação e Sandbox podem habilitar recursos apenas dentro do ambiente permitido.
+
+Ao adicionar uma tela, rota, ação, worker ou consulta exclusiva de teste, use a política de ambiente no servidor. Inclua a rota no [mapa do frontend](src/config/development-routes.ts) e proteja o endpoint no Nest com `DevelopmentOnly` ou com a verificação de ambiente já utilizada pelo serviço. Em páginas mistas, carregue somente os dados autorizados para aquele ambiente e derive os controles visíveis da configuração do servidor. Use bancos, integrações e credenciais separados por ambiente.
+
+## Preferência por biometria na autenticação
+
+Em qualquer fluxo que peça um segundo fator ou uma confirmação de identidade, ofereça primeiro a chave de acesso WebAuthn cadastrada e utilizável no dispositivo. Apresente a biometria ou o reconhecimento facial como ação principal e mantenha **Usar autenticador** visível como alternativa explícita. Quando a chave de acesso estiver indisponível, abra diretamente o fluxo por código. Depois de uma confirmação WebAuthn válida, avance sem pedir o código do autenticador.
+
+Valide a assinatura e a verificação do usuário no servidor. Use um desafio de curta duração e de uso único, vinculado à conta e à sessão ou etapa de login. Em operações sensíveis, vincule o desafio também à ação e aos dados revisados. Preserve os códigos de recuperação nos fluxos que já os aceitam. Ao cadastrar ou trocar o autenticador, o código do novo aplicativo comprova o próprio cadastro e continua obrigatório.
+
+## Campos de valores monetários
+
+Use o [CurrencyInput](src/components/ui/currency-input.tsx) em todo campo editável de valores em reais, inclusive cobranças, saques, lotes, tarifas fixas e limites. Mantenha o `R$` visível durante a digitação e aplique a máscara BRL com duas casas decimais a cada edição. Cada dígito entra pela casa dos centavos. Rejeite letras, preserve colagem, seleção e edição por teclado, e mantenha o valor em centavos inteiros no formulário e no payload. Valide os limites de cada operação em centavos.
+
+## Campos de CPF, CNPJ e telefone
+
+Use o [BrazilianInput](src/components/ui/brazilian-input.tsx) em todo campo editável destinado a CPF, CNPJ ou telefone brasileiro, inclusive cadastro, beneficiários, cobrança, saque e lote. Aplique `CPF` para `000.000.000-00`, `CNPJ` para `00.000.000/0000-00` com suporte a letras nas primeiras 12 posições, e `PHONE` para `(00) 0000-0000` ou `(00) 00000-0000`, com DDD e prefixo brasileiro `+55` opcional. Use `CPF_OR_CNPJ` quando o mesmo campo aceitar os dois documentos e `CNPJ_NUMERIC` quando a integração de destino exigir somente dígitos. Em campos de chave Pix, selecione a máscara pelo tipo de chave e mantenha e-mail e chave aleatória como texto. Preserve colagem, seleção, cursor e edição por teclado. Envie o formato exigido pela API, com CPF e CNPJ sem pontuação e telefone em E.164 para Pix. Mantenha as validações do campo e da API.
+
+## Campos de seleção
+
+Use o [GlideSelect](src/components/ui/glide-select.tsx) em todo novo campo de seleção, filtro ou seletor de período, inclusive no painel, cadastro, demonstrações e administração. O componente parte do [Glide Select JS-CSS oficial do React Bits](https://reactbits.dev/micro/glide-select), instalado de seu registry. Aplique as cores semânticas do Slopay: superfície `--popover`, destaque da opção `--secondary`, texto `--foreground` e check `--primary`. Preserve os ícones Hugeicons, os raios, as curvas e as animações oficiais: abertura de `180ms`, destaque deslizante de `220ms` e `rememberPosition`. Use os tamanhos oficiais `sm`, `md` ou `lg` conforme a densidade do campo; formulários e alvos de toque usam `lg`. Não recrie a aparência com Radix Select, seletores nativos visíveis ou menus improvisados.
+
+Passe `options`, `value`/`defaultValue`, `onChange`, um rótulo acessível e os estados `disabled`, `required` e `aria-invalid` quando aplicáveis. Preserve os valores e a validação de negócio, opções desabilitadas, teclado, foco, toque, preenchimento de formulário e movimento reduzido. A integração usa portal para impedir recorte em cards, modais e áreas com rolagem. Os menus devem ter apenas rolagem vertical: limite sua largura ao espaço disponível na tela, permita que as opções encolham e use reticências em textos e tags longos, mantendo o check visível. Não permita barra horizontal nos selects. O [adaptador Select](src/components/ui/select.tsx) mantém a composição antiga compatível e já renderiza o GlideSelect; novos usos devem importar diretamente o componente compartilhado. O seletor nativo invisível da integração existe apenas para submissão, preenchimento e validação de formulários. Consulte [a integração e sua origem](docs/GLIDE_SELECT.md) antes de alterar o código do fornecedor.
+
+Use o [Checkbox](src/components/ui/checkbox.tsx) em todo campo de marcação, seleção de linhas e aceite de formulários. Use o `CheckboxIndicator` nas opções marcáveis de menus, integrado à primitiva de menu. Preserve os [tokens e o desenho oficiais do Checkbox check](src/components/ui/checkbox.css), o foco visível, o rótulo clicável, o estado parcial quando aplicável e a validação nativa. Respeite movimento reduzido do dispositivo e do painel. O uso dessa transição nos checkboxes já está aprovado.
+
+## Paginação de tabelas e listagens
+
+Use o [TablePagination](src/components/shared/table-pagination.tsx) nas tabelas e listagens de registros. Para dados do banco, faça a paginação no servidor e retorne a página efetiva, o tamanho da página e o total de registros. Preserve os filtros ao navegar e volte à primeira página quando o filtro mudar. Mantenha uma ordenação determinística, com identificador como desempate, e trate reduções no total durante a navegação. Mostre o intervalo exibido, o total e os controles Anterior e Próxima, com os limites e o carregamento indicados. Preserve teclado, foco e a largura disponível em dispositivos móveis.
+
+## Microinterações no frontend do gateway
+
+1. Em toda mudança ou adição no frontend do gateway, consulte o [catálogo de microinterações](docs/CATALOGO_MICROINTERACOES.md#consulta-por-fluxo) antes de escolher a abordagem. Identifique a tela, a ação e os estados afetados. Pesquise as receitas e os componentes correspondentes e compare com a primitiva atual e o [design do Slopay](DESIGN.md).
+2. Se houver ganho concreto para leitura, orientação ou feedback, apresente a melhor proposta ao desenvolvedor. Diga onde ela entra, o que dispara a animação, o que melhora e como se comporta com movimento reduzido. Pergunte se faz sentido incluí-la nessa alteração. Quando nenhum padrão melhorar o fluxo, registre o motivo brevemente e siga.
+3. Implemente a proposta adicional após confirmação do desenvolvedor. Uma solicitação ou aprovação já dada vale para a proposta correspondente. Continue o trabalho autorizado enquanto aguarda a decisão sobre a adição.
+4. Reaproveite as primitivas existentes. Preserve teclado, foco, privacidade e movimento reduzido. Em operações financeiras, exiba o valor oficial sem contagem a partir de zero e vincule o feedback ao estado de negócio confirmado pelo gateway.
+5. Use o [NumberPopIn](src/components/ui/value-motion.tsx) em toda ação explícita que adiciona ou seleciona um valor monetário, como os valores rápidos de uma cobrança. Passe o valor anterior e o novo já formatados em BRL. Use os [tokens e keyframes oficiais](src/components/ui/value-motion.module.css) para animar os dígitos alterados. Mantenha o símbolo, os separadores e os dígitos iguais estáveis. A digitação e o modo de movimento reduzido mostram o valor imediatamente.
+6. Use o [LoadingConfirmation](src/components/ui/loading-indicator.tsx) sempre que uma operação concluída precisar de uma confirmação visual. Para sucesso, preserve o disco verde `#35BA00` e o check branco. Para falha confirmada, use `outcome="failure"` e mantenha o resultado visível na própria tela ou modal, com [OperationFailure](src/components/ui/loading-indicator.tsx) quando também precisar exibir a mensagem. Associe o resultado à resposta real, anime uma vez por mudança de estado e mostre o símbolo imediatamente com movimento reduzido. Criação, espera, revisão e situação indefinida usam seus próprios estados.
+7. Use o [Code Slots](src/features/auth/components/code-slots.tsx) do React Bits em todo campo de código de verificação, inclusive e-mail, login, ativação ou troca do autenticador e demonstrações. Use `format="totp"` para os seis dígitos do autenticador, `format="email-otp"` para o código numérico por e-mail, `format="email-token"` para o token de confirmação do e-mail e `format="recovery-code"` para códigos de recuperação. Verifique automaticamente ao completar, colar ou preencher o código, assim que os campos exigidos estiverem válidos. Mostre a espera enquanto a solicitação estiver em andamento. Use o esvaziamento em sequência do React Bits quando o código for recusado e a transição dos slots para um check quando o gateway confirmar. Mantenha o indicador de foco na célula ativa. Preserve o formato aceito pelo backend, a colagem, o preenchimento automático quando disponível, o teclado e a preferência de movimento reduzido. O uso do componente nesses campos já está aprovado.
+8. Use o [ImageLoadingSurface](src/components/ui/image-loading.tsx) para busca, carregamento ou geração de imagens, QR Codes, boletos e outras prévias visuais. Reserve o espaço do conteúdo, use o fundo verde `--success-surface` com pontos verde-lima `--primary` durante a espera real e revele a imagem assim que estiver pronta. Em caso de erro, exiba o estado de falha e mantenha disponível a retomada quando houver uma ação de nova tentativa. Respeite movimento reduzido e mantenha QR Codes e códigos de barras nítidos após a entrada.

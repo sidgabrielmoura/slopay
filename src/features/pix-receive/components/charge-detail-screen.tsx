@@ -12,20 +12,22 @@ import { formatDateTime, formatTimeRemaining } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ImageLoadingSurface } from "@/components/ui/image-loading";
+import { LoadingConfirmation, OperationFailure } from "@/components/ui/loading-indicator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty } from "@/components/ui/empty";
 import {
   Copy,
   Check,
   ArrowLeft,
-  CheckCircle2,
   Clock,
   Sparkles,
   Share2,
-  RotateCcw,
   AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
+
+const qrFrame = "aspect-square w-full max-w-56 rounded-xl sm:max-w-60";
 
 export function ChargeDetailScreen({ chargeId }: { chargeId: string }) {
   const router = useRouter();
@@ -49,9 +51,6 @@ export function ChargeDetailScreen({ chargeId }: { chargeId: string }) {
       queryClient.invalidateQueries({ queryKey: queryKeys.transactions() });
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
     },
-    onError: (err: any) => {
-      toast.error(err.message || "Falha ao simular pagamento.");
-    },
   });
 
   const handleCopyCode = () => {
@@ -66,7 +65,11 @@ export function ChargeDetailScreen({ chargeId }: { chargeId: string }) {
     return (
       <div className="max-w-xl mx-auto space-y-6 animate-in fade-in-50">
         <Skeleton className="h-6 w-32" />
-        <Skeleton className="h-96 rounded-xl" />
+        <Card className="grid justify-items-center gap-6 p-6">
+          <Skeleton className="h-10 w-36" />
+          <ImageLoadingSurface state="loading" className={qrFrame} />
+          <p role="status" className="text-sm text-muted-foreground">Carregando cobrança Pix…</p>
+        </Card>
       </div>
     );
   }
@@ -88,8 +91,10 @@ export function ChargeDetailScreen({ chargeId }: { chargeId: string }) {
   }
 
   const isPaid = charge.status === "PAID";
+  const isFailed = charge.status === "FAILED";
   const remaining = formatTimeRemaining(charge.expiresAt);
-  const isExpired = !isPaid && remaining.isExpired;
+  const isExpired = !isPaid && !isFailed && remaining.isExpired;
+  const canPay = !isPaid && !isFailed && !isExpired;
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -105,14 +110,14 @@ export function ChargeDetailScreen({ chargeId }: { chargeId: string }) {
           <span>Criar Outra Cobrança</span>
         </Button>
         <Badge
-          variant={isPaid ? "success" : isExpired ? "destructive" : "warning"}
+          variant={isPaid ? "success" : isExpired || isFailed ? "destructive" : "warning"}
           className="text-xs px-3 py-1"
         >
           {isPaid
             ? "Pagamento Confirmado"
             : isExpired
-            ? "Cobrança Expirada"
-            : "Aguardando Pagamento"}
+              ? "Cobrança Expirada"
+              : isFailed ? "Falha na cobrança" : "Aguardando Pagamento"}
         </Badge>
       </div>
 
@@ -136,9 +141,7 @@ export function ChargeDetailScreen({ chargeId }: { chargeId: string }) {
           <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-muted/40 border border-border">
             {isPaid ? (
               <div className="flex flex-col items-center justify-center py-8 text-center space-y-3">
-                <div className="size-16 rounded-full bg-[var(--success-surface)] text-[var(--success)] flex items-center justify-center">
-                  <CheckCircle2 className="size-8" />
-                </div>
+                <LoadingConfirmation size={64} animate={payMutation.isSuccess} />
                 <h3 className="text-lg font-bold text-foreground">
                   Cobrança Liquidada com Sucesso!
                 </h3>
@@ -149,6 +152,8 @@ export function ChargeDetailScreen({ chargeId }: { chargeId: string }) {
                   Data: {formatDateTime(charge.paidAt || charge.createdAt, "medium")}
                 </p>
               </div>
+            ) : isFailed ? (
+              <OperationFailure message="A cobrança foi encerrada por falha." animate={false} />
             ) : isExpired ? (
               <div className="flex flex-col items-center justify-center py-8 text-center space-y-3">
                 <div className="size-16 rounded-full bg-destructive/20 text-destructive flex items-center justify-center">
@@ -166,12 +171,14 @@ export function ChargeDetailScreen({ chargeId }: { chargeId: string }) {
               </div>
             ) : (
               <>
-                {/* Container Branco com QR Code Demonstrativo */}
-                <div className="p-4 bg-white rounded-xl shadow-md border border-neutral-300">
+                <ImageLoadingSurface state="ready" className={qrFrame}>
+                  <div className="grid size-full place-items-center bg-white p-4">
                   <svg
-                    className="size-48 sm:size-52 text-black"
+                    className="size-full text-black"
                     viewBox="0 0 100 100"
                     fill="currentColor"
+                    role="img"
+                    aria-label="QR Code Pix demonstrativo"
                   >
                     {/* Visual de QR Code vetorial limpo */}
                     <rect width="100" height="100" fill="#ffffff" />
@@ -203,7 +210,8 @@ export function ChargeDetailScreen({ chargeId }: { chargeId: string }) {
                     <rect x="76" y="70" width="12" height="6" fill="#000000" />
                     <rect x="68" y="82" width="16" height="6" fill="#000000" />
                   </svg>
-                </div>
+                  </div>
+                </ImageLoadingSurface>
                 <span className="text-[11px] text-muted-foreground mt-3 font-medium">
                   QR demonstrativo, sem pagamento real
                 </span>
@@ -216,7 +224,7 @@ export function ChargeDetailScreen({ chargeId }: { chargeId: string }) {
           </div>
 
           {/* Código Copia e Cola */}
-          {!isPaid && !isExpired && (
+          {canPay && (
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Pix Copia e Cola (Código Demonstrativo)
@@ -249,8 +257,11 @@ export function ChargeDetailScreen({ chargeId }: { chargeId: string }) {
           )}
 
           {/* Botão Especial de Demonstração: Simular Pagamento */}
-          {!isPaid && !isExpired && (
+          {canPay && (
             <div className="pt-2 border-t border-border/80">
+              {payMutation.isError && (
+                <OperationFailure className="mb-3" message={payMutation.error.message || "Falha ao simular pagamento."} />
+              )}
               <Button
                 onClick={() => payMutation.mutate()}
                 disabled={payMutation.isPending}

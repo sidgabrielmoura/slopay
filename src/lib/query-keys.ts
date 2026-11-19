@@ -1,7 +1,7 @@
 export const queryKeys = {
   account: () => ["account"] as const,
   overview: (period?: string) => ["overview", period ?? "today"] as const,
-  analytics: (period?: string) => ["analytics", period ?? "today"] as const,
+  analytics: (scope: string, period: string) => ["analytics", scope, period] as const,
   transactions: (filters?: Record<string, unknown>) =>
     ["transactions", filters ?? {}] as const,
   transaction: (id: string) => ["transaction", id] as const,
@@ -9,7 +9,7 @@ export const queryKeys = {
   charge: (id: string) => ["charge", id] as const,
   batches: (filters?: Record<string, unknown>) => ["batches", filters ?? {}] as const,
   batch: (id: string) => ["batch", id] as const,
-  approvals: (status?: string) => ["approvals", status ?? "PENDING"] as const,
+  approvals: (status?: string) => status ? ["approvals", status] as const : ["approvals"] as const,
   approval: (id: string) => ["approval", id] as const,
   approvalRules: () => ["approval-rules"] as const,
   approvalRule: (id: string) => ["approval-rule", id] as const,

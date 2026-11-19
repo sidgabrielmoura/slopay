@@ -2,6 +2,7 @@
 
 import React from "react";
 import NextLink from "next/link";
+import { ToastNotice } from "@/components/ui/toast-notice";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useGatewayService } from "@/providers/demo-provider";
@@ -125,22 +126,22 @@ export function TransactionDetailScreen({ transactionId }: { transactionId: stri
                 tx.status === "COMPLETED"
                   ? "success"
                   : tx.status === "PENDING_APPROVAL"
-                  ? "warning"
-                  : tx.status === "PROCESSING"
-                  ? "info"
-                  : "destructive"
+                    ? "warning"
+                    : tx.status === "PROCESSING"
+                      ? "info"
+                      : "destructive"
               }
               className="text-xs px-3 py-1"
             >
               {tx.status === "COMPLETED"
                 ? "Liquidado com Sucesso"
                 : tx.status === "PENDING_APPROVAL"
-                ? "Aguardando Aprovação"
-                : tx.status === "PROCESSING"
-                ? "Em Processamento"
-                : tx.status === "FAILED"
-                ? "Falha na Transação"
-                : "Recusado"}
+                  ? "Aguardando Aprovação"
+                  : tx.status === "PROCESSING"
+                    ? "Em Processamento"
+                    : tx.status === "FAILED"
+                      ? "Falha na Transação"
+                      : "Recusado"}
             </Badge>
           </div>
 
@@ -150,7 +151,7 @@ export function TransactionDetailScreen({ transactionId }: { transactionId: stri
             <div
               className={`text-3xl sm:text-4xl font-extrabold tabular-nums tracking-tight mt-0.5 ${
                 isReceive ? "text-[var(--success)]" : "text-foreground"
-              }`}
+                }`}
             >
               {formatCentsToBrl(tx.amountInCents, {
                 hideValue: hideValues,
@@ -314,17 +315,9 @@ export function TransactionDetailScreen({ transactionId }: { transactionId: stri
           )}
 
           {tx.approvalRequestId && tx.status === "PENDING_APPROVAL" && (
-            <div className="p-3 rounded-xl border border-[#483e29] bg-[var(--warning-surface)] flex items-center justify-between no-print">
-              <div>
-                <p className="text-xs font-semibold text-[var(--warning)]">Operação Aguardando Aprovação</p>
-                <p className="text-xs text-muted-foreground">
-                  Esta transação foi retida pela regra de aprovação corporativa.
-                </p>
-              </div>
-              <Button asChild size="sm" variant="outline" className="border-[#483e29]">
-                <NextLink href={`/aprovacoes/${tx.approvalRequestId}`}>Ver Aprovação</NextLink>
-              </Button>
-            </div>
+            <ToastNotice variant="warning" message="Operação aguardando aprovação"
+              description="Esta transação foi retida pela regra de aprovação corporativa."
+              href={`/aprovacoes/${tx.approvalRequestId}`} actionLabel="Ver aprovação" persistent />
           )}
         </CardContent>
       </Card>

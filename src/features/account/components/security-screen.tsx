@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGatewayService } from "@/providers/demo-provider";
 import { queryKeys } from "@/lib/query-keys";
-import { formatDateTime, formatRelativeTime } from "@/lib/dates";
+import { demoPolicy } from "@/config/demo-policy.config";
+import { ApiError } from "@/lib/api-client";
+import { formatDateTime } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ImageLoadingSurface } from "@/components/ui/image-loading";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -19,29 +20,21 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ShieldCheck,
-  KeyRound,
-  Lock,
-  Smartphone,
-  History,
-  QrCode,
-  Copy,
-  CheckCircle2,
-  AlertCircle,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { AuthField, AuthPasswordToggle } from "@/features/auth/components/auth-form-controls";
+import { CodeSlots, useCodeVerification } from "@/features/auth/components/code-slots";
+import { Copy, KeyRound, Lock, Smartphone } from "lucide-react";
 import { toast } from "sonner";
-import type { SecurityEvent } from "@/types/domain";
+import { SecurityCard, SecurityLayout, SecurityMethod } from "./security-layout";
+
+const dialogSize = "max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] overflow-y-auto sm:max-w-md";
 
 export function SecurityScreen() {
   const service = useGatewayService();
   const queryClient = useQueryClient();
+  const dialogTrigger = useRef<HTMLButtonElement>(null);
 
   const [is2faEnabled, setIs2faEnabled] = useState(true);
   const [show2faDialog, setShow2faDialog] = useState(false);
-  const [totpCode, setTotpCode] = useState("");
 
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [currentPin, setCurrentPin] = useState("");
@@ -85,23 +78,31 @@ export function SecurityScreen() {
         setNewPassword("");
         setConfirmPassword("");
       } else if (vars.type === "2FA") {
-        toast.success(
-          vars.payload.enabled
-            ? "Autenticação em dois fatores ativada."
-            : "Autenticação em dois fatores desativada."
-        );
+        if (!vars.payload.enabled) toast.success("Autenticação em dois fatores desativada.");
         setIs2faEnabled(Boolean(vars.payload.enabled));
-        setShow2faDialog(false);
-        setTotpCode("");
       }
     },
-    onError: (err: any) => {
-      toast.error(err.message || "Erro ao atualizar configuração de segurança.");
+    onError: (err, vars) => {
+      if (vars.type === "2FA" && vars.payload.enabled) return;
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar configuração de segurança.");
     },
+  });
+
+  const activation = useCodeVerification({
+    verify: (code: string) => code === demoPolicy.demoOtp
+      ? updateSettingMutation.mutateAsync({ type: "2FA", payload: { enabled: true } })
+      : Promise.reject(new ApiError("Código demonstrativo incorreto.", 400)),
+    isRejection: (error) => error instanceof ApiError && error.status === 400,
+    onSuccess: () => {
+      setShow2faDialog(false);
+      activation.reset();
+    },
+    failureMessage: "Não foi possível ativar o autenticador.",
   });
 
   const handleToggle2fa = (checked: boolean) => {
     if (checked) {
+      activation.reset();
       setShow2faDialog(true);
     } else {
       updateSettingMutation.mutate({
@@ -111,20 +112,9 @@ export function SecurityScreen() {
     }
   };
 
-  const handleConfirm2faActivation = () => {
-    if (totpCode.length !== 6) {
-      toast.error("Digite o código de 6 dígitos gerado pelo seu app autenticador.");
-      return;
-    }
-    updateSettingMutation.mutate({
-      type: "2FA",
-      payload: { enabled: true },
-    });
-  };
-
   const handleSavePin = () => {
-    if (currentPin !== "123456") {
-      toast.error("PIN atual incorreto. Use o PIN demonstrativo 123456.");
+    if (currentPin !== demoPolicy.demoPin) {
+      toast.error(`PIN atual incorreto. Use o PIN demonstrativo ${demoPolicy.demoPin}.`);
       return;
     }
     if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
@@ -160,222 +150,128 @@ export function SecurityScreen() {
     });
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Chave copiada para a área de transferência!");
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Chave copiada.");
+    } catch {
+      toast.error("Não foi possível copiar a chave.");
+    }
   };
 
+  function restoreDialogFocus(event: Event) {
+    const trigger = dialogTrigger.current;
+    if (!trigger?.isConnected) return;
+    event.preventDefault();
+    trigger.focus();
+  }
+
   return (
-    <div className="space-y-6 pb-12">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-          Segurança & Autenticação
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Gerenciamento de credenciais de acesso, duplo fator e auditoria de eventos críticos.
-        </p>
-      </div>
+    <SecurityLayout>
+      <SecurityCard title="Métodos de acesso">
+        <div className="divide-y divide-border">
+          <SecurityMethod
+            icon={Smartphone}
+            title="Aplicativo autenticador"
+            description="Gera os códigos de verificação em dois fatores."
+            status={<Badge variant={is2faEnabled ? "success" : "secondary"}>{is2faEnabled ? "Ativo" : "Desativado"}</Badge>}
+            action={
+              <Switch
+                aria-label="Autenticação em dois fatores"
+                onClick={(event) => { dialogTrigger.current = event.currentTarget; }}
+                checked={is2faEnabled}
+                onCheckedChange={handleToggle2fa}
+                disabled={updateSettingMutation.isPending}
+              />
+            }
+          />
+          <SecurityMethod
+            icon={KeyRound}
+            title="PIN de operações Pix"
+            description="Usado na autorização das operações da demonstração."
+            action={
+              <Button variant="outline" className="h-11" onClick={(event) => {
+                dialogTrigger.current = event.currentTarget;
+                setShowPinDialog(true);
+              }}>Alterar PIN</Button>
+            }
+          />
+          <SecurityMethod
+            icon={Lock}
+            title="Senha de acesso"
+            description="Usada com o e-mail para entrar no painel."
+            action={
+              <Button variant="outline" className="h-11" onClick={(event) => {
+                dialogTrigger.current = event.currentTarget;
+                setShowPasswordDialog(true);
+              }}>Trocar senha</Button>
+            }
+          />
+        </div>
+      </SecurityCard>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Card 2FA */}
-        <Card className="border-border bg-card/80 flex flex-col justify-between">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="size-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                <Smartphone className="size-5" />
-              </div>
-              <Badge
-                variant={is2faEnabled ? "default" : "outline"}
-                className={is2faEnabled ? "bg-primary/20 text-primary border-primary/30" : ""}
-              >
-                {is2faEnabled ? "Protegido" : "Desativado"}
-              </Badge>
-            </div>
-            <CardTitle className="text-base text-foreground mt-3">
-              Autenticação em 2 Fatores (2FA)
-            </CardTitle>
-            <CardDescription className="text-xs leading-relaxed">
-              Exige um código temporário de 6 dígitos gerado por aplicativo autenticador (Google Authenticator, Authy ou 1Password) em cada login.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-2 border-t border-border/50 flex items-center justify-between">
-            <span className="text-xs font-medium text-foreground">
-              {is2faEnabled ? "2FA Ativo" : "2FA Desativado"}
-            </span>
-            <Switch
-              checked={is2faEnabled}
-              onCheckedChange={handleToggle2fa}
-              disabled={updateSettingMutation.isPending}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Card PIN de Pagamento */}
-        <Card className="border-border bg-card/80 flex flex-col justify-between">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="size-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                <KeyRound className="size-5" />
-              </div>
-              <Badge variant="outline" className="text-xs font-mono">
-                PIN: 123456
-              </Badge>
-            </div>
-            <CardTitle className="text-base text-foreground mt-3">
-              PIN de Operações Pix
-            </CardTitle>
-            <CardDescription className="text-xs leading-relaxed">
-              Código numérico de 6 dígitos exigido para assinar solicitações de saque Pix, emissão de lotes e alterações cadastrais restritas.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-2 border-t border-border/50 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Configurado</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowPinDialog(true)}
-              className="text-xs"
-            >
-              Alterar PIN
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Card Senha de Acesso */}
-        <Card className="border-border bg-card/80 flex flex-col justify-between md:col-span-2">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="size-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                <Lock className="size-5" />
-              </div>
-              <span className="text-xs text-muted-foreground">Última troca há 45 dias</span>
-            </div>
-            <CardTitle className="text-base text-foreground mt-3">
-              Senha de Acesso ao Painel
-            </CardTitle>
-            <CardDescription className="text-xs leading-relaxed">
-              Utilizada para iniciar a sessão na plataforma web juntamente com seu e-mail corporativo.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-2 border-t border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <div className="size-2 rounded-full bg-emerald-500" />
-              <span className="text-xs text-muted-foreground">
-                Requisitos: Mínimo 8 caracteres, números e símbolos
-              </span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowPasswordDialog(true)}
-              className="text-xs self-end sm:self-auto"
-            >
-              Trocar Senha de Acesso
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Trilha de Auditoria de Eventos de Segurança */}
-      <Card className="border-border bg-card/80">
-        <CardHeader className="pb-4 border-b border-border/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="size-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
-                <History className="size-4" />
-              </div>
-              <div>
-                <CardTitle className="text-base text-foreground">
-                  Trilha de Auditoria de Segurança
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Registro cronológico de acessos, alterações de credenciais e ações sensíveis.
-                </CardDescription>
-              </div>
-            </div>
-            <span className="text-xs font-mono text-muted-foreground">
-              {securityEvents?.length || 0} eventos
-            </span>
+      <SecurityCard title="Atividade de segurança">
+        {isLoadingEvents ? (
+          <div className="grid gap-2" aria-busy="true">
+            <span role="status" className="sr-only">Carregando eventos</span>
+            <Skeleton className="h-12 motion-reduce:animate-none" />
+            <Skeleton className="h-12 motion-reduce:animate-none" />
           </div>
-        </CardHeader>
-        <CardContent className="pt-4">
-          {isLoadingEvents ? (
-            <div className="space-y-3">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          ) : !securityEvents || securityEvents.length === 0 ? (
-            <div className="p-6 text-center text-xs text-muted-foreground">
-              Nenhum evento de segurança registrado.
-            </div>
-          ) : (
-            <div className="divide-y divide-border/60">
-              {securityEvents.map((evt) => (
-                <div
-                  key={evt.id}
-                  className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="size-7 rounded-full bg-muted/80 flex items-center justify-center text-muted-foreground shrink-0 mt-0.5">
-                      <ShieldCheck className="size-3.5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">{evt.description}</p>
-                      <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                        Origem: {evt.simulatedIp}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="sm:text-right pl-10 sm:pl-0">
-                    <span className="text-muted-foreground">
-                      {formatRelativeTime(evt.createdAt)}
-                    </span>
-                    <span className="block text-[10px] text-muted-foreground font-mono">
-                      {formatDateTime(evt.createdAt, "short")}
-                    </span>
-                  </div>
+        ) : securityEvents?.length ? (
+          <ul className="divide-y divide-border">
+            {securityEvents.map((event) => (
+              <li key={event.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3 first:pt-1 last:pb-0">
+                <div className="min-w-0 space-y-1">
+                  <p className="text-sm font-medium">{event.description}</p>
+                  <p className="text-xs text-muted-foreground tabular-nums">{event.simulatedIp}</p>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <time dateTime={event.createdAt} className="text-xs text-muted-foreground tabular-nums">
+                  {formatDateTime(event.createdAt, "short")}
+                </time>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">Nenhum evento de segurança registrado.</p>
+        )}
+      </SecurityCard>
 
       {/* Dialog 2FA Setup */}
-      <Dialog open={show2faDialog} onOpenChange={setShow2faDialog}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={show2faDialog} onOpenChange={(open) => {
+        if (!activation.busy) setShow2faDialog(open);
+      }}>
+        <DialogContent className={dialogSize} onCloseAutoFocus={restoreDialogFocus}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <QrCode className="size-5 text-primary" />
-              Ativar Autenticação em Dois Fatores
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Escaneie o código QR abaixo com seu aplicativo autenticador de preferência.
+            <DialogTitle>Ativar autenticação em dois fatores</DialogTitle>
+            <DialogDescription>
+              Use o código {demoPolicy.demoOtp} para simular a confirmação do autenticador.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Mock QR code container */}
-            <div className="p-4 rounded-xl bg-white flex flex-col items-center justify-center mx-auto w-48 h-48 border">
+            <ImageLoadingSurface state="ready" className="mx-auto size-48 rounded-xl">
+              <div className="size-full bg-white p-4">
               <svg
                 viewBox="0 0 100 100"
                 className="w-full h-full text-black fill-current"
+                role="img"
+                aria-label="QR Code demonstrativo do autenticador"
               >
                 <path d="M10 10h30v30h-30z M15 15v20h20v-20z M20 20h10v10h-10z M60 10h30v30h-30z M65 15v20h20v-20z M70 20h10v10h-10z M10 60h30v30h-30z M15 65v20h20v-20z M20 70h10v10h-10z M45 15h10v10h-10z M45 35h10v10h-10z M45 65h10v10h-10z M60 60h10v10h-10z M80 60h10v10h-10z M70 70h10v10h-10z M60 80h10v10h-10z M80 80h10v10h-10z" />
               </svg>
-            </div>
+              </div>
+            </ImageLoadingSurface>
 
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Ou insira a chave secreta manualmente:</label>
+              <p className="text-sm text-muted-foreground">Chave manual de demonstração</p>
               <div className="flex items-center gap-2 p-2 rounded bg-muted/60 border font-mono text-xs text-foreground justify-between">
                 <span>JBSW Y3DP EHPK 3PXP</span>
                 <Button
-                  size="iconSm"
+                  size="icon"
                   variant="ghost"
-                  onClick={() => copyToClipboard("JBSWY3DPEHPK3PXP")}
-                  title="Copiar Chave"
+                  onClick={() => void copyToClipboard("JBSWY3DPEHPK3PXP")}
+                  aria-label="Copiar chave manual"
+                  className="size-11 shrink-0"
                 >
                   <Copy className="size-3.5" />
                 </Button>
@@ -383,28 +279,19 @@ export function SecurityScreen() {
             </div>
 
             <div className="space-y-1.5 pt-2">
-              <label className="text-xs font-medium text-foreground">
-                Código de 6 dígitos gerado pelo App:
-              </label>
-              <Input
-                value={totpCode}
-                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="000000"
-                className="text-center font-mono text-lg tracking-widest h-11"
+              <CodeSlots
+                id="demo-security-code"
+                label="Código de 6 dígitos do autenticador"
+                format="totp"
+                successLabel="Autenticação em dois fatores ativada."
+                {...activation.field}
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setShow2faDialog(false)}>
+            <Button variant="outline" className="h-11" disabled={activation.busy} onClick={() => setShow2faDialog(false)}>
               Cancelar
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleConfirm2faActivation}
-              disabled={totpCode.length !== 6 || updateSettingMutation.isPending}
-            >
-              Confirmar & Ativar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -412,144 +299,57 @@ export function SecurityScreen() {
 
       {/* Dialog Alterar PIN */}
       <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className={dialogSize} onCloseAutoFocus={restoreDialogFocus}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <KeyRound className="size-5 text-primary" />
-              Alterar PIN de Operações Pix
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Defina um novo PIN numérico de 6 dígitos para assinar transações.
+            <DialogTitle>Alterar PIN de operações Pix</DialogTitle>
+            <DialogDescription>
+              O PIN demonstrativo atual é {demoPolicy.demoPin}. O novo PIN deve ter seis dígitos.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-foreground">PIN Atual (Demonstração)</label>
-                <span className="text-[10px] text-muted-foreground">Padrão: 123456</span>
-              </div>
-              <Input
-                type="password"
-                maxLength={6}
-                value={currentPin}
-                onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="******"
-                className="font-mono text-center tracking-widest h-10"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">Novo PIN (6 dígitos)</label>
-              <Input
-                type="password"
-                maxLength={6}
-                value={newPin}
-                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="******"
-                className="font-mono text-center tracking-widest h-10"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">Confirmar Novo PIN</label>
-              <Input
-                type="password"
-                maxLength={6}
-                value={confirmPin}
-                onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="******"
-                className="font-mono text-center tracking-widest h-10"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setShowPinDialog(false)}>
-              Cancelar
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSavePin}
-              disabled={newPin.length !== 6 || newPin !== confirmPin || updateSettingMutation.isPending}
-            >
-              Salvar Novo PIN
-            </Button>
-          </DialogFooter>
+          <form className="grid gap-4" method="post" onSubmit={(event) => { event.preventDefault(); handleSavePin(); }}>
+            <AuthField id="demo-current-pin" label="PIN atual" type="password" inputMode="numeric" maxLength={6}
+              value={currentPin} onChange={(event) => setCurrentPin(event.target.value.replace(/\D/g, "").slice(0, 6))} />
+            <AuthField id="demo-new-pin" label="Novo PIN" type="password" inputMode="numeric" maxLength={6}
+              value={newPin} onChange={(event) => setNewPin(event.target.value.replace(/\D/g, "").slice(0, 6))} />
+            <AuthField id="demo-confirm-pin" label="Confirme o novo PIN" type="password" inputMode="numeric" maxLength={6}
+              value={confirmPin} onChange={(event) => setConfirmPin(event.target.value.replace(/\D/g, "").slice(0, 6))} />
+            <DialogFooter className="gap-2 sm:space-x-0">
+              <Button type="button" variant="outline" className="h-11" onClick={() => setShowPinDialog(false)}>Cancelar</Button>
+              <Button type="submit" className="h-11"
+                disabled={newPin.length !== 6 || newPin !== confirmPin || updateSettingMutation.isPending}>
+                Salvar PIN
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Alterar Senha */}
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className={dialogSize} onCloseAutoFocus={restoreDialogFocus}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Lock className="size-5 text-primary" />
-              Alterar Senha de Acesso
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Atualize a senha de login corporativo na plataforma.
-            </DialogDescription>
+            <DialogTitle>Trocar senha de acesso</DialogTitle>
+            <DialogDescription>A nova senha deve ter ao menos oito caracteres.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">Senha Atual</label>
-              <div className="relative">
-                <Input
-                  type={showPassText ? "text" : "password"}
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Sua senha atual"
-                  className="h-10 pr-9"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassText(!showPassText)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassText ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">Nova Senha</label>
-              <Input
-                type={showPassText ? "text" : "password"}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Mínimo 8 caracteres"
-                className="h-10"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">Confirmar Nova Senha</label>
-              <Input
-                type={showPassText ? "text" : "password"}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repita a nova senha"
-                className="h-10"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setShowPasswordDialog(false)}>
-              Cancelar
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSavePassword}
-              disabled={!newPassword || newPassword !== confirmPassword || updateSettingMutation.isPending}
-            >
-              Atualizar Senha
-            </Button>
-          </DialogFooter>
+          <form className="grid gap-4" method="post" onSubmit={(event) => { event.preventDefault(); handleSavePassword(); }}>
+            <AuthField id="demo-current-password" label="Senha atual" type={showPassText ? "text" : "password"}
+              autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)}
+              endControl={<AuthPasswordToggle visible={showPassText} controls="demo-current-password" onToggle={() => setShowPassText(!showPassText)} />} />
+            <AuthField id="demo-new-password" label="Nova senha" type="password" autoComplete="new-password"
+              value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+            <AuthField id="demo-confirm-password" label="Confirme a nova senha" type="password" autoComplete="new-password"
+              value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+            <DialogFooter className="gap-2 sm:space-x-0">
+              <Button type="button" variant="outline" className="h-11" onClick={() => setShowPasswordDialog(false)}>Cancelar</Button>
+              <Button type="submit" className="h-11"
+                disabled={!newPassword || newPassword !== confirmPassword || updateSettingMutation.isPending}>
+                Atualizar senha
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </SecurityLayout>
   );
 }

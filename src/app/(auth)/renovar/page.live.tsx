@@ -1,5 +1,5 @@
 import { AuthShell } from "@/features/auth/components/auth-shell";
-import { RenewSession } from "@/features/auth/components/live-auth-forms";
+import { RenewSession } from "@/features/auth/components/renew-session";
 import { safeReturnTo } from "@/lib/auth-navigation";
 
 export default async function RenovarPage({

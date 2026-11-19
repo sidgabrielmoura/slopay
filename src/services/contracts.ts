@@ -13,6 +13,8 @@ import type {
   AccountRegistrationStatus,
   OnboardingFormData,
 } from "@/types/domain";
+import type { IndicatorPeriod, IndicatorReport } from "@/features/analytics/indicators";
+import type { ApprovalRuleMember } from "@/features/approval-rules/approval-rules";
 
 export interface TransactionFilterParams {
   direction?: "IN" | "OUT";
@@ -31,6 +33,14 @@ export interface PaginatedResult<T> {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+export interface UserListFilters {
+  search?: string;
+  role?: User["role"];
+  status?: User["status"];
+  page?: number;
+  pageSize?: number;
 }
 
 export interface OverviewMetrics {
@@ -56,51 +66,16 @@ export interface OverviewMetrics {
   pendingApprovalsCount: number;
 }
 
-export interface AnalyticsMetrics {
-  period: string;
-  inflowsVolumeInCents: number;
-  inflowsCount: number;
-  inflowsAverageTicketInCents: number;
-  inflowsMinTicketInCents: number;
-  inflowsMaxTicketInCents: number;
-  outflowsVolumeInCents: number;
-  outflowsCount: number;
-  outflowsAverageTicketInCents: number;
-  outflowsMinTicketInCents: number;
-  outflowsMaxTicketInCents: number;
-  conversionRate: number; // Porcentagem (ex: 78.5)
-  chargesGeneratedCount: number;
-  chargesPaidCount: number;
-  outflowsByOrigin: {
-    apiVolumeInCents: number;
-    apiCount: number;
-    panelVolumeInCents: number;
-    panelCount: number;
-  };
-  temporalSeries: {
-    date: string;
-    inflowsAmountInCents: number;
-    outflowsAmountInCents: number;
-    inflowsCount: number;
-    outflowsCount: number;
-  }[];
-  monthlyComparison: {
-    month: string;
-    inflowsInCents: number;
-    outflowsInCents: number;
-  }[];
-}
-
 export type ISloPayService = IGatewayService;
 
 export interface IGatewayService {
   // Conta
   getAccount(): Promise<Account>;
-  updateProfile(phone: string): Promise<{ success: boolean; phone: string }>;
+  updateProfile(phone: string, expectedUserId: string): Promise<{ success: boolean; phone: string }>;
 
   // Dashboard & Analytics
   getOverviewMetrics(period?: string): Promise<OverviewMetrics>;
-  getAnalytics(period?: string): Promise<AnalyticsMetrics>;
+  getAnalytics(period: IndicatorPeriod): Promise<IndicatorReport>;
 
   // Movimentações & Extrato
   getTransactions(
@@ -162,15 +137,17 @@ export interface IGatewayService {
     total: number;
     pendingCount: number;
   }>;
-  getApprovalById(id: string): Promise<ApprovalRequest | null>;
+  getApprovalById(id: string): Promise<(ApprovalRequest & { nextApprover: Pick<User, "id" | "name"> | null }) | null>;
   decideApproval(params: {
     requestId: string;
+    approverId: string;
     decision: "APPROVE" | "REJECT";
     reason?: string;
   }): Promise<ApprovalRequest>;
 
   // Regras de Aprovação
   getApprovalRules(): Promise<ApprovalRule[]>;
+  getApprovalRuleMembers(): Promise<ApprovalRuleMember[]>;
   createApprovalRule(
     rule: Omit<ApprovalRule, "id" | "createdAt">
   ): Promise<ApprovalRule>;
@@ -181,7 +158,7 @@ export interface IGatewayService {
   deleteApprovalRule(id: string): Promise<boolean>;
 
   // Usuários
-  getUsers(filters?: { search?: string; page?: number; pageSize?: number }): Promise<PaginatedResult<User>>;
+  getUsers(filters?: UserListFilters): Promise<PaginatedResult<User>>;
   getUserById(id: string): Promise<User | null>;
   createUser(
     user: Omit<User, "id" | "createdAt" | "lastAccessAt">

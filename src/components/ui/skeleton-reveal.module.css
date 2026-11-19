@@ -1,0 +1,80 @@
+/* Transitions.dev — Skeleton loader and reveal */
+.t-skel {
+  --pulse-dur: 1000ms;
+  --pulse-count: 1;
+  --pulse-min: 0.5;
+  --reveal-dur: 400ms;
+  --reveal-blur: 2px;
+  --reveal-ease: ease-in-out;
+
+  position: relative;
+  isolation: isolate;
+}
+
+.t-skel-skeleton,
+.t-skel-content {
+  position: absolute;
+  inset: 0;
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    filter var(--reveal-dur) var(--reveal-ease);
+}
+
+.t-skel-skeleton {
+  z-index: 1;
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: none;
+}
+
+.t-skel-content {
+  z-index: 2;
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+}
+
+.t-skel.is-revealed .t-skel-skeleton {
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+}
+
+.t-skel.is-revealed .t-skel-content {
+  opacity: 1;
+  filter: blur(0);
+}
+
+.t-skel-skeleton.is-pulsing > * {
+  animation: t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count);
+}
+
+@keyframes t-skel-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: var(--pulse-min); }
+}
+
+.flow {
+  display: grid;
+}
+
+.flow :is(.t-skel-skeleton, .t-skel-content) {
+  position: relative;
+  inset: auto;
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-skel-skeleton,
+  .t-skel-content,
+  .t-skel-skeleton.is-pulsing > * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+:global(:root.reduce-motion) .t-skel-skeleton,
+:global(:root.reduce-motion) .t-skel-content,
+:global(:root.reduce-motion) .t-skel-skeleton.is-pulsing > * {
+  animation: none !important;
+  transition: none !important;
+}

@@ -296,7 +296,7 @@ export default function AdminOperacoesPage() {
               selectedType === t.id
                 ? "bg-secondary text-foreground font-semibold border border-border"
                 : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-            }`}
+              }`}
           >
             {t.label}
           </button>

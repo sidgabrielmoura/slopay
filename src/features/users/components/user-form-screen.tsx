@@ -1,33 +1,25 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import NextLink from "next/link";
-import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGatewayService, useDemoScenario } from "@/providers/demo-provider";
-import { queryKeys } from "@/lib/query-keys";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ArrowLeft,
-  Save,
-  ShieldCheck,
-  UserCheck,
-  AlertTriangle,
-  Info,
-  CheckCircle2,
-  Lock,
-} from "lucide-react";
+import { useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Save, UserRound } from "lucide-react";
 import { toast } from "sonner";
-import type { User, UserRole, UserPermissions } from "@/types/domain";
-
-interface UserFormScreenProps {
-  userId?: string;
-}
+import { Badge } from "@/components/ui/badge";
+import { BrazilianInput } from "@/components/ui/brazilian-input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Empty } from "@/components/ui/empty";
+import { GlideSelect } from "@/components/ui/glide-select";
+import { Input } from "@/components/ui/input";
+import { LoadingConfirmation, LoadingIndicator, OperationFailure } from "@/components/ui/loading-indicator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { queryKeys } from "@/lib/query-keys";
+import { isValidCPF } from "@/lib/validators";
+import { useDemoScenario, useGatewayService } from "@/providers/demo-provider";
+import type { User, UserPermissions, UserRole } from "@/types/domain";
+import { userRoles, usersPath, userStatusLabels } from "../user-access";
 
 const DEFAULT_PERMISSIONS_BY_ROLE: Record<UserRole, UserPermissions> = {
   TITULAR: {
@@ -82,539 +74,225 @@ const DEFAULT_PERMISSIONS_BY_ROLE: Record<UserRole, UserPermissions> = {
   },
 };
 
-export function UserFormScreen({ userId }: UserFormScreenProps) {
-  const router = useRouter();
-  const service = useGatewayService();
-  const { isReadOnly } = useDemoScenario();
-  const queryClient = useQueryClient();
-  const isEditing = Boolean(userId);
+type AccessAction = "export" | "create" | "request" | "decide" | "manage";
+const permissionGroups = [
+  { key: "transactions", label: "Movimentações", action: "export", actionLabel: "Exportar" },
+  { key: "pixReceive", label: "Recebimento Pix", action: "create", actionLabel: "Criar cobranças" },
+  { key: "pixWithdraw", label: "Saques Pix", action: "request", actionLabel: "Solicitar saques" },
+  { key: "approvals", label: "Aprovações", action: "decide", actionLabel: "Decidir solicitações" },
+  { key: "rules", label: "Regras de aprovação", action: "manage", actionLabel: "Gerenciar regras" },
+  { key: "users", label: "Usuários", action: "manage", actionLabel: "Gerenciar usuários" },
+  { key: "webhooks", label: "Webhooks", action: "manage", actionLabel: "Gerenciar webhooks" },
+] as const satisfies ReadonlyArray<{ key: keyof UserPermissions; label: string; action: AccessAction; actionLabel: string }>;
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [document, setDocument] = useState("");
-  const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<UserRole>("OPERADOR");
-  const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
-  const [permissions, setPermissions] = useState<UserPermissions>(
-    DEFAULT_PERMISSIONS_BY_ROLE.OPERADOR
+function BackToUsers({ variant = "ghost" }: { variant?: "ghost" | "outline" }) {
+  return (
+    <Button asChild variant={variant} className="h-11 justify-self-start">
+      <Link href={usersPath} prefetch={false}><ArrowLeft aria-hidden="true" /> Voltar aos usuários</Link>
+    </Button>
   );
+}
 
-  const { data: existingUser, isLoading: isLoadingUser } = useQuery({
-    queryKey: queryKeys.user(userId || ""),
-    queryFn: () => (userId ? service.getUserById(userId) : null),
-    enabled: Boolean(isEditing && userId),
+export function UserFormScreen({ userId }: { userId?: string }) {
+  const service = useGatewayService();
+  const { isReadOnly, activeScenario } = useDemoScenario();
+  const existing = useQuery({
+    queryKey: queryKeys.user(userId ?? ""),
+    queryFn: () => userId ? service.getUserById(userId) : null,
+    enabled: Boolean(userId),
   });
 
-  const { data: allUsers } = useQuery({
-    queryKey: queryKeys.users(),
-    queryFn: () => service.getUsers(),
-  });
-
-  const isLastTitular =
-    isEditing &&
-    existingUser &&
-    "role" in existingUser &&
-    existingUser.role === "TITULAR" &&
-    (allUsers?.data.filter((u) => u.role === "TITULAR").length ?? 1) <= 1;
-
-  useEffect(() => {
-    if (existingUser && typeof existingUser === "object" && "role" in existingUser && existingUser.role) {
-      setName(existingUser.name || "");
-      setEmail(existingUser.email || "");
-      setDocument(existingUser.document || "");
-      setPhone(existingUser.phone || "");
-      setRole(existingUser.role);
-      setStatus(existingUser.status || "ACTIVE");
-      const defaultForRole =
-        DEFAULT_PERMISSIONS_BY_ROLE[existingUser.role] ||
-        DEFAULT_PERMISSIONS_BY_ROLE.OPERADOR;
-      setPermissions(existingUser.permissions || defaultForRole);
-    }
-  }, [existingUser]);
-
-  const handleRoleChange = (newRole: UserRole) => {
-    if (isLastTitular && newRole !== "TITULAR") {
-      toast.error("Não é possível alterar o perfil do único Titular ativo da conta.");
-      return;
-    }
-    setRole(newRole);
-    setPermissions(
-      DEFAULT_PERMISSIONS_BY_ROLE[newRole] || DEFAULT_PERMISSIONS_BY_ROLE.OPERADOR
-    );
-  };
-
-  const handlePermissionToggle = (
-    module: keyof UserPermissions,
-    action: "view" | "export" | "create" | "request" | "decide" | "manage"
-  ) => {
-    setPermissions((prev) => {
-      const base =
-        prev && prev.transactions
-          ? prev
-          : DEFAULT_PERMISSIONS_BY_ROLE[role] || DEFAULT_PERMISSIONS_BY_ROLE.OPERADOR;
-      const currentModule =
-        base[module] || (DEFAULT_PERMISSIONS_BY_ROLE.OPERADOR[module] as any);
-      return {
-        ...base,
-        [module]: {
-          ...currentModule,
-          [action]: !Boolean((currentModule as any)[action]),
-        },
-      };
-    });
-  };
-
-  const safePermissions: UserPermissions =
-    permissions && permissions.transactions
-      ? permissions
-      : DEFAULT_PERMISSIONS_BY_ROLE[role] || DEFAULT_PERMISSIONS_BY_ROLE.OPERADOR;
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (isReadOnly) {
-        throw new Error("Perfil de apenas consulta não possui permissão para criar ou alterar colaboradores.");
-      }
-      if (!name.trim()) throw new Error("Informe o nome do colaborador.");
-      if (!email.trim() || !email.includes("@")) throw new Error("Informe um e-mail corporativo válido.");
-      if (!document.trim()) throw new Error("Informe o CPF do colaborador.");
-
-      if (isEditing && userId) {
-        return service.updateUser(userId, {
-          name,
-          email,
-          document,
-          phone,
-          role,
-          status,
-          permissions: safePermissions,
-        });
-      } else {
-        return service.createUser({
-          name,
-          email,
-          document,
-          phone: phone || "(11) 99999-0000",
-          role,
-          status: "ACTIVE",
-          permissions: safePermissions,
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.users() });
-      toast.success(
-        isEditing
-          ? "Colaborador atualizado com sucesso na demonstração."
-          : "Novo colaborador cadastrado com sucesso."
-      );
-      router.push("/conta/usuarios");
-    },
-    onError: (err: any) => {
-      toast.error(err.message || "Falha ao salvar dados do usuário.");
-    },
-  });
-
-  if (isEditing && isLoadingUser) {
+  if (userId && existing.isPending) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
+      <div className="grid max-w-4xl gap-5" aria-busy="true" aria-label="Carregando usuário">
+        <BackToUsers />
+        <Skeleton className="h-8 w-52 max-w-full" />
+        <Card className="grid gap-4 p-5 sm:grid-cols-2">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="grid gap-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-11 w-full" />
+            </div>
+          ))}
+        </Card>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6 pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="iconSm">
-            <NextLink href="/conta/usuarios">
-              <ArrowLeft className="size-4" />
-            </NextLink>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {isEditing ? `Editar Colaborador` : "Novo Colaborador"}
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {isEditing
-                ? `Atualize perfis e permissões de ${name || "colaborador"}.`
-                : "Cadastre um novo usuário com papel e acessos granulares."}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <NextLink href="/conta/usuarios">Cancelar</NextLink>
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || isReadOnly}
-            className="gap-1.5 font-semibold"
-          >
-            {isReadOnly ? <Lock className="size-4" /> : <Save className="size-4" />}
-            <span>{saveMutation.isPending ? "Salvando..." : isEditing ? "Salvar Alterações" : "Criar Usuário"}</span>
-          </Button>
-        </div>
+  if (userId && (existing.isError || !existing.data)) {
+    return (
+      <div className="grid max-w-4xl gap-4">
+        <BackToUsers />
+        <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Usuário</h1>
+        {existing.isError ? (
+          <>
+            <OperationFailure message="Não foi possível carregar o usuário." animate={false} />
+            <Button type="button" variant="outline" className="h-11 justify-self-start" onClick={() => void existing.refetch()}>Tentar novamente</Button>
+          </>
+        ) : <Empty icon={<UserRound aria-hidden="true" />} title="Usuário não encontrado" />}
       </div>
+    );
+  }
 
-      {isReadOnly && (
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
-          <Lock className="size-4 shrink-0 text-amber-400 mt-0.5" />
-          <div>
-            <p className="font-semibold">Perfil Demonstrativo de Consulta Ativo</p>
-            <p className="text-muted-foreground mt-0.5">
-              Seu perfil atual possui privilégios estritamente de leitura. A criação e alteração de colaboradores estão desabilitadas.
-            </p>
-          </div>
-        </div>
-      )}
+  return <UserForm key={`${activeScenario}:${userId ?? "novo"}`} user={userId ? existing.data ?? undefined : undefined} readOnly={isReadOnly} />;
+}
 
-      {isLastTitular && (
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200">
-          <AlertTriangle className="size-5 shrink-0 text-amber-400 mt-0.5" />
-          <div className="text-xs space-y-1">
-            <p className="font-semibold text-amber-300">Único Usuário Titular da Conta</p>
-            <p className="text-amber-200/90 leading-relaxed">
-              Este colaborador é o único titular ativo da conta. Por diretriz de governança, seu perfil não pode ser rebaixado para Operador, Aprovador ou Consulta, nem inativado.
-            </p>
-          </div>
-        </div>
-      )}
+function UserForm({ user, readOnly }: { user?: User; readOnly: boolean }) {
+  const service = useGatewayService();
+  const client = useQueryClient();
+  const [name, setName] = useState(user?.name ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [document, setDocument] = useState(user?.document ?? "");
+  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [role, setRole] = useState<UserRole>(user?.role ?? "OPERADOR");
+  const [permissions, setPermissions] = useState(user?.permissions ?? DEFAULT_PERMISSIONS_BY_ROLE[role]);
+  const [invalidCpf, setInvalidCpf] = useState(false);
+  const editingOwner = user?.role === "TITULAR" && user.status === "ACTIVE";
+  const owners = useQuery({
+    queryKey: queryKeys.users({ role: "TITULAR", status: "ACTIVE", pageSize: 1 }),
+    queryFn: () => service.getUsers({ role: "TITULAR", status: "ACTIVE", pageSize: 1 }),
+    enabled: editingOwner && !readOnly,
+  });
+  const protectedOwner = editingOwner && (owners.data?.total ?? 1) <= 1;
+  const roleOptions = (Object.keys(userRoles) as UserRole[])
+    .filter((option) => option !== "ADMINISTRADOR" || user?.role === option)
+    .map((value) => ({ value, label: userRoles[value].label }));
+  const save = useMutation({
+    mutationFn: () => {
+      const data = {
+        name: name.trim(), email: email.trim(), document: document.trim(), phone: phone.trim(),
+        role, permissions, status: user?.status ?? "ACTIVE",
+      } satisfies Omit<User, "id" | "createdAt" | "lastAccessAt">;
 
-      {/* Dados Gerais */}
-      <Card className="border-border bg-card/80">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <UserCheck className="size-4 text-primary" />
-            Identificação do Usuário
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Dados pessoais e de contato para registro na plataforma.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">Nome Completo *</label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Mariana Silveira"
-                className="h-10"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">E-mail Corporativo *</label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="mariana@empresa.com.br"
-                className="h-10"
-              />
-            </div>
-          </div>
+      return user ? service.updateUser(user.id, data) : service.createUser(data);
+    },
+    onSuccess: async (saved) => {
+      client.setQueryData(queryKeys.user(saved.id), saved);
+      await client.invalidateQueries({ queryKey: queryKeys.users() });
+    },
+  });
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">CPF do Titular / Operador *</label>
-              <Input
-                value={document}
-                onChange={(e) => setDocument(e.target.value)}
-                placeholder="000.000.000-00"
-                className="h-10 font-mono"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">Telefone / WhatsApp</label>
-              <Input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="(11) 98765-4321"
-                className="h-10"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (readOnly || save.isPending) return;
+    if (!name.trim()) {
+      toast.error("Informe o nome do usuário.");
+      event.currentTarget.querySelector<HTMLInputElement>("#user-name")?.focus();
+      return;
+    }
+    if (document !== user?.document && !isValidCPF(document)) {
+      setInvalidCpf(true);
+      toast.error("Informe um CPF válido.");
+      event.currentTarget.querySelector<HTMLInputElement>("#user-cpf")?.focus();
+      return;
+    }
+    save.mutate();
+  }
 
-      {/* Perfil & Nível de Acesso */}
-      <Card className="border-border bg-card/80">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <ShieldCheck className="size-4 text-primary" />
-            Papel Funcional (Perfil)
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Selecione o papel do usuário. O papel define o template inicial de permissões.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              {
-                id: "TITULAR" as UserRole,
-                label: "Titular",
-                badge: "Acesso Total",
-                desc: "Administração total da conta, regras de alçada e aprovações sem restrição.",
-              },
-              {
-                id: "OPERADOR" as UserRole,
-                label: "Operador",
-                badge: "Operações",
-                desc: "Gera cobranças e cria solicitações de saque (sujeitas a alçada).",
-              },
-              {
-                id: "APROVADOR" as UserRole,
-                label: "Aprovador",
-                badge: "Governança",
-                desc: "Avalia, aprova ou rejeita solicitações de saque que requerem alçada.",
-              },
-              {
-                id: "CONSULTA" as UserRole,
-                label: "Consulta",
-                badge: "Somente Leitura",
-                desc: "Visualiza relatórios, extratos e dashboards sem poder realizar movimentações.",
-              },
-            ].map((p) => {
-              const isSelected = role === p.id;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => handleRoleChange(p.id)}
-                  className={`flex flex-col text-left p-3.5 rounded-lg border transition-all ${isSelected
-                    ? "border-primary bg-primary/10 shadow-sm"
-                    : "border-border bg-card hover:bg-muted/50"
-                    }`}
-                >
-                  <div className="flex items-center justify-between w-full mb-1.5">
-                    <span className="text-sm font-semibold text-foreground">{p.label}</span>
-                    <Badge variant={isSelected ? "default" : "outline"} className="text-[10px]">
-                      {p.badge}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed flex-1">
-                    {p.desc}
+  function changeRole(next: string) {
+    const selected = roleOptions.find((option) => option.value === next);
+    if (!selected || protectedOwner || selected.value === role) return;
+    setRole(selected.value);
+    setPermissions(DEFAULT_PERMISSIONS_BY_ROLE[selected.value]);
+  }
+
+  return (
+    <div className="grid min-w-0 max-w-4xl gap-5">
+      <BackToUsers />
+      <header className="grid gap-1">
+        <h1 className="text-balance text-2xl font-semibold sm:text-3xl">{user ? readOnly ? "Dados do usuário" : "Editar usuário" : "Novo usuário"}</h1>
+        <p className="text-pretty text-sm text-muted-foreground">
+          {readOnly ? "Seu acesso de consulta permite visualizar os dados." : "Configure os dados e as permissões deste usuário na demonstração."}
+        </p>
+      </header>
+      {save.isSuccess ? (
+        <Card className="grid justify-items-center gap-3 p-6 text-center" role="status">
+          <LoadingConfirmation animate />
+          <h2 className="text-balance text-lg font-semibold">{user ? "Alterações salvas" : "Usuário cadastrado"}</h2>
+          <p className="wrap-anywhere text-pretty text-sm text-muted-foreground">{save.data.name} está na lista de usuários da demonstração.</p>
+          <Button asChild className="h-11">
+            <Link href={usersPath} prefetch={false} ref={(node) => { node?.focus({ preventScroll: true }); }}>Ver usuários</Link>
+          </Button>
+        </Card>
+      ) : (
+        <form onSubmit={submit} className="grid gap-4">
+          <fieldset disabled={readOnly || save.isPending} className="grid min-w-0 gap-4 disabled:opacity-85">
+            <Card className="min-w-0">
+              <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 p-5">
+                <h2 className="text-balance text-lg font-semibold">Identificação</h2>
+                {user && <Badge variant={user.status === "ACTIVE" ? "success" : "secondary"}>{userStatusLabels[user.status]}</Badge>}
+              </CardHeader>
+              <CardContent className="grid gap-4 px-5 pb-5 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="user-name" className="text-sm font-medium">Nome completo</label>
+                  <Input id="user-name" autoComplete="name" required className="h-11" value={name} onChange={(event) => setName(event.target.value)} />
+                </div>
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="user-email" className="text-sm font-medium">E-mail corporativo</label>
+                  <Input id="user-email" type="email" autoComplete="email" required className="h-11" value={email} onChange={(event) => setEmail(event.target.value)} />
+                </div>
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="user-cpf" className="text-sm font-medium">CPF</label>
+                  <BrazilianInput id="user-cpf" mask="CPF" placeholder="000.000.000-00" required aria-invalid={invalidCpf || undefined}
+                    className="h-11 tabular-nums aria-invalid:border-destructive!" value={document} onChange={(event) => { setDocument(event.target.value); setInvalidCpf(false); }} />
+                </div>
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="user-phone" className="text-sm font-medium">Telefone <span className="font-normal text-muted-foreground">(opcional)</span></label>
+                  <BrazilianInput id="user-phone" autoComplete="tel" mask="PHONE" placeholder="(00) 00000-0000" className="h-11 tabular-nums"
+                    value={phone} onChange={(event) => setPhone(event.target.value)} />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="min-w-0">
+              <CardHeader className="space-y-0 p-5">
+                <h2 className="text-balance text-lg font-semibold">Perfil e permissões</h2>
+              </CardHeader>
+              <CardContent className="grid gap-4 px-5 pb-5">
+                <div className="grid min-w-0 gap-1.5 sm:max-w-sm">
+                  <label htmlFor="user-role" className="text-sm font-medium">Perfil de acesso</label>
+                  <GlideSelect id="user-role" size="lg" className="w-full" options={roleOptions} value={role} onChange={changeRole}
+                    aria-describedby="user-role-description" disabled={readOnly || save.isPending || protectedOwner} />
+                  <p id="user-role-description" className="text-pretty text-xs text-muted-foreground">
+                    {protectedOwner ? "A conta precisa manter este titular ativo." : userRoles[role].description}
                   </p>
-                  {isSelected && (
-                    <div className="mt-3 flex items-center gap-1.5 text-[11px] font-medium text-primary">
-                      <CheckCircle2 className="size-3.5" />
-                      <span>Selecionado</span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Permissões Granulares por Módulo */}
-      <Card className="border-border bg-card/80">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Permissões Detalhadas</CardTitle>
-              <CardDescription className="text-xs mt-0.5">
-                Ajuste os privilégios específicos caso este usuário necessite de acessos customizados.
-              </CardDescription>
+                </div>
+                <div className="divide-y divide-border border-y">
+                  {permissionGroups.map(({ key, label, action, actionLabel }) => {
+                    const access: { view: boolean } & Partial<Record<AccessAction, boolean>> = permissions[key];
+                    return (
+                      <div key={key} className="grid grid-cols-2 items-center gap-x-3 py-3 sm:grid-cols-[minmax(0,1fr)_9rem_10rem]">
+                        <p className="col-span-2 text-sm font-medium sm:col-span-1">{label}</p>
+                        <label className="flex min-h-11 items-center gap-2 text-sm text-muted-foreground">
+                          <Switch aria-label={`Visualizar ${label.toLocaleLowerCase("pt-BR")}`} checked={access.view}
+                            disabled={readOnly || save.isPending}
+                            onCheckedChange={(view) => setPermissions((value) => ({ ...value, [key]: { ...value[key], view } }))} />
+                          Visualizar
+                        </label>
+                        <label className="flex min-h-11 items-center gap-2 text-sm text-muted-foreground">
+                          <Switch aria-label={`${actionLabel} (${label})`} checked={Boolean(access[action])}
+                            disabled={readOnly || save.isPending}
+                            onCheckedChange={(checked) => setPermissions((value) => ({ ...value, [key]: { ...value[key], [action]: checked } }))} />
+                          {actionLabel}
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </fieldset>
+          {save.isError && <OperationFailure message={save.error.message} />}
+          {!readOnly && (
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button asChild variant="outline" className="h-11"><Link href={usersPath} prefetch={false}>Cancelar</Link></Button>
+              <Button type="submit" disabled={save.isPending} className="h-11">
+                {save.isPending ? <LoadingIndicator /> : <Save aria-hidden="true" />}
+                {save.isPending ? "Salvando…" : user ? "Salvar alterações" : "Criar usuário"}
+              </Button>
             </div>
-            <Badge variant="outline" className="text-xs gap-1">
-              <Info className="size-3 text-muted-foreground" />
-              Baseado no perfil {role}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="divide-y divide-border/60">
-            {/* Movimentações */}
-            <div className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Extrato & Movimentações</p>
-                <p className="text-xs text-muted-foreground">
-                  Consultar lançamentos no extrato e exportar relatórios CSV/PDF.
-                </p>
-              </div>
-              <div className="flex items-center gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.transactions?.view ?? true}
-                    onCheckedChange={() => handlePermissionToggle("transactions", "view")}
-                  />
-                  <span className="text-xs text-foreground">Visualizar</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.transactions?.export ?? true}
-                    onCheckedChange={() => handlePermissionToggle("transactions", "export")}
-                  />
-                  <span className="text-xs text-foreground">Exportar</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Recebimento Pix */}
-            <div className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Cobranças & Recebimento Pix</p>
-                <p className="text-xs text-muted-foreground">
-                  Gerar QR Codes dinâmicos e consultar cobranças emitidas.
-                </p>
-              </div>
-              <div className="flex items-center gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.pixReceive?.view ?? true}
-                    onCheckedChange={() => handlePermissionToggle("pixReceive", "view")}
-                  />
-                  <span className="text-xs text-foreground">Visualizar</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.pixReceive?.create ?? false}
-                    onCheckedChange={() => handlePermissionToggle("pixReceive", "create")}
-                  />
-                  <span className="text-xs text-foreground">Criar Cobranças</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Saques Pix */}
-            <div className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Saque Pix (Direto & Lote)</p>
-                <p className="text-xs text-muted-foreground">
-                  Solicitar transferências Pix para chaves externas.
-                </p>
-              </div>
-              <div className="flex items-center gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.pixWithdraw?.view ?? true}
-                    onCheckedChange={() => handlePermissionToggle("pixWithdraw", "view")}
-                  />
-                  <span className="text-xs text-foreground">Visualizar</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.pixWithdraw?.request ?? false}
-                    onCheckedChange={() => handlePermissionToggle("pixWithdraw", "request")}
-                  />
-                  <span className="text-xs text-foreground">Solicitar Saques</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Aprovações */}
-            <div className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Fila de Aprovações</p>
-                <p className="text-xs text-muted-foreground">
-                  Avaliar solicitações de saque e lotes sob regras de alçada.
-                </p>
-              </div>
-              <div className="flex items-center gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.approvals?.view ?? true}
-                    onCheckedChange={() => handlePermissionToggle("approvals", "view")}
-                  />
-                  <span className="text-xs text-foreground">Visualizar</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.approvals?.decide ?? false}
-                    onCheckedChange={() => handlePermissionToggle("approvals", "decide")}
-                  />
-                  <span className="text-xs text-foreground">Aprovar / Rejeitar</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Regras */}
-            <div className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Regras de Aprovação</p>
-                <p className="text-xs text-muted-foreground">
-                  Configurar faixas de valores e quóruns de aprovação.
-                </p>
-              </div>
-              <div className="flex items-center gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.rules?.view ?? true}
-                    onCheckedChange={() => handlePermissionToggle("rules", "view")}
-                  />
-                  <span className="text-xs text-foreground">Visualizar</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.rules?.manage ?? false}
-                    onCheckedChange={() => handlePermissionToggle("rules", "manage")}
-                  />
-                  <span className="text-xs text-foreground">Gerenciar Regras</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Usuários */}
-            <div className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Gestão de Usuários</p>
-                <p className="text-xs text-muted-foreground">
-                  Cadastrar, editar ou revogar acessos de novos colaboradores.
-                </p>
-              </div>
-              <div className="flex items-center gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.users?.view ?? true}
-                    onCheckedChange={() => handlePermissionToggle("users", "view")}
-                  />
-                  <span className="text-xs text-foreground">Visualizar</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.users?.manage ?? false}
-                    onCheckedChange={() => handlePermissionToggle("users", "manage")}
-                  />
-                  <span className="text-xs text-foreground">Gerenciar Usuários</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Webhooks */}
-            <div className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Webhooks & Integrações</p>
-                <p className="text-xs text-muted-foreground">
-                  Criar e manter endpoints HTTP para notificações de eventos Pix.
-                </p>
-              </div>
-              <div className="flex items-center gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.webhooks?.view ?? true}
-                    onCheckedChange={() => handlePermissionToggle("webhooks", "view")}
-                  />
-                  <span className="text-xs text-foreground">Visualizar</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <Switch
-                    checked={safePermissions.webhooks?.manage ?? false}
-                    onCheckedChange={() => handlePermissionToggle("webhooks", "manage")}
-                  />
-                  <span className="text-xs text-foreground">Gerenciar Endpoints</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </form>
+      )}
     </div>
   );
 }

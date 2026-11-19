@@ -1,232 +1,180 @@
 "use client";
 
-import React, { useState } from "react";
-import NextLink from "next/link";
-import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGatewayService } from "@/providers/demo-provider";
-import { usePreferences } from "@/providers/preferences-provider";
-import { queryKeys } from "@/lib/query-keys";
-import { formatCentsToBrl } from "@/lib/money";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useRef, useState } from "react";
+import Link from "next/link";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronRight, GitBranch, Pencil, Plus, Trash2 } from "lucide-react";
+import { PanelAmount } from "@/components/layout/panel-privacy";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
-import {
-  GitBranch,
-  Plus,
-  RotateCcw,
-  Edit,
-  Trash2,
-  CheckCircle2,
-  Users,
-} from "lucide-react";
-import { toast } from "sonner";
+import { GlideSelect } from "@/components/ui/glide-select";
+import { LoadingConfirmation, LoadingIndicator, OperationFailure } from "@/components/ui/loading-indicator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { queryKeys } from "@/lib/query-keys";
+import { useDemoScenario, useGatewayService } from "@/providers/demo-provider";
 import type { ApprovalRule } from "@/types/domain";
+import { approvalRuleTypes, approvalRulesPath, newApprovalRulePath } from "../approval-rules";
+
+const statusOptions = [
+  { value: "all", label: "Todas as regras" },
+  { value: "active", label: "Ativas" },
+  { value: "inactive", label: "Inativas" },
+];
 
 export function RulesListScreen() {
-  const router = useRouter();
   const service = useGatewayService();
+  const { isReadOnly } = useDemoScenario();
   const queryClient = useQueryClient();
-  const { hideValues } = usePreferences();
+  const filterRef = useRef<HTMLButtonElement>(null);
+  const removeTrigger = useRef<HTMLButtonElement | null>(null);
+  const [status, setStatus] = useState("all");
+  const [target, setTarget] = useState<ApprovalRule | null>(null);
 
-  const [deleteRuleTarget, setDeleteRuleTarget] = useState<ApprovalRule | null>(
-    null
-  );
-
-  const { data: rules = [], isLoading, refetch } = useQuery({
+  const rules = useQuery({
     queryKey: queryKeys.approvalRules(),
     queryFn: () => service.getApprovalRules(),
   });
-
-  const { data: usersData } = useQuery({
-    queryKey: queryKeys.users(),
-    queryFn: () => service.getUsers(),
+  const members = useQuery({
+    queryKey: queryKeys.users({ purpose: "approval-rules" }),
+    queryFn: () => service.getApprovalRuleMembers(),
   });
-
-  const usersMap = new Map((usersData?.data ?? []).map((u) => [u.id, u.name]));
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => service.deleteApprovalRule(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.approvalRules() });
-      toast.success("Regra de aprovação excluída com sucesso.");
-      setDeleteRuleTarget(null);
+  const memberNames = new Map(members.data?.map((member) => [member.id, member.name]));
+  const visible = rules.data?.filter((rule) => status === "all" || rule.active === (status === "active")) ?? [];
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      if (!await service.deleteApprovalRule(id)) throw new Error("Regra não encontrada.");
     },
-    onError: (err: any) => {
-      toast.error(err.message || "Erro ao excluir regra.");
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.approvalRules() });
     },
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            Regras de Aprovação
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Defina limites de alçada, quórum de aprovadores e fluxos sequenciais ou paralelos.
-          </p>
+    <div className="grid min-w-0 gap-5">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="grid gap-1">
+          <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Regras de aprovação</h1>
+          <p className="text-pretty text-sm text-muted-foreground">Defina a partir de que valor os saques exigem aprovação e quem pode decidir.</p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            className="gap-1.5"
-          >
-            <RotateCcw className="size-3.5" />
-            <span>Atualizar</span>
+        {!isReadOnly && (
+          <Button asChild className="h-11 w-full sm:w-auto">
+            <Link href={newApprovalRulePath} prefetch={false}><Plus aria-hidden="true" /> Nova regra</Link>
           </Button>
-          <Button asChild size="sm" className="gap-1.5 font-semibold">
-            <NextLink href="/conta/regras-de-aprovacao/nova">
-              <Plus className="size-4" />
-              <span>Nova Regra</span>
-            </NextLink>
-          </Button>
-        </div>
-      </div>
-
-      <Card className="border-border bg-card/80 overflow-hidden">
-        {isLoading ? (
-          <div className="p-6 space-y-4">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        ) : rules.length === 0 ? (
-          <div className="p-8">
-            <Empty
-              title="Nenhuma regra configurada"
-              description="Sem regras ativas, as operações são processadas conforme os limites gerais da conta."
-              action={
-                <Button asChild size="sm">
-                  <NextLink href="/conta/regras-de-aprovacao/nova">
-                    Criar Primeira Regra
-                  </NextLink>
-                </Button>
-              }
-            />
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome da Regra</TableHead>
-                <TableHead>Valor Mínimo</TableHead>
-                <TableHead>Tipo de Fluxo</TableHead>
-                <TableHead>Quórum Exigido</TableHead>
-                <TableHead>Aprovadores Elegíveis</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rules.map((rule) => (
-                <TableRow key={rule.id}>
-                  <TableCell className="font-semibold text-sm text-foreground">
-                    {rule.name}
-                  </TableCell>
-                  <TableCell className="font-bold tabular-nums text-foreground">
-                    {formatCentsToBrl(rule.minAmountInCents, { hideValue: hideValues })}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-[10px]">
-                      {rule.ruleType === "PARALLEL" ? "Paralela (Qualquer ordem)" : "Sequencial (Em fila)"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-foreground font-medium">
-                    {rule.requiredApprovalsCount} de {rule.eligibleApproverIds.length} pessoas
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1 max-w-xs">
-                      {rule.eligibleApproverIds.map((id) => (
-                        <span
-                          key={id}
-                          className="px-1.5 py-0.5 rounded bg-muted text-[10px] text-muted-foreground"
-                        >
-                          {usersMap.get(id) || id}
-                        </span>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={rule.active ? "success" : "secondary"} className="text-[10px]">
-                      {rule.active ? "Ativa" : "Inativa"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="iconSm"
-                        onClick={() =>
-                          router.push(`/conta/regras-de-aprovacao/${rule.id}`)
-                        }
-                        title="Editar regra"
-                      >
-                        <Edit className="size-3.5 text-muted-foreground hover:text-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="iconSm"
-                        onClick={() => setDeleteRuleTarget(rule)}
-                        title="Excluir regra"
-                      >
-                        <Trash2 className="size-3.5 text-destructive hover:text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
         )}
+      </header>
+
+      <Card className="min-w-0">
+        <CardHeader className="gap-3 space-y-0 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="grid gap-1">
+            <h2 className="text-balance text-lg font-semibold">Alçadas de saque</h2>
+            <p className="text-pretty text-xs text-muted-foreground">
+              Entre as regras ativas que se aplicam, vale a de maior valor mínimo. Em caso de empate, vale a primeira cadastrada.
+            </p>
+          </div>
+          <GlideSelect ref={filterRef} ariaLabel="Filtrar regras por status" options={statusOptions}
+            value={status} onChange={setStatus} size="lg" className="w-full shrink-0 sm:w-44" />
+        </CardHeader>
+
+        <div className="border-t" aria-busy={rules.isFetching || members.isFetching}>
+          {rules.isPending || members.isPending ? (
+            <div aria-label="Carregando regras" className="divide-y divide-border">
+              {Array.from({ length: 3 }, (_, index) => (
+                <div key={index} className="grid gap-2 p-4 sm:px-5" aria-hidden="true">
+                  <Skeleton className="h-4 w-48 max-w-full" />
+                  <Skeleton className="h-3 w-36 max-w-full" />
+                </div>
+              ))}
+            </div>
+          ) : rules.isError || members.isError ? (
+            <div className="grid justify-items-start gap-3 p-5">
+              <OperationFailure message="Não foi possível carregar as regras de aprovação." animate={false} />
+              <Button type="button" variant="outline" className="h-11" onClick={() => { void rules.refetch(); void members.refetch(); }}>Tentar novamente</Button>
+            </div>
+          ) : visible.length > 0 ? (
+            <ul aria-label="Regras cadastradas" className="divide-y divide-border">
+              {visible.map((rule) => {
+                const names = rule.eligibleApproverIds.map((id) => memberNames.get(id) ?? "Usuário indisponível");
+                const label = isReadOnly ? "Ver" : "Editar";
+                return (
+                  <li key={rule.id} className="grid min-w-0 gap-3 p-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,18rem)_auto] lg:items-center">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <h3 className="min-w-0 wrap-anywhere text-balance text-sm font-semibold">{rule.name}</h3>
+                        <Badge variant={rule.active ? "success" : "secondary"}>{rule.active ? "Ativa" : "Inativa"}</Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+                        A partir de <span className="font-medium text-foreground"><PanelAmount cents={rule.minAmountInCents} /></span>
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium tabular-nums">
+                        {rule.requiredApprovalsCount} de {rule.eligibleApproverIds.length} aprovações · {approvalRuleTypes[rule.ruleType].label}
+                      </p>
+                      <p className="mt-1 line-clamp-2 wrap-anywhere text-xs text-muted-foreground">{names.join(", ")}</p>
+                    </div>
+                    <div className="flex gap-1 lg:justify-end">
+                      <Button asChild variant="ghost" size="icon" className="size-11">
+                        <Link href={`${approvalRulesPath}/${encodeURIComponent(rule.id)}`} prefetch={false} aria-label={`${label} ${rule.name}`}>
+                          {isReadOnly ? <ChevronRight aria-hidden="true" /> : <Pencil aria-hidden="true" />}
+                        </Link>
+                      </Button>
+                      {!isReadOnly && (
+                        <Button type="button" variant="ghost" size="icon" className="size-11 text-muted-foreground hover:text-destructive"
+                          aria-label={`Excluir ${rule.name}`} onClick={(event) => {
+                            removeTrigger.current = event.currentTarget;
+                            remove.reset();
+                            setTarget(rule);
+                          }}>
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <Empty icon={<GitBranch aria-hidden="true" />} className="rounded-none border-0"
+              title={status === "all" ? "Nenhuma regra cadastrada" : "Nenhuma regra com este status"}
+              action={status !== "all"
+                ? <Button type="button" variant="outline" className="h-11" onClick={() => { setStatus("all"); filterRef.current?.focus(); }}>Ver todas as regras</Button>
+                : !isReadOnly ? <Button asChild className="h-11"><Link href={newApprovalRulePath} prefetch={false}>Criar regra</Link></Button> : undefined} />
+          )}
+        </div>
       </Card>
 
-      {/* Confirmação de Exclusão */}
-      <AlertDialog
-        open={!!deleteRuleTarget}
-        onOpenChange={(open) => !open && setDeleteRuleTarget(null)}
-      >
-        <AlertDialogContent>
+      <AlertDialog open={target !== null} onOpenChange={(open) => { if (!open && !remove.isPending) setTarget(null); }}>
+        <AlertDialogContent className="max-w-[calc(100%-2rem)] sm:max-w-md"
+          onEscapeKeyDown={(event) => { if (remove.isPending) event.preventDefault(); }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            const trigger = removeTrigger.current;
+            if (trigger?.isConnected) trigger.focus();
+            else filterRef.current?.focus();
+          }}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Regra de Aprovação?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-muted-foreground">
-              Você está prestes a remover a regra &ldquo;{deleteRuleTarget?.name}&rdquo;.
-              Operações que já foram geradas com base nesta regra preservarão o snapshot original.
+            <AlertDialogTitle className="text-balance">{remove.isSuccess ? "Regra excluída" : "Excluir regra de aprovação?"}</AlertDialogTitle>
+            <AlertDialogDescription className="wrap-anywhere text-pretty">
+              {remove.isSuccess ? `A regra “${target?.name}” foi excluída.` : `A regra “${target?.name}” deixa de valer para novos saques. Solicitações já abertas mantêm a regra original.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {remove.isSuccess && <div className="justify-self-center"><LoadingConfirmation animate /></div>}
+          {remove.isError && <OperationFailure message={remove.error.message} />}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() =>
-                deleteRuleTarget && deleteMutation.mutate(deleteRuleTarget.id)
-              }
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Excluir Regra
-            </AlertDialogAction>
+            <AlertDialogCancel className="h-11" disabled={remove.isPending}>{remove.isSuccess ? "Fechar" : "Cancelar"}</AlertDialogCancel>
+            {!remove.isSuccess && (
+              <Button type="button" variant="destructive" className="h-11" disabled={remove.isPending || isReadOnly}
+                onClick={() => { if (target) remove.mutate(target.id); }}>
+                {remove.isPending && <LoadingIndicator />}
+                {remove.isPending ? "Excluindo…" : "Excluir regra"}
+              </Button>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
-import { useParams } from "next/navigation";
+import React, { use, useState } from "react";
 import NextLink from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGatewayService } from "@/providers/demo-provider";
@@ -33,9 +32,8 @@ import { toast } from "sonner";
 import { formatCentsToBrl } from "@/lib/money";
 import type { AccountOperationalStatus } from "@/types/domain";
 
-export default function AdminContaDetalhePage() {
-  const params = useParams();
-  const contaId = params.contaId as string;
+export default function AdminContaDetalhePage({ params }: { params: Promise<{ contaId: string }> }) {
+  const { contaId } = use(params);
   const service = useGatewayService();
   const queryClient = useQueryClient();
 
@@ -365,8 +363,8 @@ export default function AdminContaDetalhePage() {
               {statusMutation.isPending
                 ? "Gravando..."
                 : isBlocked
-                ? "Confirmar Desbloqueio"
-                : "Confirmar Bloqueio"}
+                  ? "Confirmar Desbloqueio"
+                  : "Confirmar Bloqueio"}
             </Button>
           </DialogFooter>
         </DialogContent>

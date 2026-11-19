@@ -1,9 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { developmentFeaturesEnabled } from "@/config/development";
+import { isDevelopmentRoute } from "@/config/development-routes";
 
 const legacyCookies = ["slopay_access_token", "slopay_refresh_token", "slopay_user"];
 
 export function proxy(request: NextRequest) {
   const correlationId = crypto.randomUUID();
+  const pathname = request.nextUrl.pathname;
+  if (!developmentFeaturesEnabled() && isDevelopmentRoute(pathname)) {
+    const headers = { "cache-control": "no-store", "x-correlation-id": correlationId };
+    return pathname.startsWith("/api/")
+      ? NextResponse.json({ message: "Recurso não encontrado." }, { status: 404, headers })
+      : new NextResponse("Página não encontrada.", { status: 404, headers });
+  }
   const headers = new Headers(request.headers);
   headers.set("x-correlation-id", correlationId);
 

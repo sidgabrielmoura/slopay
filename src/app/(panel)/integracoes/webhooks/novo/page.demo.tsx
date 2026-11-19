@@ -1,10 +1,10 @@
-import { WebhookFormScreen } from "@/features/webhooks/components/webhook-form-screen";
+import { DemoWebhookForm } from "@/features/webhooks/components/demo-webhook-screens";
 
 export const metadata = {
-  title: "Novo Endpoint de Webhook · SloPay",
-  description: "Cadastre um novo endpoint HTTP para notificações Pix.",
+  title: "Novo webhook",
+  description: "Cadastre um endereço HTTPS para um evento da demonstração.",
 };
 
 export default function NovoWebhookPage() {
-  return <WebhookFormScreen />;
+  return <DemoWebhookForm />;
 }

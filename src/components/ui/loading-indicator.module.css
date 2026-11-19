@@ -1,0 +1,78 @@
+.indicator {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+}
+
+.ring {
+  position: absolute;
+  inset: 9%;
+  overflow: hidden;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  mask-image: radial-gradient(closest-side, transparent 76%, #000 81%, #000 97%, transparent 100%);
+}
+
+.sweep {
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(
+    from -40deg,
+    transparent 0deg,
+    color-mix(in srgb, currentColor 30%, transparent) 12deg,
+    color-mix(in srgb, currentColor 36%, transparent) 25deg,
+    color-mix(in srgb, currentColor 36%, transparent) 50deg,
+    transparent 67deg
+  );
+}
+
+.indicator[data-active="true"] .sweep {
+  animation: loading-sweep 920ms linear infinite;
+}
+
+.indicator[data-offscreen] .sweep {
+  animation-play-state: paused;
+}
+
+.confirmation {
+  --loading-check-delay: 500ms;
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+}
+
+.outgoing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  animation: loading-ring-out 150ms ease-out var(--loading-check-delay) both;
+}
+
+.outgoing .indicator[data-active="true"] .sweep {
+  animation-iteration-count: 1;
+}
+
+@keyframes loading-sweep {
+  to { transform: rotate(1turn); }
+}
+
+@keyframes loading-ring-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.9); visibility: hidden; }
+}
+
+:global(:root.reduce-motion) .indicator[data-active="true"] .sweep {
+  animation: none;
+}
+
+:global(:root.reduce-motion) .outgoing {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .indicator[data-active="true"] .sweep { animation: none; }
+  .outgoing { display: none; }
+}
