@@ -21,12 +21,15 @@ function pixExpiration(value: string) {
 }
 
 export function PixReceiptDetails({
-  receipt, environment, inline, headingRef, code, qrError, qrFetching, onRetryQr, onSimulate, simulationRequested, onReconcile, reconciling, animateOutcome, onOutcomeEnd, onClose, onNew,
+  receipt, environment, inline, headingRef, statusUnavailable, statusFetching, code, qrError, qrFetching,
+  onRetryQr, onSimulate, simulationRequested, onReconcile, reconciling, animateOutcome, onOutcomeEnd, onClose, onNew,
 }: {
   receipt: PixReceipt;
   environment: "demo" | "sandbox" | "live";
   inline: boolean;
   headingRef: Ref<HTMLHeadingElement>;
+  statusUnavailable: boolean;
+  statusFetching: boolean;
   code?: PixReceiptCode;
   qrError?: string;
   qrFetching: boolean;
@@ -59,7 +62,8 @@ export function PixReceiptDetails({
   const codeExpired = expiresAt !== null && (!Number.isFinite(expiresAt) || expiresAt <= now);
   const usableCode = receipt.qrCodeAvailable && !codeExpired ? code : undefined;
   const decodedState = imageResult && imageResult.encodedImage === usableCode?.encodedImage ? imageResult.state : "loading";
-  const qrState = qrFetching && decodedState !== "ready" ? "loading" : qrError || codeExpired ? "error" : decodedState;
+  const unavailableBeforeQr = statusUnavailable && !usableCode && !receipt.qrCodeAvailable;
+  const qrState = unavailableBeforeQr || codeExpired || qrError ? "error" : decodedState;
 
   useEffect(() => {
     if (expiresAt === null || !Number.isFinite(expiresAt) || expiresAt <= now) return;
@@ -136,9 +140,11 @@ export function PixReceiptDetails({
             <ImageLoadingSurface
               className="mx-auto aspect-square w-full max-w-[216px] rounded-lg"
               state={qrState}
-              fallback={codeExpired
-                ? <p className="px-3 text-center text-sm text-white">O QR Code desta cobrança expirou.</p>
-                : <OperationFailure className="mx-2" message={qrError ?? "Não foi possível carregar a imagem do QR Code."} />}
+              fallback={unavailableBeforeQr
+                ? <p className="px-3 text-center text-pretty text-sm text-foreground">A cobrança foi registrada. Não foi possível consultar o status agora.</p>
+                : codeExpired
+                  ? <p className="px-3 text-center text-sm text-white">O QR Code desta cobrança expirou.</p>
+                  : <OperationFailure className="mx-2" message={qrError ?? "Não foi possível carregar a imagem do QR Code."} />}
             >
               {usableCode && (
                 <div className="grid size-full place-items-center bg-white p-3">
@@ -158,11 +164,15 @@ export function PixReceiptDetails({
               )}
             </ImageLoadingSurface>
             {qrState === "loading" && (
-              <p role="status" className="text-center text-sm text-muted-foreground">Buscando QR Code da cobrança…</p>
+              <p role="status" className="text-center text-sm text-muted-foreground">
+                {receipt.qrCodeAvailable ? "Buscando QR Code da cobrança…" : "Aguardando o QR Code ficar disponível…"}
+              </p>
             )}
             {qrState === "error" && (
               <div className="text-center">
-                <Button type="button" variant="outline" onClick={retryQr}>Consultar novamente</Button>
+                <Button type="button" variant="outline" disabled={statusFetching || qrFetching} onClick={retryQr}>
+                  {statusFetching || qrFetching ? "Consultando…" : "Consultar novamente"}
+                </Button>
               </div>
             )}
             {usableCode && (

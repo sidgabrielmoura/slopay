@@ -45,6 +45,12 @@ export async function forwardPixRequest(
   if (!accessToken) return pixResponse({ message: errors[401] }, 401);
   const simulation = operation === "simulate";
   const payload = typeof operation === "object" ? operation : undefined;
+  const lookup = !operation && path.startsWith("/payments/pix/")
+    ? path.endsWith("/qr-code") ? "qr-code" : "status"
+    : null;
+  let failure = "backend_error";
+  let upstreamStatus: number | undefined;
+  let upstreamCorrelationId: string | null = null;
 
   try {
     const response = await requestBackend(path, {
@@ -53,7 +59,10 @@ export async function forwardPixRequest(
       idempotencyKey: payload?.idempotencyKey,
       accessToken,
     });
+    upstreamStatus = response.status;
+    upstreamCorrelationId = response.headers.get("x-correlation-id");
     if (response.ok) {
+      failure = "invalid_response";
       const data = schema.safeParse(await response.json());
       if (data.success && (!("environment" in data.data) || data.data.environment !== "sandbox" || developmentFeaturesEnabled()))
         return pixResponse(data.data, response.status);
@@ -87,8 +96,18 @@ export async function forwardPixRequest(
       const message = errors[response.status];
       if (message) return pixResponse({ message }, response.status);
     }
-  } catch {
-    // The client can retry a creation with the same idempotency key.
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") failure = "timeout";
+    else if (upstreamStatus === undefined) failure = "connection_failed";
+  }
+  if (lookup) {
+    console.warn("pix_lookup_unavailable", {
+      lookup,
+      failure,
+      upstreamStatus,
+      upstreamCorrelationId: upstreamCorrelationId && /^[a-f0-9-]{36}$/i.test(upstreamCorrelationId)
+        ? upstreamCorrelationId : undefined,
+    });
   }
   return pixResponse({ message: "O serviço de recebimento Pix está temporariamente indisponível." }, 503);
 }

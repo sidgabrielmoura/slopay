@@ -128,7 +128,8 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
       if (receipt?.status === "review" && manualCheck?.id === receipt.id && Date.now() < manualCheck.until) return 2_000;
       if (receipt && !waiting(receipt)) return false;
       if (!trackedReference) return false;
-      return error || receipt?.status === "pending" ? 5_000 : 2_000;
+      if (error) return 15_000;
+      return receipt?.status === "pending" ? 5_000 : 2_000;
     },
   });
   const observedReceipt = status.data ?? initialReceipt;
@@ -141,10 +142,12 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
     : knownReceipt;
   const receiptId = receipt?.id;
   const receiptFinished = Boolean(receipt && !waiting(receipt));
+  const statusUnavailable = !inaccessible && status.errorUpdatedAt > status.dataUpdatedAt;
+  const canFetchQr = Boolean(receipt?.status === "pending" && receipt.qrCodeAvailable && gateway.qrCode);
   const qrCode = useQuery({
     queryKey: [...queryKey, "qr"],
     queryFn: ({ signal }) => gateway.qrCode!(receipt!.id, signal),
-    enabled: Boolean(open && receipt?.status === "pending" && receipt.qrCodeAvailable && gateway.qrCode),
+    enabled: open && canFetchQr,
     staleTime: 60_000,
     retry: shouldRetryStatus,
   });
@@ -292,10 +295,6 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
     <>
       <ToastNotice
         variant="warning"
-        message={status.isError && receipt && waiting(receipt) ? "O status está temporariamente indisponível. A consulta será retomada." : null}
-      />
-      <ToastNotice
-        variant="warning"
         message={receipt?.status === "review" ? "Consulte esta cobrança antes de emitir outra para o mesmo pagamento." : null}
         persistent
       />
@@ -334,10 +333,17 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
             environment={environment}
             inline={inline}
             headingRef={detailHeading}
+            statusUnavailable={statusUnavailable}
+            statusFetching={status.isFetching}
             code={!qrCode.isError ? qrCode.data : undefined}
             qrError={qrCode.isError ? getError(qrCode.error, "Não foi possível obter o QR Code.") : undefined}
             qrFetching={qrCode.isFetching}
-            onRetryQr={() => { void status.refetch(); void qrCode.refetch(); }}
+            onRetryQr={async () => {
+              const updated = await status.refetch({ cancelRefetch: false });
+              if (canFetchQr && !updated.isError && updated.data?.status === "pending" && updated.data.qrCodeAvailable) {
+                void qrCode.refetch({ cancelRefetch: false });
+              }
+            }}
             onSimulate={!live && development && (gateway.simulate || (gateway.requestSimulation && receipt.status === "pending")) ? simulate : undefined}
             simulationRequested={simulationRequestedFor === receipt.id}
             onReconcile={!live && gateway.requestReconciliation && receipt.status === "review" ? () => reconciliation.mutate(receipt.id) : undefined}
