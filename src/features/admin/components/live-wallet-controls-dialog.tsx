@@ -1,16 +1,19 @@
 "use client";
 
-import { useId, useRef, useState, type FormEvent } from "react";
+import { CircleHelp, Copy, Shuffle } from "lucide-react";
+import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { OperationFailure } from "@/components/ui/loading-indicator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToastNotice } from "@/components/ui/toast-notice";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { IntegrationConfirmationDialog } from "@/features/integrations/components/integration-confirmation-dialog";
 import { ApiError } from "@/lib/api-client";
 import { formatCentsToBrl } from "@/lib/money";
@@ -31,6 +34,7 @@ export function LiveWalletControlsDialog(props: Props) {
     queryFn: ({ signal }) => livePoolControls.wallet(poolId, signal),
     staleTime: 0,
     retry: false,
+    refetchOnWindowFocus: false,
   });
 
   if (review) return (
@@ -85,7 +89,7 @@ export function LiveWalletControlsDialog(props: Props) {
           <DialogTitle>Configurar carteira</DialogTitle>
           <DialogDescription className="wrap-anywhere">{name}</DialogDescription>
         </DialogHeader>
-        {query.isFetching ? <Skeleton aria-label="Carregando configurações" className="h-40 w-full" /> : query.data && !query.isError ? (
+        {query.isFetching && !query.isFetchedAfterMount ? <Skeleton aria-label="Carregando configurações" className="h-40 w-full" /> : query.data ? (
           <WalletSettingsForm poolId={poolId} data={query.data} onCancel={() => setOpen(false)}
             onReview={value => { draft.current = value; setOpen(false); }} />
         ) : (
@@ -121,34 +125,127 @@ function WalletSettingsForm({ poolId, data, onReview, onCancel }: {
   }
 
   return (
-    <form onSubmit={submit} onChange={() => setError("")} className="grid gap-4">
-      <fieldset className="grid gap-3 rounded-lg border border-border p-4">
-        <legend className="px-1 text-sm font-semibold">Permissões</legend>
-        <label className="flex min-h-8 items-center gap-2 text-sm"><Checkbox checked={receives} onChange={e => setReceives(e.currentTarget.checked)} /> Receber Pix</label>
-        <label className="flex min-h-8 items-center gap-2 text-sm"><Checkbox checked={withdraws} onChange={e => setWithdraws(e.currentTarget.checked)} /> Saques Pix</label>
-        {withdraws && <div className="grid gap-2">
-          <label htmlFor={id + "-fee"} className="text-sm font-medium">Tarifa máxima por saque</label>
-          <CurrencyInput id={id + "-fee"} valueInCents={feeLimit} maxInCents={100000} onValueChange={setFeeLimit} />
-        </div>}
-      </fieldset>
-      <p className="text-pretty text-sm text-muted-foreground">Use a URL pública do backend, seguida dos caminhos abaixo, na configuração da carteira no Asaas.</p>
-      <div className="grid gap-2">
-        <label htmlFor={id + "-events"} className="text-sm font-medium">Token do webhook de eventos</label>
-        <code className="select-all wrap-anywhere text-xs text-muted-foreground">{data.eventsPath}</code>
-        <Input id={id + "-events"} name="eventsToken" className="h-11" type="password" autoComplete="new-password" minLength={32} maxLength={255}
-          placeholder={data.eventsConfigured ? "Configurado" : undefined} required={(receives || withdraws) && !data.eventsConfigured} />
+    <TooltipProvider delayDuration={150}>
+      <form onSubmit={submit} onChange={() => setError("")} className="grid gap-4">
+        <fieldset className="grid gap-3 rounded-lg border border-border p-4">
+          <legend className="px-1 text-sm font-semibold">Permissões</legend>
+          <label className="flex min-h-8 items-center gap-2 text-sm"><Checkbox checked={receives} onChange={e => setReceives(e.currentTarget.checked)} /> Receber Pix</label>
+          <label className="flex min-h-8 items-center gap-2 text-sm"><Checkbox checked={withdraws} onChange={e => setWithdraws(e.currentTarget.checked)} /> Saques Pix</label>
+          {withdraws && <div className="grid gap-2">
+            <div className="flex items-center gap-1">
+              <label htmlFor={id + "-fee"} className="text-sm font-medium">Tarifa máxima por saque</label>
+              <WalletFieldHelp label="Sobre a tarifa máxima por saque">
+                O Slopay reserva o valor do saque mais este teto. Na liquidação, desconta a tarifa efetiva do Asaas e libera a diferença.
+                Se a tarifa do Asaas ultrapassar o teto, o saque é recusado.
+              </WalletFieldHelp>
+            </div>
+            <CurrencyInput id={id + "-fee"} valueInCents={feeLimit} maxInCents={100000} onValueChange={setFeeLimit} />
+          </div>}
+        </fieldset>
+        <p className="text-pretty text-sm text-muted-foreground">Use a URL pública do backend, seguida dos caminhos abaixo, na configuração da carteira no Asaas.</p>
+        <WalletTokenField id={id + "-events"} name="eventsToken" label="Token do webhook de eventos" tokenLabel="do webhook de eventos"
+          path={data.eventsPath} configured={data.eventsConfigured} required={(receives || withdraws) && !data.eventsConfigured} onGenerate={() => setError("")}>
+          No Asaas, abra <strong>Integrações → Webhooks → Criar Webhook</strong>. Use a URL pública do backend com o caminho deste campo.
+          Cole o mesmo valor em <strong>Token de autenticação</strong>. Esse webhook avisa o Slopay sobre pagamentos, estornos e transferências.
+        </WalletTokenField>
+        <WalletTokenField id={id + "-validation"} name="validationToken" label="Token da validação de saques" tokenLabel="da validação de saques"
+          path={data.validationPath} configured={data.validationConfigured} required={withdraws && !data.validationConfigured} onGenerate={() => setError("")}>
+          No Asaas, abra <strong>Integrações → Mecanismos de segurança</strong> e configure a validação de saques.
+          Use o caminho deste campo e cole o mesmo valor em <strong>Token de autenticação</strong>. Use um token diferente do webhook de eventos.
+        </WalletTokenField>
+        <ToastNotice message={error} />
+        <DialogFooter>
+          <Button type="button" variant="ghost" className="h-11" onClick={onCancel}>Cancelar</Button>
+          <Button type="submit" className="h-11">Revisar configuração</Button>
+        </DialogFooter>
+      </form>
+    </TooltipProvider>
+  );
+}
+
+function WalletFieldHelp({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Tooltip open={open} onOpenChange={setOpen}>
+      <TooltipTrigger asChild>
+        <Button type="button" variant="ghost" size="iconSm" aria-label={label} className="text-muted-foreground"
+          onClick={event => {
+            event.preventDefault();
+            setOpen(true);
+          }}>
+          <CircleHelp aria-hidden="true" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent align="start" side="top" collisionPadding={12}
+        className="max-w-[min(19rem,calc(100vw-1.5rem))] px-3 py-2 text-pretty leading-relaxed motion-reduce:animate-none">
+        {children}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function WalletTokenField({ id, name, label, tokenLabel, path, configured, required, onGenerate, children }: {
+  id: string; name: "eventsToken" | "validationToken"; label: string; tokenLabel: string; path: string;
+  configured: boolean; required: boolean; onGenerate: () => void; children: ReactNode;
+}) {
+  const [value, setValue] = useState("");
+  const toastId = id + "-feedback";
+
+  function generate() {
+    try {
+      const bytes = crypto.getRandomValues(new Uint8Array(32));
+      // Separate hexadecimal pairs so a generated token has no long runs of digits or repeated letters.
+      setValue(Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("-"));
+      onGenerate();
+      toast.success("Token gerado. Use o botão de cópia para configurar no Asaas.", { id: toastId });
+    } catch {
+      toast.error("Não foi possível gerar o token neste navegador.", { id: toastId });
+    }
+  }
+
+  async function copy() {
+    const token = value.trim();
+    if (!token) return;
+    try {
+      await navigator.clipboard.writeText(token);
+      toast.success("Token copiado.", { id: toastId });
+    } catch {
+      toast.error("O navegador bloqueou a cópia do token.", { id: toastId });
+    }
+  }
+
+  return (
+    <div className="grid min-w-0 gap-2">
+      <div className="flex min-w-0 items-center gap-1">
+        <label htmlFor={id} className="text-sm font-medium">{label}</label>
+        <WalletFieldHelp label={"Como configurar o token " + tokenLabel + " no Asaas"}>{children}</WalletFieldHelp>
       </div>
-      <div className="grid gap-2">
-        <label htmlFor={id + "-validation"} className="text-sm font-medium">Token da validação de saques</label>
-        <code className="select-all wrap-anywhere text-xs text-muted-foreground">{data.validationPath}</code>
-        <Input id={id + "-validation"} name="validationToken" className="h-11" type="password" autoComplete="new-password" minLength={32} maxLength={255}
-          placeholder={data.validationConfigured ? "Configurado" : undefined} required={withdraws && !data.validationConfigured} />
-      </div>
-      <ToastNotice message={error} />
-      <DialogFooter>
-        <Button type="button" variant="ghost" className="h-11" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit" className="h-11">Revisar configuração</Button>
-      </DialogFooter>
-    </form>
+      <code id={id + "-path"} className="select-all wrap-anywhere text-xs text-muted-foreground">{path}</code>
+      <InputGroup>
+        <InputGroupInput id={id} name={name} type="password" autoComplete="new-password" minLength={32} maxLength={255}
+          spellCheck={false} required={required} placeholder={configured ? "Configurado" : undefined}
+          aria-describedby={id + "-path"} value={value} onChange={event => setValue(event.currentTarget.value)} />
+        <InputGroupAddon>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="button" variant="ghost" size="sm" className="px-2 text-muted-foreground"
+                aria-label={"Gerar token " + tokenLabel} onClick={generate}>
+                <Shuffle data-icon="inline-start" aria-hidden="true" />Gerar
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="motion-reduce:animate-none">Gerar token aleatório</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="button" variant="ghost" size="iconSm" className="text-muted-foreground"
+                aria-label={"Copiar token " + tokenLabel} disabled={!value.trim()} onClick={() => void copy()}>
+                <Copy aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="motion-reduce:animate-none">Copiar token</TooltipContent>
+          </Tooltip>
+        </InputGroupAddon>
+      </InputGroup>
+    </div>
   );
 }
