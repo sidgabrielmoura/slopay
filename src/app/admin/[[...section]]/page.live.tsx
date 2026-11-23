@@ -7,8 +7,10 @@ import { AdminAccountOpeningsScreen } from "@/features/admin/components/admin-ac
 import { AdminAccountOpeningDetail } from "@/features/admin/components/admin-account-opening-detail";
 import { AdminCompaniesScreen } from "@/features/admin/components/admin-companies-screen";
 import { AdminCompanyScreen } from "@/features/admin/components/admin-company-screen";
+import { AdminLiveBalancePositions } from "@/features/admin/components/admin-live-balance-positions";
 import { AdminOperationalAccountsScreen } from "@/features/admin/components/admin-operational-accounts-screen";
 import { AdminOperationalAccountScreen } from "@/features/admin/components/admin-operational-account-screen";
+import { AdminPoolAccountsScreen } from "@/features/admin/components/admin-pool-accounts-screen";
 import { AdminPixTransactionsScreen } from "@/features/admin/components/admin-pix-transactions-screen";
 import { AdminPixChargesScreen } from "@/features/admin/components/admin-pix-charges-screen";
 import { notFound, redirect } from "next/navigation";
@@ -56,12 +58,16 @@ export default async function AdminPage({ params }: { params: Promise<{ section?
 
   if (section[0] === "contas") {
     if (section.length === 1) {
-      return <AdminActivityProvider accountId={user.id}><AdminOperationalAccountsScreen user={identity} /></AdminActivityProvider>;
+      return <AdminActivityProvider accountId={user.id}>{development ? <AdminOperationalAccountsScreen user={identity} /> : <AdminLiveBalancePositions user={identity} operationalAccounts />}</AdminActivityProvider>;
     }
     const accountId = z.uuid().safeParse(section[1]);
     if (section.length !== 2 || !accountId.success) notFound();
     const id = accountId.data.toLowerCase();
-    return <AdminActivityProvider accountId={user.id}><AdminOperationalAccountScreen key={id} user={identity} accountId={id} /></AdminActivityProvider>;
+    return <AdminActivityProvider accountId={user.id}>{development ? <AdminOperationalAccountScreen key={id} user={identity} accountId={id} /> : <AdminLiveBalancePositions key={id} user={identity} operationalAccounts accountId={id} />}</AdminActivityProvider>;
+  }
+
+  if (section.length === 1 && section[0] === "contas-bolsao") {
+    return <AdminActivityProvider accountId={user.id}><AdminPoolAccountsScreen user={identity} development={development} /></AdminActivityProvider>;
   }
 
   if (section.length === 1 && section[0] === "operacoes") {

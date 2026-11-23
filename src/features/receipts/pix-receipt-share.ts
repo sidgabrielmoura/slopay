@@ -20,7 +20,7 @@ const maskedDocument = /^(?:\*{3}\.\d{3}\.\d{3}-\*{2}|\*{2}\.[A-Z0-9]{3}\.[A-Z0-
 export const sharedReceiptSchema = z.object({
   expiresAt: z.iso.datetime(),
   receipt: z.object({
-    environment: z.literal("sandbox"),
+    environment: z.enum(["sandbox", "live"]),
     direction: z.enum(["IN", "OUT"]),
     kind: z.literal("refund").optional(),
     simulated: z.boolean(),
@@ -48,7 +48,7 @@ export function canSharePixReceipt(
   environment: LiveTransactionDetail["environment"],
   operation: Pick<LiveTransactionDetail["operation"], "status" | "providerId" | "refundedInCents" | "refundPending">,
 ) {
-  return environment === "sandbox" && operation.status === "COMPLETED" && Boolean(operation.providerId) &&
+  return (environment === "sandbox" || environment === "live") && operation.status === "COMPLETED" && Boolean(operation.providerId) &&
     !operation.refundPending && !operation.refundedInCents;
 }
 

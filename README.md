@@ -106,7 +106,7 @@ O painel estará disponível em [http://localhost:3000](http://localhost:3000).
 
 Para navegar pelas telas de demonstração com dados fictícios, use `SLOPAY_DEMO_MODE=1` no `.env.local` e reinicie `yarn dev`. As rotas demonstrativas são exclusivas do servidor de desenvolvimento.
 
-Em produção, forneça `SLOPAY_BACKEND_URL` e `SLOPAY_APP_ORIGIN` como origens HTTPS. O navegador chama apenas as rotas de autenticação do Next. O Next encaminha as chamadas ao Nest e grava as credenciais em cookies HttpOnly. As telas operacionais aguardam a homologação das integrações financeiras.
+Em produção, forneça `SLOPAY_BACKEND_URL` e `SLOPAY_APP_ORIGIN` como origens HTTPS. O navegador chama apenas as rotas de autenticação do Next. O Next encaminha as chamadas ao Nest e grava as credenciais em cookies HttpOnly. As telas operacionais usam os dados de produção conforme a configuração do gateway. Consulte o [roteiro de publicação e homologação](docs/AUDITORIA_GO_LIVE.md) e o [guia de integração](docs/INTEGRACAO_API.md).
 
 ### 3. Executar Validação de Tipos & Build de Produção
 ```bash

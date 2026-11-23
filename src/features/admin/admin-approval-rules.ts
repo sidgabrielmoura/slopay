@@ -25,7 +25,7 @@ const wallet = z.object({
   awaitingOwner: count,
 });
 export const adminApprovalRulesSchema = z.object({
-  environment: z.literal("sandbox"),
+  environment: z.enum(["sandbox", "live"]),
   channels: z.object({ api: z.boolean(), panelPilot: z.boolean() }),
   summary: z.object({ total: count, ready: count }),
   pagination: adminPaginationSchema,

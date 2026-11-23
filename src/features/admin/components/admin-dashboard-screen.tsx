@@ -35,7 +35,7 @@ const statuses = {
 const kinds = { RECEIVE: "Recebimento Pix", WITHDRAW: "Saque Pix", REFUND: "Estorno Pix" };
 
 function AdminDashboardFrame({ user, data, children }: { user: AdminIdentity; data?: AdminDashboardReport; children: ReactNode }) {
-  const pending = data?.environment === "sandbox" ? data.pending : undefined;
+  const pending = data && "pending" in data ? data.pending : undefined;
   return (
     <AdminPanel user={user} pendingSummary={pending ? {
         pendingFinancialApprovalsCount: pending.withdrawalApprovals,
@@ -83,13 +83,13 @@ export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdent
     queryKey: ["admin-dashboard", user.id, period, page],
     queryFn: ({ signal }) => fetchAdminDashboard(period, page, signal),
     initialData: period === defaultIndicatorPeriod && page === 1 ? initialReport ?? undefined : undefined,
-    placeholderData: (previous) => previous?.environment === "sandbox" && previous.period === period ? previous : undefined,
+    placeholderData: (previous, request) => request?.queryKey[1] === user.id && previous && "period" in previous && previous.period === period ? previous : undefined,
     staleTime: 20_000,
     refetchInterval: 30_000,
     retry: false,
   });
   const data = report.data?.environment === "sandbox" && !development ? undefined : report.data;
-  const pix = data?.environment === "sandbox" ? data : undefined;
+  const pix = data && "period" in data ? data : undefined;
   const pixUnavailable = "A consulta de operações Pix ainda não está disponível.";
 
   return (
@@ -105,7 +105,7 @@ export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdent
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <GlideSelect value={period} onChange={(value) => { setPeriod(indicatorPeriodSchema.parse(value)); setPage(1); }}
             options={indicatorPeriods.map((value) => ({ value, label: periodLabels[value] }))}
-            ariaLabel="Período da visão geral" size="lg" disabled={!development} className="min-w-0 flex-1 sm:w-48" />
+            ariaLabel="Período da visão geral" size="lg" disabled={report.isPending || (Boolean(data) && !pix)} className="min-w-0 flex-1 sm:w-48" />
           <Button type="button" variant="outline" size="icon" className="size-11 shrink-0"
             aria-label="Atualizar visão geral" disabled={report.isFetching} onClick={() => void report.refetch()}>
             {report.isFetching ? <LoadingIndicator /> : <RotateCw aria-hidden="true" />}

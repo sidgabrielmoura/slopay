@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpRight, RotateCw } from "lucide-react";
 import Link from "next/link";
@@ -29,7 +28,6 @@ export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdent
   const client = useQueryClient();
   const key = adminPixFeeDetailKey(user.id, accountId);
   const result = useQuery({
-    enabled: development,
     queryKey: key,
     queryFn: ({ signal }) => adminPixFees.detail(accountId, signal),
     staleTime: 15_000, retry: retryAdminRead,
@@ -43,7 +41,7 @@ export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdent
     },
   });
   const denied = result.error instanceof ApiError && [401, 403, 404].includes(result.error.status);
-  const wallet = development ? (denied ? undefined : result.data) : undefined;
+  const wallet = denied ? undefined : result.data;
 
   return (
     <AdminPanel user={user}>
@@ -67,7 +65,7 @@ export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdent
                     <h1 className="text-balance wrap-anywhere text-2xl font-semibold sm:text-3xl">{wallet.companyName}</h1>
                     {development && <Badge variant="secondary">Sandbox</Badge>}
                   </div>
-                  <p className="text-sm text-muted-foreground tabular-nums">{wallet.cnpj ? formatCNPJ(wallet.cnpj) : "Pessoa física"} · Carteira final {wallet.walletSuffix}</p>
+                  <p className="text-sm text-muted-foreground tabular-nums">{wallet.cnpj ? formatCNPJ(wallet.cnpj) + " · " : ""}Carteira final {wallet.walletSuffix}</p>
                 </div>
                 <Button type="button" className="h-11" disabled={!wallet.canRefresh || refresh.isPending}
                   aria-busy={refresh.isPending} onClick={() => refresh.mutate()}>
@@ -83,7 +81,7 @@ export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdent
                       {wallet.checkedAt ? <>Registrada em <time dateTime={wallet.checkedAt} className="tabular-nums">{formatDateTime(wallet.checkedAt)}</time></>
                         : "Esta carteira ainda aguarda a primeira consulta."}
                     </p>
-                    {!wallet.canRefresh && <p className="text-pretty text-sm text-muted-foreground">As consultas exigem integrações Sandbox ativas.</p>}
+                    {!wallet.canRefresh && <p className="text-pretty text-sm text-muted-foreground">A consulta de tarifas está indisponível nesta carteira.</p>}
                   </div>
                   {refresh.isSuccess && (
                     <div role="status" className="flex items-center gap-2 text-sm font-medium">
@@ -111,7 +109,7 @@ export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdent
                 </Button>
               </Card>
             </div>
-          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
+          ) : result.isError && (
             <Card className="grid min-h-36 content-center justify-items-start gap-3 p-5">
               <h1 className="text-balance text-xl font-semibold">
                 {result.error instanceof ApiError && result.error.status === 404 ? "Conta operacional não encontrada" : "Consulta de tarifas indisponível"}

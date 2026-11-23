@@ -33,7 +33,7 @@ const row = pixTransactionIdentifier.extend({
   dateSource: z.enum(["CREATED", "SETTLED", "RECORDED"]), simulated: z.boolean(),
 });
 export const pixTransactionsReport = z.object({
-  environment: z.literal("sandbox"),
+  environment: z.enum(["sandbox", "live"]),
   items: z.array(row).max(8), pagination: adminPaginationSchema,
   summary: z.object({
     receivedCents: cents, receivedCount: z.int().nonnegative(), withdrawnCents: cents, withdrawnCount: z.int().nonnegative(),
@@ -43,7 +43,7 @@ export const pixTransactionsReport = z.object({
 export const pixTransactionDetail = row.extend({
   createdAt: date, cnpj: z.string().nullable(), description: z.string().nullable(),
   providerReference: z.string().max(64).nullable(), endToEndId: z.string().max(32).nullable(),
-  destination: z.string().max(9).nullable(), pixKeyType: z.string().max(5).nullable(),
+  destination: z.string().max(80).nullable(), pixKeyType: z.string().max(5).nullable(),
   batchId: uid.nullable(), batchPosition: z.int().nonnegative().nullable(), originalId: uid.nullable(), requestedAt: date.nullable(),
   netInCents: cents.nullable(), refundedInCents: cents.nullable(), refundPending: z.boolean(),
 });

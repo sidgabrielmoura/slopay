@@ -9,6 +9,7 @@ const tone: Record<OpeningStatus, BadgeProps["variant"]> = {
   UNDER_REVIEW: "info",
   CHANGES_REQUESTED: "warning",
   RESUBMITTED: "info",
+  APPROVED: "success",
   LINKED: "success",
   REJECTED: "destructive",
   RESTRICTED: "warning",

@@ -15,10 +15,11 @@ export function SandboxWebhookBadge({ webhook }: { webhook: SandboxWebhook }) {
   return <Badge variant={webhook.enabled ? "success" : "secondary"}>{webhook.enabled ? "Ativo" : "Pausado"}</Badge>;
 }
 
-export function SandboxWebhookFallback({ pending, error, unlinked, retry }: {
+export function SandboxWebhookFallback({ pending, error, unlinked, retry, development }: {
   pending?: boolean;
   error?: Error | null;
   unlinked?: boolean;
+  development: boolean;
   retry?: () => void;
 }) {
   if (pending) return (
@@ -33,9 +34,9 @@ export function SandboxWebhookFallback({ pending, error, unlinked, retry }: {
   return (
     <Card>
       <Empty icon={<Webhook aria-hidden="true" />} className="rounded-none border-0"
-        title={unlinked ? "Conta Sandbox aguardando vínculo" : "Webhooks indisponíveis"}
+        title={unlinked ? (development ? "Conta Sandbox aguardando vínculo" : "Conta aguardando habilitação") : "Webhooks indisponíveis"}
         description={unlinked ? "A equipe do Slopay vincula a conta antes de habilitar o cadastro de destinos."
-          : unavailable ? "Confira o vínculo da conta e a configuração do Sandbox."
+          : unavailable ? "A configuração de destinos estará disponível quando a integração estiver habilitada."
             : "Tente carregar os dados novamente."}
         action={!unlinked && !unavailable && retry && <Button type="button" variant="outline" onClick={retry}>Tentar novamente</Button>} />
     </Card>

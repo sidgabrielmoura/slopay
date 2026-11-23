@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api-client";
-import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
+import { withdrawalPasskeyOptionsSchema } from "@/features/pix-withdraw/pix-withdrawal";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
 import { batchDetailSchema, batchListSchema, batchesUnavailable, type BatchDraftInput, type BatchInput } from "./live-batches";
 
@@ -14,7 +14,7 @@ export const liveBatchesGateway = {
   list: (page: number, signal: AbortSignal) => requestPixGateway(endpoint + "?" + new URLSearchParams({ page: String(page) }),
     batchListSchema, batchesUnavailable, { signal }),
   passkeyOptions: (id: string, input: BatchDraftInput) => requestPixGateway(
-    endpoint + "/passkey-options", passkeyOptionsSchema, batchesUnavailable, {
+    endpoint + "/passkey-options", withdrawalPasskeyOptionsSchema, batchesUnavailable, {
       method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": id }, body: JSON.stringify(input),
     },
   ),

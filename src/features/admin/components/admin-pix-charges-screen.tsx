@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
@@ -168,7 +167,7 @@ function ChargeRows({ items, onOpen }: { items: AdminChargeRow[]; onOpen: OpenCh
                   <p className="truncate text-xs text-muted-foreground">Carteira · {item.walletSuffix}</p>
                 </TableCell>
                 <TableCell className="py-2.5 text-xs tabular-nums text-muted-foreground"><time dateTime={item.createdAt}>{formatDateTime(item.createdAt, "date-only")}</time></TableCell>
-                <TableCell className="py-2.5 text-xs tabular-nums"><time dateTime={item.dueDate}>{formatDateTime(item.dueDate, "date-only")}</time></TableCell>
+                <TableCell className="py-2.5 text-xs tabular-nums">{item.dueDate ? <time dateTime={item.dueDate}>{formatDateTime(item.dueDate, "date-only")}</time> : "—"}</TableCell>
                 <TableCell className="py-2.5"><AdminChargeBadge status={item.status} /></TableCell>
                 <TableCell className="wrap-anywhere py-2.5 text-right font-semibold tabular-nums"><PanelAmount cents={item.amountInCents} /></TableCell>
                 <TableCell className="px-1 py-2 text-center"><ChargeAction item={item} onOpen={onOpen} /></TableCell>
@@ -187,7 +186,7 @@ function ChargeRows({ items, onOpen }: { items: AdminChargeRow[]; onOpen: OpenCh
             </div>
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
               <AdminChargeBadge status={item.status} />
-              <p className="text-xs tabular-nums text-muted-foreground">Venc. <time dateTime={item.dueDate}>{formatDateTime(item.dueDate, "date-only")}</time></p>
+              {item.dueDate && <p className="text-xs tabular-nums text-muted-foreground">Venc. <time dateTime={item.dueDate}>{formatDateTime(item.dueDate, "date-only")}</time></p>}
             </div>
           </li>
         ))}
@@ -206,14 +205,13 @@ export function AdminPixChargesScreen({ user }: { user: AdminIdentity }) {
   const historyCard = useRef<HTMLDivElement>(null);
   const lastOpened = useRef<string>(undefined);
   const result = useQuery({
-    enabled: development,
     queryKey: ["admin-pix-charges", user.id, filterKey, query.page],
     queryFn: ({ signal }) => adminPixCharges.list(query, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && request.queryKey[2] === filterKey ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const data = development ? (denied ? undefined : result.data) : undefined;
+  const data = denied ? undefined : result.data;
   const displayedQuery = { ...query, page: data?.pagination.page ?? query.page };
 
   function navigate(next: AdminChargeQuery) {
@@ -280,7 +278,7 @@ export function AdminPixChargesScreen({ user }: { user: AdminIdentity }) {
               )}
               <TablePagination {...data.pagination} busy={result.isPlaceholderData} label="Paginação de cobranças Pix" onPageChange={(page) => navigate({ ...query, page })} />
             </>
-          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
+          ) : result.isError && (
             <div className="grid min-h-48 content-center justify-items-center gap-3 px-5 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Não foi possível consultar as cobranças</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>
@@ -289,7 +287,7 @@ export function AdminPixChargesScreen({ user }: { user: AdminIdentity }) {
         </SkeletonReveal>
       </Card>
 
-      <AdminPixChargeDialog adminId={user.id} id={development ? selected : undefined} onClose={closeCharge}
+      <AdminPixChargeDialog adminId={user.id} id={selected} onClose={closeCharge}
         onScope={(scope, value) => {
           lastOpened.current = undefined;
           navigate({ ...query, companyId: undefined, accountId: undefined, [scope]: value, page: 1 });

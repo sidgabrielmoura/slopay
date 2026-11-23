@@ -31,6 +31,9 @@ const overviewSchema = z.object({
   environment: environmentSchema,
   pixReceiveAvailable: z.boolean().default(false),
   pixWithdrawAvailable: z.boolean().default(false),
+  availableBalanceInCents: z.int().optional(),
+  settledBalanceInCents: z.int().optional(),
+  reservedBalanceInCents: z.int().nonnegative().optional(),
   days: z.array(z.object({
     date: z.iso.date(),
     count: z.int().nonnegative(),

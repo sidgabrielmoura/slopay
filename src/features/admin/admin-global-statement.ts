@@ -20,7 +20,7 @@ const row = z.object({
 }).refine(({ type, amountInCents }) => type === "CREDIT" ? amountInCents > 0 : amountInCents < 0);
 const positiveCents = z.int().nonnegative();
 export const globalStatementReport = z.object({
-  environment: z.literal("sandbox"), items: z.array(row).max(8), pagination: adminPaginationSchema,
+  environment: z.enum(["sandbox", "live"]), items: z.array(row).max(8), pagination: adminPaginationSchema,
   summary: z.object({ creditCents: positiveCents, debitCents: positiveCents, feeCents: positiveCents, netCents: z.int() }),
 });
 

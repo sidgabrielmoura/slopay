@@ -31,6 +31,7 @@ export const clientUserDetailSchema = clientUser.extend({
   sandboxPilot: z.boolean().optional(),
   closedAt: date.nullish(),
   closureVersion: version.nullish(),
+  closureFinancialPending: z.boolean().optional(),
   deletion: z.union([
     z.object({ version }),
     z.object({ blocked: z.enum(["LINKED", "HISTORY"]), hasFinancialHistory: z.boolean().optional() }),

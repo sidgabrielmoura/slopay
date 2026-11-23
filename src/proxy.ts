@@ -7,7 +7,7 @@ const legacyCookies = ["slopay_access_token", "slopay_refresh_token", "slopay_us
 export function proxy(request: NextRequest) {
   const correlationId = crypto.randomUUID();
   const pathname = request.nextUrl.pathname;
-  if (!developmentFeaturesEnabled() && isDevelopmentRoute(pathname)) {
+  if (!developmentFeaturesEnabled() && isDevelopmentRoute(pathname, request.method)) {
     const headers = { "cache-control": "no-store", "x-correlation-id": correlationId };
     return NextResponse.json({ message: "Recurso não encontrado." }, { status: 404, headers });
   }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -214,14 +213,13 @@ export function AdminWithdrawalApprovalsScreen({ user }: { user: AdminIdentity }
   const query = adminApprovalQueryFrom(useSearchParams());
   const filters = adminApprovalHref({ ...query, page: 1 });
   const result = useQuery({
-    enabled: development,
     queryKey: ["admin-withdrawal-approvals", user.id, filters, query.page],
     queryFn: ({ signal }) => adminWithdrawalApprovals.list(query, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && request.queryKey[2] === filters ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const data = development ? (denied ? undefined : result.data) : undefined;
+  const data = denied ? undefined : result.data;
 
   function navigate(next: AdminApprovalQuery) {
     window.history.replaceState(null, "", adminApprovalHref(next));
@@ -258,7 +256,7 @@ export function AdminWithdrawalApprovalsScreen({ user }: { user: AdminIdentity }
                 onPageChange={(page) => navigate({ ...query, page })} />
             </>
           ) : <EmptyResults query={query} onChange={navigate} />
-            : !development ? <OperationalDataUnavailable /> : result.isError && <CompanyReadError title="Não foi possível carregar as solicitações" retry={() => void result.refetch()} />}
+            : result.isError && <CompanyReadError title="Não foi possível carregar as solicitações" retry={() => void result.refetch()} />}
         </SkeletonReveal>
       </Card>
     </AdminPanel>

@@ -49,7 +49,7 @@ export function AdminOperationalAccountsScreen({ user }: { user: AdminIdentity }
     enabled: development,
     queryKey: ["admin-operational-accounts", user.id, status, search, page],
     queryFn: ({ signal }) => adminOperationalAccounts.list(query, signal),
-    placeholderData: (previous, prior) => prior?.queryKey[2] === status && prior.queryKey[3] === search ? previous : undefined,
+    placeholderData: (previous, prior) => prior?.queryKey[1] === user.id && prior.queryKey[2] === status && prior.queryKey[3] === search ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const data = development ? result.data : undefined;

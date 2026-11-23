@@ -26,6 +26,7 @@ import {
   companySearch, companyStatusFilter, companyStatusLabels, type CompaniesQuery, type CompanyListItem,
 } from "../admin-companies";
 import { retryAdminRead } from "../admin-query";
+import { poolAccountsPath } from "../admin-pool-accounts";
 import { CompanyAccessBadge, CompanyField, CompanyReadError, CompanyRowsSkeleton } from "./company-display";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 
@@ -44,7 +45,7 @@ export function AdminCompaniesScreen({ user }: { user: AdminIdentity }) {
     queryKey: ["admin-companies", user.id, status, period, search, page],
     queryFn: ({ signal }) => adminCompanies.list(filters, signal),
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
-    placeholderData: (previous, query) => query?.queryKey[2] === status &&
+    placeholderData: (previous, query) => query?.queryKey[1] === user.id && query.queryKey[2] === status &&
       query.queryKey[3] === period && query.queryKey[4] === search ? previous : undefined,
   });
   const data = result.data;
@@ -73,9 +74,14 @@ export function AdminCompaniesScreen({ user }: { user: AdminIdentity }) {
           <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Empresas</h1>
           <p className="text-pretty text-sm text-muted-foreground">Consulte os cadastros e gerencie o acesso dos titulares.</p>
         </div>
-        <Button asChild variant="outline" className="h-11">
-          <Link href={openingsPath} prefetch={false}>Abertura de contas <ArrowUpRight aria-hidden="true" /></Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="h-11">
+            <Link href={openingsPath} prefetch={false}>Abertura de contas <ArrowUpRight aria-hidden="true" /></Link>
+          </Button>
+          <Button asChild variant="outline" className="h-11">
+            <Link href={poolAccountsPath} prefetch={false}>Contas bolsão <ArrowUpRight aria-hidden="true" /></Link>
+          </Button>
+        </div>
       </header>
 
       <form role="search" aria-label="Filtrar empresas" className="grid min-w-0 gap-3 sm:grid-cols-2 xl:flex xl:items-end" onSubmit={submitSearch}>

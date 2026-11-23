@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -200,14 +199,13 @@ export function AdminWithdrawalBatchesScreen({ user }: { user: AdminIdentity }) 
   const query = adminBatchQueryFrom(useSearchParams());
   const filters = adminBatchHref({ ...query, page: 1 });
   const result = useQuery({
-    enabled: development,
     queryKey: ["admin-withdrawal-batches", user.id, filters, query.page],
     queryFn: ({ signal }) => adminWithdrawalBatches.list(query, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && request.queryKey[2] === filters ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const data = development ? (denied ? undefined : result.data) : undefined;
+  const data = denied ? undefined : result.data;
 
   function navigate(next: AdminWithdrawalBatchQuery) {
     window.history.replaceState(null, "", adminBatchHref(next));
@@ -248,7 +246,7 @@ export function AdminWithdrawalBatchesScreen({ user }: { user: AdminIdentity }) 
             )}
             <TablePagination {...data.pagination} label="Paginação de lotes de saída" busy={result.isPlaceholderData}
               onPageChange={(page) => navigate({ ...query, page })} />
-          </> : !development ? <OperationalDataUnavailable /> : result.isError && (
+          </> : result.isError && (
             <div className="grid min-h-48 content-center justify-items-center gap-3 px-5 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Não foi possível consultar os lotes</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>

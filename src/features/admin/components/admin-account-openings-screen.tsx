@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { cn } from "@/lib/utils";
 import { ArrowUpRight, ClipboardList, RotateCw, Search } from "lucide-react";
 import { toast } from "sonner";
 import { TablePagination } from "@/components/shared/table-pagination";
@@ -56,7 +55,7 @@ export function AdminAccountOpeningsScreen({ user }: { user: AdminIdentity }) {
     queryKey: ["admin-account-openings", user.id, status, search, page],
     queryFn: ({ signal }) => accountOpenings.list(query, signal),
     placeholderData: (previous, previousQuery) => (
-      previousQuery?.queryKey[2] === status && previousQuery.queryKey[3] === search ? previous : undefined
+      previousQuery?.queryKey[1] === user.id && previousQuery.queryKey[2] === status && previousQuery.queryKey[3] === search ? previous : undefined
     ),
     staleTime: 15_000,
     refetchInterval: 30_000,
@@ -123,11 +122,11 @@ export function AdminAccountOpeningsScreen({ user }: { user: AdminIdentity }) {
       <SkeletonReveal flow revealed={!result.isPending} skeleton={<ListSkeleton />}>
         {data ? (
           <div className="grid min-w-0 gap-5">
-            <div className={cn("grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border", development ? "xl:grid-cols-4" : "xl:grid-cols-3")}>
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border xl:grid-cols-4">
               <Metric label="Cadastros" value={data.summary.total} />
               <Metric label="Aguardando titular" value={data.summary.waitingForOwner} />
               <Metric label="Com a equipe" value={data.summary.actionable} />
-              {development && <Metric label="Empresas vinculadas" value={data.summary.linked} />}
+              <Metric label="Aprovados" value={data.summary.approved} />
             </div>
             <Card className="min-w-0 overflow-hidden">
               <CardHeader className="gap-1 p-5">

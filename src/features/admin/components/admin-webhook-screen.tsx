@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight } from "lucide-react";
@@ -39,6 +38,7 @@ type Delivery = AdminWebhookHistory["items"][number];
 type OpenDelivery = (id: string, source: HTMLButtonElement) => void;
 
 function WebhookProfile({ history, openDelivery }: { history: AdminWebhookHistory; openDelivery: OpenDelivery }) {
+  const development = useDevelopmentFeatures();
   const { webhook, queued, blockedDeliveryId } = history;
   return (
     <>
@@ -48,7 +48,7 @@ function WebhookProfile({ history, openDelivery }: { history: AdminWebhookHistor
           <p className="wrap-anywhere text-sm text-muted-foreground">{webhook.company}{webhook.host && " · " + webhook.host}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">Sandbox</Badge><WebhookStatus status={webhook.status} />
+          {development && <Badge variant="secondary">Sandbox</Badge>}<WebhookStatus status={webhook.status} />
         </div>
       </header>
       <Card className="min-w-0" aria-labelledby="webhook-profile">
@@ -152,7 +152,6 @@ function DeliveryRows({ items, open }: { items: Delivery[]; open: OpenDelivery }
 }
 
 export function AdminWebhookScreen({ user, webhookId }: { user: AdminIdentity; webhookId: string }) {
-  const development = useDevelopmentFeatures();
   const params = useSearchParams();
   const returnQuery = adminWebhookQueryFrom(params);
   const history = webhookHistoryQueryFrom(params);
@@ -160,14 +159,13 @@ export function AdminWebhookScreen({ user, webhookId }: { user: AdminIdentity; w
   const opener = useRef<HTMLButtonElement | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const result = useQuery({
-    enabled: development,
     queryKey: ["admin-webhook", user.id, webhookId, history.state, history.page],
     queryFn: ({ signal }) => adminWebhooks.history(webhookId, history, signal),
     placeholderData: (data, previous) => previous?.queryKey[1] === user.id && previous.queryKey[2] === webhookId ? data : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const status = result.error instanceof ApiError ? result.error.status : undefined;
-  const report = development ? (status && [401, 403, 404].includes(status) ? undefined : result.data) : undefined;
+  const report = status && [401, 403, 404].includes(status) ? undefined : result.data;
   const listLoading = result.isLoading || result.isPlaceholderData;
 
   function navigate(next: WebhookHistoryQuery, deliveryId?: string | null) {
@@ -232,12 +230,12 @@ export function AdminWebhookScreen({ user, webhookId }: { user: AdminIdentity; w
                   onPageChange={(page) => navigate({ ...history, page })} label="Paginação das entregas" />}
               </Card>
             </div>
-          ) : !development ? <OperationalDataUnavailable /> : result.isError && (status === 404 ? (
+          ) : result.isError && (status === 404 ? (
             <Card className="grid min-h-32 content-center px-5 py-6"><h1 className="text-balance text-xl font-semibold">Webhook não encontrado</h1></Card>
           ) : <CompanyReadError title="Consulta de entregas indisponível" retry={() => void result.refetch()} />)}
         </SkeletonReveal>
       </div>
-      <AdminWebhookAttemptsDialog userId={user.id} webhookId={webhookId} deliveryId={development ? selected : null}
+      <AdminWebhookAttemptsDialog userId={user.id} webhookId={webhookId} deliveryId={selected}
         close={() => navigate(history)} restoreFocus={restoreFocus} />
     </AdminPanel>
   );

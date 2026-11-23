@@ -38,7 +38,7 @@ function newTransfer(id: number): TransferDraft {
   return { id, pixKeyType: "EMAIL", pixKey: "", amountInCents: 0, expenseCategory: null };
 }
 
-export function LiveNewBatch({ merchantId }: { merchantId: string }) {
+export function LiveNewBatch({ merchantId, available }: { merchantId: string; available: boolean }) {
   const router = useRouter();
   const query = useQueryClient();
   const { hideValues, preferencesReady } = usePreferences();
@@ -60,7 +60,7 @@ export function LiveNewBatch({ merchantId }: { merchantId: string }) {
 
   const development = useDevelopmentFeatures();
   const options = useQuery({
-    enabled: development,
+    enabled: available,
     queryKey: withdrawalOptionsKey(merchantId),
     queryFn: ({ signal }) => asaasPixWithdrawals.options(signal),
     staleTime: 15_000,
@@ -99,9 +99,11 @@ export function LiveNewBatch({ merchantId }: { merchantId: string }) {
 
   async function submitBatch(proof: WithdrawalProof) {
     if (!prepared || !visibleAtConfirmation.current) throw new ApiError("Confira os valores antes de autorizar o lote.", 400);
+    const review = !development && "verificationCode" in proof
+      ? (await liveBatchesGateway.passkeyOptions(prepared.id, prepared.input)).review : undefined;
     remember(prepared.id);
     try {
-      return await liveBatchesGateway.create(prepared.id, { ...prepared.input, ...proof });
+      return await liveBatchesGateway.create(prepared.id, { ...prepared.input, ...proof, ...(review && { review }) });
     } catch (failure) {
       if (!uncertain && failure instanceof ApiError &&
         (failure.code === "PIX_WITHDRAWAL_FEE_CHANGED" || failure.code === "PIX_WITHDRAWAL_INSUFFICIENT_BALANCE")) {
@@ -160,7 +162,7 @@ export function LiveNewBatch({ merchantId }: { merchantId: string }) {
 
   function review(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!development) return;
+    if (!available) return;
     if (!options.data || options.isFetching || options.isError) return showError("Consulte o saldo antes de revisar o lote.");
     if (simulate && !canSimulate) return showError("A simulação está indisponível.");
 
@@ -206,7 +208,7 @@ export function LiveNewBatch({ merchantId }: { merchantId: string }) {
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Novo lote Pix</h1>
       </header>
       <BatchStepper step={step} />
-      {!development && <OperationalDataUnavailable title="Envio de lotes indisponível" />}
+      {!available && <OperationalDataUnavailable title="Envio de lotes indisponível" />}
       <ToastNotice message={error || (options.isError ? options.error.message : null)} />
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
         <Card className="min-w-0">
@@ -295,7 +297,7 @@ export function LiveNewBatch({ merchantId }: { merchantId: string }) {
                     }}>
                     <Plus aria-hidden="true" /> Adicionar Pix
                   </Button>
-                  <Button type="submit" className="h-11" disabled={!development || !options.data || options.isError || options.isFetching}>Revisar lote <ArrowRight aria-hidden="true" /></Button>
+                  <Button type="submit" className="h-11" disabled={!available || !options.data || options.isError || options.isFetching}>Revisar lote <ArrowRight aria-hidden="true" /></Button>
                 </div>
               </form>
             ) : step === 1 && prepared ? (

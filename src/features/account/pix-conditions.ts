@@ -31,7 +31,7 @@ export type PixFees = z.infer<typeof pixFeesSchema>;
 export const pixConditionsSchema = z.union([
   z.object({ environment: z.null() }),
   z.object({
-    environment: z.literal("sandbox"),
+    environment: z.enum(["sandbox", "live"]),
     minimumChargeInCents: cents.positive(),
     batchLimits: z.object({ minimum: z.int().positive(), maximum: z.int().positive() })
       .refine(({ minimum, maximum }) => minimum <= maximum).nullable(),

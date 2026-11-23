@@ -1,12 +1,11 @@
 "use client";
 
-import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
+import { TablePagination } from "@/components/shared/table-pagination";
 
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, ReceiptText } from "lucide-react";
+import { ReceiptText } from "lucide-react";
 import { toast } from "sonner";
 import { PanelAmount } from "@/components/layout/panel-privacy";
 import { Button } from "@/components/ui/button";
@@ -35,10 +34,8 @@ function ExpenseItems({ merchantId, period, category, onCategoryChange, page, se
   page: number;
   setPage: (page: number) => void;
 }) {
-  const development = useDevelopmentFeatures();
   const client = useQueryClient();
   const items = useQuery({
-    enabled: development,
     queryKey: expenseKeys.items(merchantId, period, category, page),
     queryFn: ({ signal }) => fetchExpenseItems(period, category, page, signal),
     staleTime: 15_000,
@@ -83,7 +80,7 @@ function ExpenseItems({ merchantId, period, category, onCategoryChange, page, se
       <ToastNotice message={items.isError ? items.error.message || expensesUnavailable : null} />
       <ToastNotice message={update.isError ? update.error.message : null} />
       <CardContent className="px-5 pb-5">
-        {!development ? <OperationalDataUnavailable title="Consulta de saídas indisponível" /> : items.isPending ? (
+        {items.isPending ? (
           <div aria-busy="true" aria-label="Carregando saídas" className="grid gap-2">
             <Skeleton className="h-12 motion-reduce:animate-none" />
             <Skeleton className="h-12 motion-reduce:animate-none" />
@@ -138,22 +135,8 @@ function ExpenseItems({ merchantId, period, category, onCategoryChange, page, se
                 ))}
               </TableBody>
             </Table>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
-              <p>{data.total} {data.total === 1 ? "saída" : "saídas"}</p>
-              {data.totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="outline" size="icon" aria-label="Página anterior"
-                    disabled={data.page <= 1 || items.isFetching} onClick={() => setPage(data.page - 1)}>
-                    <ChevronLeft aria-hidden="true" />
-                  </Button>
-                  <span className="tabular-nums">{data.page} de {data.totalPages}</span>
-                  <Button type="button" variant="outline" size="icon" aria-label="Próxima página"
-                    disabled={data.page >= data.totalPages || items.isFetching} onClick={() => setPage(data.page + 1)}>
-                    <ChevronRight aria-hidden="true" />
-                  </Button>
-                </div>
-              )}
-            </div>
+            <TablePagination page={data.page} pageSize={data.pageSize} total={data.total}
+              busy={items.isFetching} label="Paginação das saídas" onPageChange={setPage} />
           </>
         )}
       </CardContent>

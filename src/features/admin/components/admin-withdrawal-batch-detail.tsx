@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -119,6 +118,7 @@ function TransferRows({ transfers }: { transfers: AdminBatchTransfer[] }) {
 function BatchDetails({ batch, listQuery }: {
   batch: AdminWithdrawalBatchDetail["batch"]; listQuery: ReturnType<typeof adminBatchQueryFrom>;
 }) {
+  const development = useDevelopmentFeatures();
   const progress = `${batch.completedCount} de ${batch.count} Pix liquidados`;
   const states = [[batch.pendingCount, "pendentes"], [batch.reviewCount, "em revisão"], [batch.failedCount, "encerrados"]]
     .filter(([count]) => count).map(([count, label]) => `${count} ${label}`);
@@ -139,7 +139,7 @@ function BatchDetails({ batch, listQuery }: {
       <div className="min-w-0 space-y-1.5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h1 className="min-w-0 wrap-anywhere text-balance text-2xl font-semibold sm:text-3xl">{batch.title || "Detalhes do lote"}</h1>
-          <AdminBatchBadge state={batch.state} /><Badge variant="outline">{batch.simulated ? "Simulação" : "Sandbox"}</Badge>
+          <AdminBatchBadge state={batch.state} />{development && <Badge variant="outline">{batch.simulated ? "Simulação" : "Sandbox"}</Badge>}
         </div>
         <p className="text-pretty text-sm text-muted-foreground">Criado em <time className="tabular-nums" dateTime={batch.createdAt}>{formatDateTime(batch.createdAt)}</time></p>
       </div>
@@ -195,13 +195,11 @@ function BatchDetails({ batch, listQuery }: {
 }
 
 export function AdminWithdrawalBatchScreen({ user, batchId }: { user: AdminIdentity; batchId: string }) {
-  const development = useDevelopmentFeatures();
   const params = useSearchParams();
   const listQuery = adminBatchQueryFrom(params);
   const itemPage = adminBatchPage.catch(1).parse(params.get("itemPage"));
   const backHref = adminBatchHref(listQuery);
   const result = useQuery({
-    enabled: development,
     queryKey: ["admin-withdrawal-batch", user.id, batchId, itemPage],
     queryFn: ({ signal }) => adminWithdrawalBatches.detail(batchId, itemPage, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && request.queryKey[2] === batchId ? previous : undefined,
@@ -209,7 +207,7 @@ export function AdminWithdrawalBatchScreen({ user, batchId }: { user: AdminIdent
   });
   const status = result.error instanceof ApiError ? result.error.status : null;
   const missing = status === 404;
-  const data = development ? (missing || status === 401 || status === 403 ? undefined : result.data) : undefined;
+  const data = missing || status === 401 || status === 403 ? undefined : result.data;
 
   return (
     <AdminPanel user={user}>
@@ -236,7 +234,7 @@ export function AdminWithdrawalBatchScreen({ user, batchId }: { user: AdminIdent
             <h1 className="text-balance text-lg font-semibold">Lote de saída não encontrado</h1>
             <Button asChild variant="outline" className="h-11"><Link href={backHref} prefetch={false}>Voltar aos lotes</Link></Button>
           </Card>
-        ) : !development ? <OperationalDataUnavailable /> : result.isError && <CompanyReadError title="Não foi possível carregar o lote" retry={() => void result.refetch()} />}
+        ) : result.isError && <CompanyReadError title="Não foi possível carregar o lote" retry={() => void result.refetch()} />}
       </SkeletonReveal>
     </AdminPanel>
   );

@@ -66,6 +66,7 @@ export type ExpenseItem = z.infer<typeof expenseItemSchema>;
 
 export const expenseItemsSchema = z.object({
   data: z.array(expenseItemSchema).max(10),
+  pageSize: z.literal(10).default(10),
   total: z.int().nonnegative(),
   page: z.int().positive(),
   totalPages: z.int().positive(),

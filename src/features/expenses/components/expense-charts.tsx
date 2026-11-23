@@ -1,7 +1,5 @@
 "use client";
 
-import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -215,9 +213,7 @@ export function ExpenseCharts({ merchantId, period = defaultExpensePeriod, previ
 }) {
   const { hideValues, preferencesReady } = usePreferences();
   const hidden = hideValues || !preferencesReady;
-  const development = useDevelopmentFeatures();
   const report = useQuery({
-    enabled: development,
     queryKey: expenseKeys.summary(merchantId, period),
     queryFn: ({ signal }) => fetchExpenseSummary(period, signal),
     staleTime: 15_000,
@@ -238,7 +234,7 @@ export function ExpenseCharts({ merchantId, period = defaultExpensePeriod, previ
         </header>
       )}
       <ToastNotice message={report.isError ? report.error.message || expensesUnavailable : null} />
-      <SkeletonReveal key={period} flow revealed={!development || !report.isPending}
+      <SkeletonReveal key={period} flow revealed={!report.isPending}
         skeleton={(
           <>
             {!preview && <Skeleton className="mb-4 h-25 animate-none" />}
@@ -248,10 +244,7 @@ export function ExpenseCharts({ merchantId, period = defaultExpensePeriod, previ
             </div>
           </>
         )}>
-        {!development ? <div className={chartGrid}>
-          <Card><CardHeader><h3 className="text-base font-semibold">Resumo de gastos</h3></CardHeader><OperationalDataUnavailable title="Dados de saídas indisponíveis" /></Card>
-          <Card><CardHeader><h3 className="text-base font-semibold">Saídas por categoria</h3></CardHeader><OperationalDataUnavailable title="Categorias indisponíveis" /></Card>
-        </div> : report.data ? (
+        {report.data ? (
           <div className="grid min-w-0 gap-4">
             {!preview && <SummaryTotals data={report.data} />}
             <div className={chartGrid}>

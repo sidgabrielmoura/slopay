@@ -60,7 +60,7 @@ function ChargeFacts({ adminId, charge, qrAllowed, onScope }: {
         </div>
         <dl className="grid min-w-0 grid-cols-2 gap-4 tabular-nums">
           <CompanyField label="Criada em">{formatDateTime(charge.createdAt)}</CompanyField>
-          <CompanyField label="Vencimento">{formatDateTime(charge.dueDate, "date-only")}</CompanyField>
+          <CompanyField label="Vencimento">{charge.dueDate ? formatDateTime(charge.dueDate, "date-only") : "Aguardando emissão"}</CompanyField>
           {settled && (charge.paidAt || charge.paidDate) &&
             <CompanyField label="Pagamento">{charge.paidAt ? formatDateTime(charge.paidAt) : formatDateTime(charge.paidDate!, "date-only")}</CompanyField>}
           {settled && !charge.paidAt && !charge.paidDate && charge.recordedAt &&
@@ -164,7 +164,7 @@ export function AdminPixChargeDialog({ adminId, id, onClose, onRestoreFocus, onS
         onCloseAutoFocus={(event) => { event.preventDefault(); onRestoreFocus(); }}>
         <DialogHeader className="border-b border-border py-4 pr-12 pl-4 text-left sm:pl-6">
           <DialogTitle ref={title} tabIndex={-1} className="text-balance text-xl outline-none">Detalhes da cobrança</DialogTitle>
-          <DialogDescription>Cobrança Pix em Sandbox.</DialogDescription>
+          <DialogDescription>Dados da cobrança registrada no Slopay.</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
           {id && <DetailLoad key={id} adminId={adminId} id={id} onScope={onScope} />}

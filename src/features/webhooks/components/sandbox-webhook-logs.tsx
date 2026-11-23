@@ -1,7 +1,5 @@
 "use client";
 
-import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RotateCcw, Webhook } from "lucide-react";
@@ -60,9 +58,7 @@ function DeliveryHistory({ accountId, webhookId }: { accountId: string; webhookI
   const origin = useRef<HTMLElement | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const filter = { webhookId, state: state === "all" ? undefined : state, before: pages.at(-1) };
-  const development = useDevelopmentFeatures();
   const deliveries = useQuery({
-    enabled: development,
     queryKey: [...sandboxWebhooksKey(accountId), "logs", filter],
     queryFn: ({ signal }) => sandboxWebhookGateway.logs(filter, signal),
     retry: false, refetchInterval: 10_000,
@@ -85,7 +81,7 @@ function DeliveryHistory({ accountId, webhookId }: { accountId: string; webhookI
               setPages([]);
             }} className="w-full sm:w-52" />
         </CardHeader>
-        {!development ? <OperationalDataUnavailable title="Histórico de entregas indisponível" /> : deliveries.isPending ? (
+        {deliveries.isPending ? (
           <div className="grid gap-3 p-5" aria-busy="true" aria-label="Carregando entregas">
             <Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" />
           </div>

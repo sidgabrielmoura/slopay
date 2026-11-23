@@ -4,8 +4,8 @@ import { ApiError } from "@/lib/api-client";
 
 const nonnegative = z.int().nonnegative();
 export const adminDashboardUnavailable = "A visão geral está temporariamente indisponível.";
-const sandboxDashboardSchema = z.object({
-  environment: z.literal("sandbox"),
+const pixDashboardSchema = z.object({
+  environment: z.enum(["sandbox", "live"]),
   period: indicatorPeriodSchema,
   generatedAt: z.iso.datetime({ offset: true }),
   firstDay: z.iso.date(),
@@ -40,24 +40,24 @@ const sandboxDashboardSchema = z.object({
   })).max(8),
 });
 
-export const adminDashboardSchema = z.discriminatedUnion("environment", [
-  sandboxDashboardSchema,
-  z.object({ environment: z.literal("live"), companiesCount: nonnegative, generatedAt: z.iso.datetime({ offset: true }) }),
+export const adminDashboardSchema = z.union([
+  pixDashboardSchema,
+  z.strictObject({ environment: z.literal("live"), companiesCount: nonnegative, generatedAt: z.iso.datetime({ offset: true }) }),
 ]);
 
 export type AdminDashboardReport = z.infer<typeof adminDashboardSchema>;
-type SandboxDashboardReport = z.infer<typeof sandboxDashboardSchema>;
-export type AdminDashboardOperation = SandboxDashboardReport["recentOperations"][number];
+type PixDashboardReport = z.infer<typeof pixDashboardSchema>;
+export type AdminDashboardOperation = PixDashboardReport["recentOperations"][number];
 
-export async function fetchAdminDashboard(period: SandboxDashboardReport["period"], page: number, signal: AbortSignal) {
+export async function fetchAdminDashboard(period: PixDashboardReport["period"], page: number, signal: AbortSignal) {
   const response = await fetch(`/api/admin/dashboard?period=${period}&page=${page}`, { signal, cache: "no-store" });
   const body = await response.json().catch(() => null);
   if (!response.ok) throw new ApiError(body?.message ?? adminDashboardUnavailable, response.status);
   const result = adminDashboardSchema.safeParse(body);
-  if (!result.success || (result.data.environment === "sandbox" && result.data.period !== period)) throw new ApiError(adminDashboardUnavailable, 503);
+  if (!result.success || ("period" in result.data && result.data.period !== period)) throw new ApiError(adminDashboardUnavailable, 503);
   return result.data;
 }
 
-export function adminPendingCount(pending: SandboxDashboardReport["pending"]) {
+export function adminPendingCount(pending: PixDashboardReport["pending"]) {
   return pending.charges + pending.chargeReview + pending.withdrawalApprovals + pending.withdrawalReview + pending.withdrawals;
 }

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { passkeyAssertionSchema } from "@/features/auth/passkey-contract";
 import { expenseCategorySchema } from "@/features/expenses/expenses";
 import { pixAmountSchema, pixPaymentIdSchema } from "@/features/pix-receive/pix-receipt";
-import { pixKeyTypeSchema, withdrawalFeeSchema, withdrawalSchema } from "@/features/pix-withdraw/pix-withdrawal";
+import { pixKeyTypeSchema, withdrawalFeeSchema, withdrawalReviewSchema, withdrawalSchema } from "@/features/pix-withdraw/pix-withdrawal";
 import type { BadgeProps } from "@/components/ui/badge";
 
 export const batchesPath = "/pix/saques-em-lote";
@@ -22,7 +22,7 @@ export const batchDraftSchema = z.strictObject({
   feeLimitInCents: withdrawalFeeSchema.optional(),
 });
 export const batchInputSchema = z.union([
-  batchDraftSchema.extend({ verificationCode: z.string().regex(/^\d{6}$/) }),
+  batchDraftSchema.extend({ verificationCode: z.string().regex(/^\d{6}$/), review: withdrawalReviewSchema.optional() }),
   batchDraftSchema.extend({ credential: passkeyAssertionSchema }),
 ]);
 export type BatchDraftInput = z.infer<typeof batchDraftSchema>;
@@ -34,7 +34,7 @@ const money = z.int().nonnegative();
 const batchSummary = z.object({
   id: pixPaymentIdSchema,
   title: z.string().max(80).nullable(),
-  environment: z.literal("sandbox"),
+  environment: z.enum(["sandbox", "live"]),
   createdAt: z.iso.datetime(),
   simulated: z.boolean(),
   state: z.enum(batchStates),

@@ -1,10 +1,10 @@
 import type { NextRequest } from "next/server";
-import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
+import { withdrawalPasskeyOptionsSchema } from "@/features/pix-withdraw/pix-withdrawal";
 import { batchDraftSchema, batchesUnavailable } from "@/features/pix-batches/live-batches";
 import { forwardWithdrawalPost } from "@/lib/server/pix-withdrawals";
 
 export function POST(request: NextRequest) {
   return forwardWithdrawalPost(
-    request, "/payments/pix-withdrawals/batches/passkey-options", batchDraftSchema, passkeyOptionsSchema, batchesUnavailable, 8192,
+    request, "/payments/pix-withdrawals/batches/passkey-options", batchDraftSchema, withdrawalPasskeyOptionsSchema, batchesUnavailable, 8192,
   );
 }

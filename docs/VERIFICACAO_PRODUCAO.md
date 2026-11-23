@@ -1,6 +1,8 @@
 # Revisão de produção do Slopay
 
-O painel pode ser publicado para testar autenticação, cadastro de titulares, abertura de conta e o painel administrativo. Movimentar dinheiro real ainda depende da integração de produção do Asaas. O cliente Asaas, a emissão de chaves, a conciliação e os webhooks hoje operam no Sandbox.
+Os achados e resultados da revisão de 22 de novembro estão no [relatório de auditoria de preparação para produção](AUDITORIA_GO_LIVE.md).
+
+A situação atual dos painéis, a ativação das carteiras e as verificações pendentes estão na [auditoria de preparação para produção](AUDITORIA_GO_LIVE.md). Consulte o [guia da API e dos webhooks](INTEGRACAO_API.md) para integrar um cliente. Os resultados abaixo são de uma revisão anterior.
 
 ## Configuração de ambiente
 

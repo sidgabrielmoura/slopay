@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, ChevronRight, Search } from "lucide-react";
@@ -191,14 +190,13 @@ export function AdminWebhooksScreen({ user }: { user: AdminIdentity }) {
   const filterKey = adminWebhookHref({ ...query, page: 1 });
   const filtered = Boolean(query.search || query.status !== "ALL");
   const result = useQuery({
-    enabled: development,
     queryKey: ["admin-webhooks", user.id, filterKey, query.page],
     queryFn: ({ signal }) => adminWebhooks.list(query, signal),
     placeholderData: (data, previous) => previous?.queryKey[1] === user.id && previous.queryKey[2] === filterKey ? data : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const report = development ? (denied ? undefined : result.data) : undefined;
+  const report = denied ? undefined : result.data;
   const loading = result.isLoading || result.isPlaceholderData;
 
   function navigate(next: AdminWebhookQuery) {
@@ -241,7 +239,7 @@ export function AdminWebhooksScreen({ user }: { user: AdminIdentity }) {
                 </>
               )}
             </div>
-          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
+          ) : result.isError && (
             <div className="grid min-h-40 content-center justify-items-center gap-3 px-4 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Consulta de webhooks indisponível</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>

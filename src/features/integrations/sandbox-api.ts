@@ -24,14 +24,15 @@ export const requestLogsSchema = z.object({
 });
 export type ApiAccessDraft = z.infer<typeof apiAccessDraftSchema>;
 
-const base = "/api/integrations/sandbox";
-const unavailable = "A integração Sandbox está temporariamente indisponível.";
 
 export function sandboxApiPost(body: object): RequestInit {
   return { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
 
-export const sandboxApiGateway = {
+export function integrationApiGateway(development: boolean) {
+  const base = development ? "/api/integrations/sandbox" : "/api/integrations/live";
+  const unavailable = "A integração está temporariamente indisponível.";
+  return {
   security: (signal?: AbortSignal) => requestPixGateway(`${base}/api-security`, apiSecuritySchema, unavailable, { signal }),
   options: (draft: ApiAccessDraft) => requestPixGateway(`${base}/api-security/passkey-options`, passkeyOptionsSchema, unavailable, sandboxApiPost(draft)),
   update: (draft: ApiAccessDraft, proof: IntegrationProof) =>
@@ -40,4 +41,5 @@ export const sandboxApiGateway = {
     const query = before ? `?${new URLSearchParams({ before })}` : "";
     return requestPixGateway(`${base}/request-logs${query}`, requestLogsSchema, unavailable, { signal });
   },
-};
+  };
+}

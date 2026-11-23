@@ -33,20 +33,22 @@ export function SecurityMethod({ icon: Icon, title, description, status, action 
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-start gap-3 py-4 first:pt-1 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-start gap-3 sm:items-center">
-        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-foreground">
-          <Icon aria-hidden="true" className="size-5" />
-        </span>
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h3 className="text-balance text-sm font-medium">{title}</h3>
-            {status}
+    <div className="@container py-4 first:pt-1 last:pb-0">
+      <div className="flex flex-col items-start gap-3 @lg:flex-row @lg:items-center @lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3 @lg:items-center">
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-foreground">
+            <Icon aria-hidden="true" className="size-5" />
+          </span>
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h3 className="text-balance text-sm font-medium">{title}</h3>
+              {status}
+            </div>
+            {description && <p className="text-pretty text-sm text-muted-foreground">{description}</p>}
           </div>
-          {description && <p className="text-pretty text-sm text-muted-foreground">{description}</p>}
         </div>
+        {action && <div className="min-w-0 pl-13 @lg:shrink-0 @lg:pl-0 [&_a]:whitespace-normal [&_button]:whitespace-normal">{action}</div>}
       </div>
-      {action && <div className="pl-13 sm:shrink-0 sm:pl-0">{action}</div>}
     </div>
   );
 }

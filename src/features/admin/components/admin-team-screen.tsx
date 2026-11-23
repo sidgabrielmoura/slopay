@@ -2,7 +2,7 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight, Search, UserPlus } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { TablePagination } from "@/components/shared/table-pagination";
@@ -23,6 +23,7 @@ import {
   adminTeamStatuses, type AdminTeamMember, type AdminTeamQuery, type AdminTeamSummary,
 } from "../admin-team";
 import { AdminMemberLogin, AdminMemberStatus } from "./admin-team-member-display";
+import { AdminTeamInviteDialog } from "./admin-team-invite-dialog";
 import { AdminTeamMemberDialog } from "./admin-team-member-dialog";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 
@@ -174,6 +175,8 @@ function TeamRows({ members, userId, openMember }: { members: AdminTeamMember[];
 export function AdminTeamScreen({ user }: { user: AdminIdentity }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const detailsTrigger = useRef<HTMLButtonElement>(null);
+  const inviteTrigger = useRef<HTMLButtonElement>(null);
+  const [inviting, setInviting] = useState(false);
   const [details, setDetails] = useState<{ id: string; open: boolean } | null>(null);
   const query = adminTeamQueryFrom(useSearchParams());
   const filterKey = adminTeamHref({ ...query, page: 1 });
@@ -207,9 +210,14 @@ export function AdminTeamScreen({ user }: { user: AdminIdentity }) {
 
   return (
     <AdminPanel user={user}>
-      <header className="min-w-0 space-y-1">
-        <h1 ref={heading} tabIndex={-1} className="text-balance text-2xl font-semibold outline-none sm:text-3xl">Equipe Administrativa</h1>
-        <p className="text-pretty text-sm text-muted-foreground">Gerencie o acesso dos superadmins e consulte o histórico de alterações da equipe.</p>
+      <header className="flex min-w-0 flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 space-y-1">
+          <h1 ref={heading} tabIndex={-1} className="text-balance text-2xl font-semibold outline-none sm:text-3xl">Equipe Administrativa</h1>
+          <p className="text-pretty text-sm text-muted-foreground">Gerencie o acesso dos superadmins e consulte o histórico de alterações da equipe.</p>
+        </div>
+        {!denied && <Button ref={inviteTrigger} type="button" className="h-11" onClick={() => setInviting(true)}>
+          <UserPlus aria-hidden="true" />Criar membro
+        </Button>}
       </header>
       {(result.isPending || report) && <TeamSummary summary={report?.summary} loading={result.isPending} />}
       <ToastNotice message={result.error?.message} />
@@ -247,6 +255,8 @@ export function AdminTeamScreen({ user }: { user: AdminIdentity }) {
             onPageChange={(page) => navigate({ ...query, page })} />
         )}
       </Card>
+      {inviting && <AdminTeamInviteDialog onClose={() => setInviting(false)}
+        restoreFocus={() => (inviteTrigger.current ?? heading.current)?.focus()} />}
       {details && <AdminTeamMemberDialog key={details.id} memberId={details.id} userId={user.id} open={details.open}
         onOpenChange={(open) => setDetails({ id: details.id, open })} onCloseAutoFocus={restoreFocus} />}
     </AdminPanel>

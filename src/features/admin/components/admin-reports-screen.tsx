@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
@@ -50,7 +49,7 @@ const settlements = [
   { key: "settledCount", label: "Operações confirmadas" }, { key: "datedCount", label: "Com data de efetivação" },
 ];
 const applications = [
-  { key: "applicationCount", label: "Cadastros" }, { key: "linkedCount", label: "Vinculados" },
+  { key: "applicationCount", label: "Cadastros" }, { key: "approvedCount", label: "Aprovados" },
   { key: "reviewCount", label: "Na fila de análise" }, { key: "rejectedCount", label: "Recusados" },
 ];
 const reportFields: Record<ReportScope["kind"], { summary: Metric[]; columns: Metric[]; note: string }> = {
@@ -310,22 +309,20 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const origin = useRef<HTMLButtonElement>(null);
   const preview = useQuery({
-    enabled: development,
     queryKey: ["admin-report-preview", user.id, scope, query.page],
     queryFn: ({ signal }) => adminReports.preview(query, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && request.queryKey[2] === scope ? previous : undefined,
     staleTime: 15_000, retry: retryAdminRead,
   });
   const history = useQuery({
-    enabled: development,
     queryKey: [...historyKey, historyPage],
     queryFn: ({ signal }) => adminReports.history(historyPage, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id ? previous : undefined,
     staleTime: 15_000, retry: retryAdminRead,
   });
   const denied = accessDenied(preview.error) || accessDenied(history.error);
-  const data = development ? (denied ? undefined : preview.data) : undefined;
-  const records = development ? (denied ? undefined : history.data) : undefined;
+  const data = denied ? undefined : preview.data;
+  const records = denied ? undefined : history.data;
 
   function navigate(next: ReportPreviewQuery, nextHistoryPage = historyPage) {
     window.history.replaceState(null, "", reportPageHref(next, nextHistoryPage));
@@ -356,7 +353,7 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
         {preview.isLoading && <p role="status" className="sr-only">Carregando prévia do relatório</p>}
         <SkeletonReveal flow revealed={!preview.isLoading} skeleton={<ReportSkeleton preview />}>
           {data ? <ReportDataset data={data} query={query} busy={preview.isPlaceholderData} onChange={navigate} />
-            : !development ? <OperationalDataUnavailable /> : (preview.isError || denied) && <ReadError label="Não foi possível consultar a prévia" retry={() => void preview.refetch()} />}
+            : (preview.isError || denied) && <ReadError label="Não foi possível consultar a prévia" retry={() => void preview.refetch()} />}
         </SkeletonReveal>
       </Card>
 
@@ -377,7 +374,7 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
             </>
           ) : records ? (
             <p className="p-4 text-pretty text-sm text-muted-foreground sm:px-5">As emissões aparecerão aqui após a confirmação.</p>
-          ) : !development ? <OperationalDataUnavailable /> : (history.isError || denied) && <ReadError label="Não foi possível consultar o histórico" retry={() => void history.refetch()} />}
+          ) : (history.isError || denied) && <ReadError label="Não foi possível consultar o histórico" retry={() => void history.refetch()} />}
         </SkeletonReveal>
       </Card>
       {action && <ReportFileDialog action={action} onClose={() => setAction(undefined)} onIssue={() => {

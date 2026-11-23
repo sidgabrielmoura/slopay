@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 
 import { useRef, useState } from "react";
 import Link from "next/link";
@@ -41,10 +40,10 @@ export function LiveWithdrawalApprovals({ accountId }: { accountId: string }) {
   const origin = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const before = cursors.at(-1);
-  const key = ["withdrawal-approvals", accountId] as const;
+  const gateway = withdrawalApprovalsGateway(development);
+  const key = ["withdrawal-approvals", accountId, development] as const;
   const queue = useQuery({
-    enabled: development,
-    queryKey: [...key, group, before], queryFn: ({ signal }) => withdrawalApprovalsGateway.list(group, before, signal),
+    queryKey: [...key, group, before], queryFn: ({ signal }) => gateway.list(group, before, signal),
     retry: false, refetchInterval: 15_000,
   });
   const more = queue.data?.nextCursor;
@@ -69,11 +68,11 @@ export function LiveWithdrawalApprovals({ accountId }: { accountId: string }) {
             <TabsList aria-label="Status das aprovações">
               <TabsTrigger value="pending">Pendentes</TabsTrigger><TabsTrigger value="history">Histórico</TabsTrigger>
             </TabsList>
-            <Button type="button" size="icon" variant="ghost" aria-label="Atualizar aprovações" disabled={!development || queue.isFetching}
+            <Button type="button" size="icon" variant="ghost" aria-label="Atualizar aprovações" disabled={queue.isFetching}
               onClick={() => void queue.refetch()}><RotateCw aria-hidden="true" /></Button>
           </div>
           <TabsContent value={group} className="mt-0">
-            {!development ? <OperationalDataUnavailable title="Aprovações indisponíveis" /> : queue.isPending ? (
+            {queue.isPending ? (
               <div className="grid gap-3 p-5" aria-busy="true" aria-label="Carregando aprovações">
                 {[0, 1, 2].map((item) => <Skeleton key={item} className="h-16 w-full" />)}
               </div>
@@ -81,7 +80,7 @@ export function LiveWithdrawalApprovals({ accountId }: { accountId: string }) {
               <Empty className="rounded-none border-0" icon={<ListChecks aria-hidden="true" />}
                 title={queue.isError ? "Aprovações indisponíveis" : group === "history" ? "Nenhuma decisão registrada" : "Nenhuma solicitação pendente"}
                 description={queue.error instanceof ApiError && queue.error.status === 404
-                  ? "A equipe do Slopay precisa habilitar a integração de saques no Sandbox."
+                  ? "A integração de solicitações de saque precisa ser habilitada para esta conta."
                   : queue.isError ? "Atualize para consultar novamente."
                     : group === "pending" && !queue.data?.enabled ? "A conta aguarda a ativação da validação de saques." : undefined} />
             ) : (
@@ -99,7 +98,7 @@ export function LiveWithdrawalApprovals({ accountId }: { accountId: string }) {
                       </div>
                       {group === "pending" ? <Button type="button" variant="outline" className="justify-self-start"
                         onClick={(event) => { origin.current = event.currentTarget; setSelection(item.id); }}>Revisar</Button>
-                        : <Button asChild variant="ghost" className="justify-self-start">
+                        : item.authorizedAt && <Button asChild variant="ghost" className="justify-self-start">
                           <Link href={`/movimentacoes/saque-${item.id}`} prefetch={false}>Ver movimentação</Link>
                         </Button>}
                     </li>
@@ -114,7 +113,7 @@ export function LiveWithdrawalApprovals({ accountId }: { accountId: string }) {
           </TabsContent>
         </Tabs>
       </Card>
-      {development && selection && <WithdrawalReview key={selection} accountId={accountId} id={selection} onClose={closeReview}
+      {selection && <WithdrawalReview key={selection} accountId={accountId} development={development} id={selection} onClose={closeReview}
         onDecided={() => { setCursors([]); void client.invalidateQueries({ queryKey: key }); }} />}
     </div>
   );
@@ -136,12 +135,13 @@ function ReviewDetails({ review }: { review: WithdrawalApprovalReview }) {
   );
 }
 
-function WithdrawalReview({ accountId, id, onClose, onDecided }: { accountId: string; id: string; onClose: () => void; onDecided: () => void }) {
+function WithdrawalReview({ accountId, id, development, onClose, onDecided }: { accountId: string; id: string; development: boolean; onClose: () => void; onDecided: () => void }) {
+  const gateway = withdrawalApprovalsGateway(development);
   const [open, setOpen] = useState(true);
   const [decision, setDecision] = useState<ApprovalDecision | null>(null);
   const continuing = useRef(false);
   const details = useQuery({
-    queryKey: ["withdrawal-approval-review", accountId, id], queryFn: ({ signal }) => withdrawalApprovalsGateway.review(id, signal),
+    queryKey: ["withdrawal-approval-review", accountId, development, id], queryFn: ({ signal }) => gateway.review(id, signal),
     retry: false, gcTime: 0, refetchOnWindowFocus: false,
   });
   const review = details.data;
@@ -154,7 +154,7 @@ function WithdrawalReview({ accountId, id, onClose, onDecided }: { accountId: st
     return (
       <IntegrationConfirmationDialog scope={JSON.stringify([id, decision])} title={approved ? "Autorizar saque" : "Recusar saque"}
         description="Confirme sua identidade para registrar a decisão." completed={approved ? "Saque encaminhado para processamento" : "Solicitação recusada"}
-        options={() => withdrawalApprovalsGateway.options(id, decision)} apply={(proof) => withdrawalApprovalsGateway.decide(id, decision, proof)}
+        options={() => gateway.options(id, decision)} apply={(proof) => gateway.decide(id, decision, proof)}
         onSuccess={onDecided} onClose={onClose}><ReviewDetails review={review} /></IntegrationConfirmationDialog>
     );
   }

@@ -182,7 +182,7 @@ export function PixTransactionDialog({ adminId, selection, onClose, onRestoreFoc
         onOpenAutoFocus={(event) => { event.preventDefault(); title.current?.focus({ preventScroll: true }); }}>
         <DialogHeader className="border-b border-border py-4 pr-12 pl-4 text-left sm:pl-6">
           <DialogTitle ref={title} tabIndex={-1} className="text-balance text-xl outline-none">{selection ? pixKindLabels[selection.kind] : "Detalhes da transação"}</DialogTitle>
-          <DialogDescription>Detalhes da transação em Sandbox.</DialogDescription>
+          <DialogDescription>Dados da movimentação registrada no Slopay.</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
           {selection && <DetailLoad key={`${selection.kind}:${selection.id}`} adminId={adminId} selection={selection} onScope={onScope}

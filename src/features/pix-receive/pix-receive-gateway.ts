@@ -34,11 +34,11 @@ function toReceipt(payment: z.infer<typeof pixPaymentSchema>): PixReceipt {
 }
 
 export const asaasPixReceive: PixReceiveGateway = {
-  async create(amountInCents, key) {
+  async create(amountInCents, key, payer) {
     const payment = await request(endpoint, pixPaymentSchema, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Idempotency-Key": key },
-      body: JSON.stringify({ amountInCents }),
+      body: JSON.stringify({ amountInCents, payer }),
     });
     if (payment.amountInCents !== amountInCents) throw new ApiError(unavailable, 503);
     return toReceipt(payment);

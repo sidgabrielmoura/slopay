@@ -2,7 +2,8 @@ import "server-only";
 
 import type { NextRequest } from "next/server";
 import type { ZodType } from "zod";
-import { asaasPixMinimumMessage } from "@/features/pix-receive/pix-receipt";
+import { asaasPixMinimumMessage, type PixPayer } from "@/features/pix-receive/pix-receipt";
+import { developmentFeaturesEnabled } from "@/config/development";
 import { appOrigin, requestBackend } from "./auth-backend";
 import { accessCookie } from "./session";
 
@@ -38,7 +39,7 @@ export async function forwardPixRequest(
   request: NextRequest,
   path: `/payments/pix${string}`,
   schema: ZodType<object>,
-  operation?: { amountInCents: number; idempotencyKey: string } | "simulate" | "reconcile",
+  operation?: { amountInCents: number; idempotencyKey: string; payer?: PixPayer } | "simulate" | "reconcile",
 ) {
   const accessToken = request.cookies.get(accessCookie)?.value;
   if (!accessToken) return pixResponse({ message: errors[401] }, 401);
@@ -48,13 +49,14 @@ export async function forwardPixRequest(
   try {
     const response = await requestBackend(path, {
       method: operation ? "POST" : "GET",
-      body: payload ? { amountInCents: payload.amountInCents } : undefined,
+      body: payload ? { amountInCents: payload.amountInCents, payer: payload.payer } : undefined,
       idempotencyKey: payload?.idempotencyKey,
       accessToken,
     });
     if (response.ok) {
       const data = schema.safeParse(await response.json());
-      if (data.success) return pixResponse(data.data, response.status);
+      if (data.success && (!("environment" in data.data) || data.data.environment !== "sandbox" || developmentFeaturesEnabled()))
+        return pixResponse(data.data, response.status);
     } else {
       if (simulation && response.status === 409) {
         const data = await response.json().catch(() => null);
@@ -70,6 +72,8 @@ export async function forwardPixRequest(
         if (data?.code === "PIX_AMOUNT_BELOW_MINIMUM") {
           return pixResponse({ code: data.code, message: asaasPixMinimumMessage }, 400);
         }
+        if (["INVALID_PIX_PAYER", "PIX_PAYER_REQUIRED"].includes(data?.code))
+          return pixResponse({ code: data.code, message: "Confira o nome e o CPF ou CNPJ do pagador." }, 400);
       } else {
         await response.body?.cancel().catch(() => undefined);
       }

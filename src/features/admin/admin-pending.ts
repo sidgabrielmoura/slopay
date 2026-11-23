@@ -35,9 +35,9 @@ export type AdminPendingReport = z.infer<typeof adminPendingSchema>;
 export const pendingCategoryLabels: Record<PendingCategory, string> = {
   ALL: "Todas as pendências", ONBOARDING: "Cadastros", PIX_REVIEW: "Revisões Pix", OWNER_APPROVAL: "Aprovações do titular", WEBHOOK: "Webhooks",
 };
-export const pendingKindLabels = { ACCOUNT: "Vinculação de cadastro", CHARGE: "Revisão de recebimento", WITHDRAWAL: "Saque Pix", WEBHOOK: "Fila de webhook" };
+export const pendingKindLabels = { ACCOUNT: "Análise de cadastro", CHARGE: "Revisão de recebimento", WITHDRAWAL: "Saque Pix", WEBHOOK: "Fila de webhook" };
 export const pendingStateLabels = {
-  AWAITING_LINK: "Aguardando vinculação", ACCOUNT_UNDER_REVIEW: "Cadastro em análise",
+  AWAITING_LINK: "Pronto para análise", ACCOUNT_UNDER_REVIEW: "Cadastro em análise",
   ACCOUNT_CHANGES_REQUESTED: "Ajustes solicitados", ACCOUNT_RESUBMITTED: "Cadastro reenviado",
   REVIEW: "Em revisão", BLOCKED: "Bloqueado para análise", AWAITING_APPROVAL: "Aguardando titular", INTERRUPTED: "Fila interrompida",
 };

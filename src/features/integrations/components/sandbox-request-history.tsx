@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileText, RotateCw } from "lucide-react";
@@ -11,16 +10,15 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Empty } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/dates";
-import { sandboxApiGateway } from "../sandbox-api";
+import { integrationApiGateway } from "../sandbox-api";
 
 export function SandboxRequestHistory({ accountId }: { accountId: string }) {
   const [cursors, setCursors] = useState<string[]>([]);
   const before = cursors.at(-1);
   const development = useDevelopmentFeatures();
   const logs = useQuery({
-    enabled: development,
-    queryKey: ["sandbox-request-logs", accountId, before],
-    queryFn: ({ signal }) => sandboxApiGateway.requestLogs(before, signal),
+    queryKey: ["integration-request-logs", accountId, development, before],
+    queryFn: ({ signal }) => integrationApiGateway(development).requestLogs(before, signal),
     retry: false,
   });
   const next = logs.data?.nextCursor;
@@ -32,11 +30,11 @@ export function SandboxRequestHistory({ accountId }: { accountId: string }) {
           <CardTitle>Histórico de requisições</CardTitle>
           <CardDescription>Chamadas com chaves da empresa nos últimos 30 dias.</CardDescription>
         </div>
-        <Button type="button" variant="outline" disabled={!development || logs.isFetching} onClick={() => void logs.refetch()}>
+        <Button type="button" variant="outline" disabled={logs.isFetching} onClick={() => void logs.refetch()}>
           <RotateCw size={16} aria-hidden="true" /> Atualizar
         </Button>
       </CardHeader>
-      {!development ? <OperationalDataUnavailable title="Histórico de requisições indisponível" /> : logs.isPending ? (
+      {logs.isPending ? (
         <div className="grid gap-3 p-4" aria-busy="true" aria-label="Carregando requisições">
           {Array.from({ length: 3 }, (_, index) => <Skeleton key={index} className="h-16 w-full" />)}
         </div>

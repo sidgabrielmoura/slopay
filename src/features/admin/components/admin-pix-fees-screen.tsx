@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, ChevronRight, Search } from "lucide-react";
@@ -91,6 +90,7 @@ function AppliedLimits({ limits, loading }: { limits?: PixFeeLimits; loading: bo
   const cell = "min-w-0 space-y-1 bg-card px-4 py-4 sm:px-5";
   const grid = "grid min-w-0 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3";
   const batch = limits?.pilotBatchLimits;
+  const development = useDevelopmentFeatures();
   return (
     <section aria-labelledby="pix-fee-limits" className="grid min-w-0 gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -120,11 +120,21 @@ function AppliedLimits({ limits, loading }: { limits?: PixFeeLimits; loading: bo
             <dd className="text-pretty text-xs text-muted-foreground">O valor e a tarifa precisam caber no saldo.</dd>
           </div>
           <div className={cell}>
-            <dt className="text-sm text-muted-foreground">Saques em lote no piloto</dt>
+            <dt className="text-sm text-muted-foreground">Limite de itens por lote</dt>
             <dd className="text-lg font-semibold tabular-nums">
-              {batch ? count.format(batch.minimum) + " a " + count.format(batch.maximum) + " Pix por lote" : "Piloto indisponível"}
+              {batch ? count.format(batch.minimum) + " a " + count.format(batch.maximum) + " Pix por lote" : "Indisponível"}
             </dd>
           </div>
+          {!development && ([
+            ["Máximo por cobrança Pix", limits.maxChargeInCents],
+            ["Máximo por saque ou lote", limits.maxWithdrawalInCents],
+            ["Máximo diário por titular", limits.maxDailyWithdrawalInCents],
+          ] as const).map(([label, value]) => (
+            <div className={cell} key={label}>
+              <dt className="text-sm text-muted-foreground">{label}</dt>
+              <dd className="text-xl font-semibold tabular-nums">{value ? <PanelAmount cents={value} /> : "Indisponível"}</dd>
+            </div>
+          ))}
         </dl>}
       </SkeletonReveal>
     </section>
@@ -135,7 +145,7 @@ function WalletIdentity({ item }: { item: PixFeeWallet }) {
   return (
     <div className="min-w-0 space-y-0.5">
       <p className="wrap-anywhere font-medium">{item.companyName}</p>
-      <p className="text-xs text-muted-foreground tabular-nums">{item.cnpj ? formatCNPJ(item.cnpj) : "Pessoa física"} · Final {item.walletSuffix}</p>
+      <p className="text-xs text-muted-foreground tabular-nums">{item.cnpj ? formatCNPJ(item.cnpj) + " · " : ""}Final {item.walletSuffix}</p>
     </div>
   );
 }
@@ -221,14 +231,13 @@ export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
   const filters = pixFeesParams({ ...query, page: 1 });
   const filtered = Boolean(filters);
   const result = useQuery({
-    enabled: development,
     queryKey: [...adminPixFeesListKey(user.id), filters, query.page],
     queryFn: ({ signal }) => adminPixFees.list(query, signal),
     placeholderData: (previous, prior) => prior?.queryKey[1] === user.id && prior.queryKey[2] === filters ? previous : undefined,
     staleTime: 15_000, retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const data = development ? (denied ? undefined : result.data) : undefined;
+  const data = denied ? undefined : result.data;
   const loading = result.isLoading || result.isPlaceholderData;
 
   function navigate(next: PixFeesQuery) {
@@ -281,7 +290,7 @@ export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
                 <Button asChild variant="outline" className="h-11"><Link href={operationalAccountsPath} prefetch={false}>Ver contas operacionais</Link></Button>
               )}
             </div>
-          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
+          ) : result.isError && (
             <div className="grid min-h-40 content-center justify-items-center gap-3 px-4 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Consulta de tarifas indisponível</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>

@@ -217,9 +217,11 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
 
   async function submitWithdrawal(proof: WithdrawalProof) {
     if (!draft) throw new ApiError(withdrawalUnavailable, 503);
+    const review = !development && "verificationCode" in proof
+      ? (await asaasPixWithdrawals.passkeyOptions(draft.id, draft.data)).review : undefined;
     saveWithdrawalReference(storeKey, draft.id);
     try {
-      return await asaasPixWithdrawals.create(draft.id, { ...draft.data, ...proof });
+      return await asaasPixWithdrawals.create(draft.id, { ...draft.data, ...proof, ...(review && { review }) });
     } catch (error) {
       if (!uncertainSubmission.current && error instanceof ApiError &&
         (error.code === "PIX_WITHDRAWAL_FEE_CHANGED" || error.code === "PIX_WITHDRAWAL_INSUFFICIENT_BALANCE")) {
@@ -518,8 +520,8 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
               onAnimationEnd={() => setAnimation(null)}
             />
             <p className="text-center text-xs text-muted-foreground" role="status">
-              {options.data ? <>Saldo no Sandbox <PanelAmount cents={options.data.availableBalanceInCents} /></>
-                : options.isError ? "Saldo indisponível" : "Consultando saldo do Sandbox"}
+              {options.data ? <>Saldo disponível <PanelAmount cents={options.data.availableBalanceInCents} /></>
+                : options.isError ? "Saldo indisponível" : "Consultando saldo disponível"}
             </p>
             <div className="grid gap-2">
               <label htmlFor={id + "-type"} className="text-sm font-medium">Tipo de chave Pix</label>

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { passkeyAssertionSchema } from "@/features/auth/passkey-contract";
+import { passkeyAssertionSchema, passkeyOptionsSchema } from "@/features/auth/passkey-contract";
 import { expenseCategorySchema } from "@/features/expenses/expenses";
 import { MAX_PIX_AMOUNT_IN_CENTS, pixAmountSchema, pixPaymentIdSchema } from "@/features/pix-receive/pix-receipt";
 import { cleanDocument, formatBrazilianInput, pixKeyInputMask } from "@/lib/validators";
@@ -48,8 +48,10 @@ export const withdrawalDraftSchema = z.strictObject({
   feeLimitInCents: withdrawalFeeSchema.optional(),
   expenseCategory: expenseCategorySchema.nullable().optional(),
 });
+export const withdrawalReviewSchema = z.string().regex(/^\d{13}\.[0-9a-f]{64}$/);
+export const withdrawalPasskeyOptionsSchema = passkeyOptionsSchema.extend({ review: withdrawalReviewSchema.optional() });
 export const withdrawalInputSchema = z.union([
-  withdrawalDraftSchema.extend({ verificationCode: z.string().regex(/^\d{6}$/) }),
+  withdrawalDraftSchema.extend({ verificationCode: z.string().regex(/^\d{6}$/), review: withdrawalReviewSchema.optional() }),
   withdrawalDraftSchema.extend({ credential: passkeyAssertionSchema }),
 ]);
 export type WithdrawalDraftInput = z.infer<typeof withdrawalDraftSchema>;
@@ -79,14 +81,14 @@ const withdrawalStatusLabels = {
 const withdrawalReasons: Record<string, string> = {
   INSUFFICIENT_BALANCE: "Saldo disponível insuficiente para o saque.",
   AUTHORIZATION_EXPIRED: "A autorização expirou antes do envio. Revise os dados e inicie um novo saque.",
-  PROVIDER_REJECTED: "O Asaas recusou a transferência. Confira o saldo e a chave Pix no Sandbox.",
-  PROVIDER_FAILED: "O Asaas informou que a transferência falhou.",
-  PROVIDER_ACCESS_DENIED: "O Asaas recusou o acesso à transferência. Confira a chave de API e as permissões do Sandbox.",
+  PROVIDER_REJECTED: "A transferência foi recusada. Confira o saldo e a chave Pix.",
+  PROVIDER_FAILED: "A transferência falhou.",
+  PROVIDER_ACCESS_DENIED: "A transferência está indisponível para a carteira.",
 };
 
 export const withdrawalSchema = z.object({
   id: pixPaymentIdSchema,
-  environment: z.literal("sandbox"),
+  environment: z.enum(["sandbox", "live"]),
   state: z.enum(Object.keys(withdrawalStatusLabels) as Array<keyof typeof withdrawalStatusLabels>),
   amountInCents: pixAmountSchema,
   currency: z.literal("BRL"),
@@ -115,7 +117,7 @@ export function withdrawalStatusLabel(withdrawal: Pick<PixWithdrawal, "state">) 
 
 export function withdrawalIssue(withdrawal: Pick<PixWithdrawal, "state" | "reason"> | undefined) {
   if (!withdrawal) return null;
-  if (withdrawal.state === "REVIEW") return "Confira o status no Asaas antes de repetir este saque.";
+  if (withdrawal.state === "REVIEW") return "Acompanhe a revisão deste saque antes de solicitar outro.";
   if (withdrawal.state === "FAILED") {
     return withdrawalReasons[withdrawal.reason ?? ""] ?? "O saque foi encerrado. Consulte os detalhes da operação.";
   }

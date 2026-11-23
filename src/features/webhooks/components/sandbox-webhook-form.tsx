@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,15 +28,15 @@ export function SandboxWebhookForm({ accountId, webhookId }: { accountId: string
   const list = useQuery({
     queryKey: sandboxWebhookKey(accountId),
     queryFn: ({ signal }) => sandboxWebhookGateway.list(signal),
-    enabled: development && !webhookId, retry: false,
+    enabled: !webhookId, retry: false,
   });
   const detail = useQuery({
     queryKey: sandboxWebhookKey(accountId, webhookId ?? "new"),
     queryFn: ({ signal }) => sandboxWebhookGateway.get(webhookId!, signal),
-    enabled: development && Boolean(webhookId), retry: false,
+    enabled: Boolean(webhookId), retry: false,
   });
   const reading = webhookId ? detail : list;
-  const ready = development && (webhookId ? Boolean(detail.data) : list.data?.connected === true);
+  const ready = webhookId ? Boolean(detail.data) : list.data?.connected === true;
 
   return (
     <div className="mx-auto grid w-full min-w-0 max-w-4xl gap-5">
@@ -47,17 +46,17 @@ export function SandboxWebhookForm({ accountId, webhookId }: { accountId: string
       <IntegrationHeading
         title={webhookId ? "Configurar webhook" : "Novo webhook"}
         description={webhookId ? "Ajuste o destino HTTPS e os eventos que ele recebe." : "Escolha o destino HTTPS e os eventos que ele deve receber."}
-        action={development && detail.data && <SandboxWebhookBadge webhook={detail.data} />}
+        action={detail.data && <SandboxWebhookBadge webhook={detail.data} />}
       />
-      {!development ? <Card><OperationalDataUnavailable title="Configuração de webhooks indisponível" /></Card> : ready ? <Editor accountId={accountId} webhook={detail.data} /> : (
-        <SandboxWebhookFallback pending={reading.isPending} error={reading.error} unlinked={list.data?.connected === false}
+      {ready ? <Editor accountId={accountId} webhook={detail.data} development={development} /> : (
+        <SandboxWebhookFallback development={development} pending={reading.isPending} error={reading.error} unlinked={list.data?.connected === false}
           retry={() => void reading.refetch()} />
       )}
     </div>
   );
 }
 
-function Editor({ accountId, webhook }: { accountId: string; webhook?: SandboxWebhook }) {
+function Editor({ accountId, webhook, development }: { accountId: string; webhook?: SandboxWebhook; development: boolean }) {
   const router = useRouter();
   const query = useQueryClient();
   const [review, setReview] = useState<WebhookReview | null>(null);
@@ -99,7 +98,7 @@ function Editor({ accountId, webhook }: { accountId: string; webhook?: SandboxWe
         </Card>
       )}
 
-      <SettingsForm key={webhook ? webhook.id + "-" + webhook.version : "new"} webhook={webhook} onReview={(next, source) => {
+      <SettingsForm key={webhook ? webhook.id + "-" + webhook.version : "new"} webhook={webhook} development={development} onReview={(next, source) => {
         control.current = source;
         setReview(next);
       }} />
@@ -130,8 +129,9 @@ function Editor({ accountId, webhook }: { accountId: string; webhook?: SandboxWe
   );
 }
 
-function SettingsForm({ webhook, onReview }: {
+function SettingsForm({ webhook, onReview, development }: {
   webhook?: SandboxWebhook;
+  development: boolean;
   onReview: (review: WebhookReview, trigger: HTMLElement | null) => void;
 }) {
   const [events, setEvents] = useState<readonly WebhookEventType[]>(webhook?.eventTypes ?? []);
@@ -145,7 +145,7 @@ function SettingsForm({ webhook, onReview }: {
       name: form.get("name"),
       endpointUrl: form.get("endpointUrl"),
       eventTypes: events,
-      deliveryMode: mode,
+      deliveryMode: development ? mode : "SEQUENTIAL",
       retryEnabled: form.has("retryEnabled"),
     });
     if (!settings.success) {
@@ -187,11 +187,13 @@ function SettingsForm({ webhook, onReview }: {
             aria-invalid={invalid === "endpointUrl" || undefined} onChange={() => setInvalid(undefined)} />
         </div>
         <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-end">
-          <div className="grid min-w-0 gap-1.5">
+          {development ? <div className="grid min-w-0 gap-1.5">
             <label htmlFor="sandbox-webhook-mode" className="text-sm font-medium">Modo de entrega</label>
             <GlideSelect id="sandbox-webhook-mode" ariaLabel="Modo de entrega" options={webhookDeliveryOptions} value={mode}
               onChange={(value) => setMode(value === "PARALLEL" ? "PARALLEL" : "SEQUENTIAL")} size="lg" className="w-full" />
-          </div>
+          </div> : <div className="grid gap-1.5"><p className="text-sm font-medium">Modo de entrega</p>
+            <p className="text-sm text-muted-foreground">Sequencial. A fila pausa quando uma entrega esgota as tentativas.</p>
+          </div>}
           <label className="flex min-h-11 items-center gap-2.5 text-sm">
             <Checkbox name="retryEnabled" defaultChecked={webhook?.retryEnabled ?? true} /> Fazer retentativas automáticas
           </label>

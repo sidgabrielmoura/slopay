@@ -7,13 +7,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { BrazilianInput } from "@/components/ui/brazilian-input";
+import { Input } from "@/components/ui/input";
 import { LoadingIndicator, OperationFailure } from "@/components/ui/loading-indicator";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { ApiError } from "@/lib/api-client";
 import { formatCentsToBrl } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { usePreferences } from "@/providers/preferences-provider";
-import { asaasPixMinimumMessage, MAX_PIX_AMOUNT_IN_CENTS, MIN_ASAAS_PIX_AMOUNT_IN_CENTS, pixAmountSchema, pixPaymentIdSchema, type PixReceipt, type PixReceiveGateway } from "../pix-receipt";
+import { asaasPixMinimumMessage, MAX_PIX_AMOUNT_IN_CENTS, MIN_ASAAS_PIX_AMOUNT_IN_CENTS, pixAmountSchema, pixPayerSchema, pixPaymentIdSchema, type PixReceipt, type PixReceiveGateway } from "../pix-receipt";
 import { PixAmountField } from "./pix-amount-field";
 import { PixFlowTitle, PixOperationSurface } from "./pix-operation-surface";
 import { PixReceiptCard, receiptStatusLabels } from "./pix-receipt-card";
@@ -23,7 +25,7 @@ type ChargeIntent = { amountInCents: number; key: string };
 type Tracking =
   | { receipt: PixReceipt }
   | { reference: { id: string; amountInCents: number } };
-type Mode = "demo" | "sandbox";
+type Mode = "demo" | "sandbox" | "live";
 type StoredTracking = { intent: ChargeIntent } | { receipt: Pick<PixReceipt, "id" | "amountInCents"> };
 
 function writeTracking(key: string, data: StoredTracking | null) {
@@ -61,6 +63,10 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
   const [dialogOpen, setOpen] = useState(false);
   const open = inline || dialogOpen;
   const [amountInCents, setAmountInCents] = useState(0);
+  const [payerName, setPayerName] = useState("");
+  const [payerDocument, setPayerDocument] = useState("");
+  const live = environment === "live";
+  const remember = environment !== "demo";
   const [amountError, setAmountError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -84,7 +90,7 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
   const queryKey = ["dashboard-pix", environment, accountId, trackedReference?.id] as const;
 
   useEffect(() => {
-    if (environment !== "sandbox") return;
+    if (!remember) return;
 
     try {
       const saved = JSON.parse(sessionStorage.getItem(storeKey) ?? "null") as StoredTracking | null;
@@ -100,7 +106,7 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
     } catch {
       // Ignore stale or unavailable session storage.
     }
-  }, [environment, storeKey]);
+  }, [remember, storeKey]);
 
   const status = useQuery({
     queryKey,
@@ -189,12 +195,18 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
     if (!available || submittingLock.current) return;
     const amount = pixAmountSchema.safeParse(intent?.amountInCents ?? amountInCents);
     if (!amount.success) {
-      const minimum = environment === "sandbox" ? MIN_ASAAS_PIX_AMOUNT_IN_CENTS : 1;
+      const minimum = remember ? MIN_ASAAS_PIX_AMOUNT_IN_CENTS : 1;
       setAmountError(`Informe um valor entre ${formatCentsToBrl(minimum)} e ${formatCentsToBrl(MAX_PIX_AMOUNT_IN_CENTS)}.`);
       return;
     }
-    if (!intent && environment === "sandbox" && amount.data < MIN_ASAAS_PIX_AMOUNT_IN_CENTS) {
+    if (!intent && remember && amount.data < MIN_ASAAS_PIX_AMOUNT_IN_CENTS) {
       setAmountError(asaasPixMinimumMessage);
+      return;
+    }
+
+    const payer = live ? pixPayerSchema.safeParse({ name: payerName, document: payerDocument.replace(/[./-]/g, "") }) : undefined;
+    if (payer && !payer.success) {
+      toast.error("Confira o nome e o CPF ou CNPJ do pagador.");
       return;
     }
 
@@ -203,14 +215,16 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
     setSubmitting(true);
     setIntent(currentIntent);
     setSubmitError("");
-    if (environment === "sandbox") writeTracking(storeKey, { intent: currentIntent });
+    if (remember) writeTracking(storeKey, { intent: currentIntent });
     try {
-      const result = await gateway.create(currentIntent.amountInCents, currentIntent.key);
+      const result = await gateway.create(currentIntent.amountInCents, currentIntent.key, payer?.data);
       setTracking({ receipt: result });
       setIntent(null);
+      setPayerName("");
+      setPayerDocument("");
       setAnimateOutcome((result.status === "paid" || result.status === "failed") &&
         !reduceMotion && !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-      if (environment === "sandbox") {
+      if (remember) {
         writeTracking(storeKey, { receipt: { id: result.id, amountInCents: result.amountInCents } });
       }
       onReceiptChange();
@@ -220,7 +234,7 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
       if (belowMinimum || environment === "demo" ||
         (!intent && error instanceof ApiError && [400, 401, 403, 404, 422, 429].includes(error.status))) {
         setIntent(null);
-        if (environment === "sandbox") writeTracking(storeKey, null);
+        if (remember) writeTracking(storeKey, null);
       }
       if (belowMinimum) setAmountError(message);
       else setSubmitError(message);
@@ -261,7 +275,7 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
     setAmountInCents(0);
     setAmountError("");
     setSubmitError("");
-    if (environment === "sandbox") writeTracking(storeKey, null);
+    if (remember) writeTracking(storeKey, null);
   }
 
   function openFromNotice(origin: HTMLElement | null) {
@@ -324,9 +338,9 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
             qrError={qrCode.isError ? getError(qrCode.error, "Não foi possível obter o QR Code.") : undefined}
             qrFetching={qrCode.isFetching}
             onRetryQr={() => { void status.refetch(); void qrCode.refetch(); }}
-            onSimulate={development && (gateway.simulate || (gateway.requestSimulation && receipt.status === "pending")) ? simulate : undefined}
+            onSimulate={!live && development && (gateway.simulate || (gateway.requestSimulation && receipt.status === "pending")) ? simulate : undefined}
             simulationRequested={simulationRequestedFor === receipt.id}
-            onReconcile={gateway.requestReconciliation && receipt.status === "review" ? () => reconciliation.mutate(receipt.id) : undefined}
+            onReconcile={!live && gateway.requestReconciliation && receipt.status === "review" ? () => reconciliation.mutate(receipt.id) : undefined}
             reconciling={reconciliation.isPending}
             animateOutcome={animateOutcome}
             onOutcomeEnd={() => setAnimateOutcome(false)}
@@ -351,6 +365,18 @@ export function DashboardPixReceive({ gateway, environment, accountId, available
               />
               {amountError && <span id={amountId + "-error"} className="sr-only">{amountError}</span>}
               <ToastNotice message={amountError} persistent />
+              {live && <fieldset className="grid gap-3" disabled={submitting}>
+                <legend className="mb-2 text-sm font-semibold">Pagador</legend>
+                <label className="grid gap-1.5 text-sm font-medium">
+                  Nome completo ou razão social
+                  <Input value={payerName} onChange={event => setPayerName(event.currentTarget.value)} maxLength={100} required className="h-11" />
+                </label>
+                <label className="grid gap-1.5 text-sm font-medium">
+                  CPF ou CNPJ
+                  <BrazilianInput mask="CPF_OR_CNPJ" inputMode="numeric" value={payerDocument}
+                    onChange={event => setPayerDocument(event.currentTarget.value)} required className="h-11" />
+                </label>
+              </fieldset>}
               {submitError && (intent
                 ? <p role="status" className="text-sm text-muted-foreground">{submitError}</p>
                 : <OperationFailure message={submitError} />)}

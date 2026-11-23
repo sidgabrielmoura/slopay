@@ -49,6 +49,11 @@ export const adminTeamChangeSchema = z.strictObject({
 });
 export const adminTeamConfirmedChange = adminTeamChangeSchema.extend({ proof: integrationProofSchema });
 export const adminTeamChangedSchema = z.object({ updated: z.literal(true), revokedSessions: count });
+export const adminTeamInviteSchema = z.strictObject({ email: z.email().trim().toLowerCase().max(254) });
+const inviteConfirmation = z.string().max(1024).regex(/^[\w-]+\.[\w-]+\.[\w-]+$/);
+export const adminTeamInviteOptionsSchema = passkeyOptionsSchema.extend({ confirmation: inviteConfirmation });
+export const adminTeamConfirmedInvite = adminTeamInviteSchema.extend({ confirmation: inviteConfirmation, proof: integrationProofSchema });
+export const adminTeamInvitedSchema = z.object({ invited: z.literal(true) });
 
 export type AdminTeamQuery = z.infer<typeof adminTeamQuery>;
 export type AdminTeamSummary = z.infer<typeof adminTeamSchema>["summary"];
@@ -101,4 +106,8 @@ export const adminTeam = {
     requestPixGateway(`${api}/${id}/change/options`, passkeyOptionsSchema, "Não foi possível preparar a confirmação.", post(change)),
   change: (id: string, change: AdminTeamChange, proof: IntegrationProof) =>
     requestPixGateway(`${api}/${id}/change`, adminTeamChangedSchema, "Não foi possível alterar o acesso.", post({ ...change, proof })),
+  inviteOptions: (email: string) =>
+    requestPixGateway(`${api}/invite/options`, adminTeamInviteOptionsSchema, "Não foi possível preparar o convite.", post({ email })),
+  invite: (email: string, confirmation: string, proof: IntegrationProof) =>
+    requestPixGateway(`${api}/invite`, adminTeamInvitedSchema, "Não foi possível registrar o convite.", post({ email, confirmation, proof })),
 };

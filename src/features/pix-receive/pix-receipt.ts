@@ -14,7 +14,7 @@ export const pixReceiptDatesSchema = z.object({
 });
 export const pixPaymentSchema = z.object({
   id: pixPaymentIdSchema,
-  environment: z.literal("sandbox"),
+  environment: z.enum(["sandbox", "live"]),
   amountInCents: pixAmountSchema,
   currency: z.literal("BRL"),
   state: z.enum(["QUEUED", "SUBMITTING", "RECONCILING", "OPEN", "RECEIVED", "REVIEW"]),
@@ -43,8 +43,14 @@ export type PixReceipt = {
 
 export type PixReceiptCode = z.infer<typeof pixQrCodeSchema>;
 
+export const pixPayerSchema = z.strictObject({
+  name: z.string().trim().min(3).max(100),
+  document: z.string().regex(/^\d{11}(?:\d{3})?$/),
+});
+export type PixPayer = z.infer<typeof pixPayerSchema>;
+
 export type PixReceiveGateway = {
-  create: (amountInCents: number, key: string) => Promise<PixReceipt>;
+  create: (amountInCents: number, key: string, payer?: PixPayer) => Promise<PixReceipt>;
   get: (id: string, signal?: AbortSignal) => Promise<PixReceipt>;
   qrCode?: (id: string, signal?: AbortSignal) => Promise<PixReceiptCode>;
   simulate?: (id: string) => Promise<PixReceipt>;

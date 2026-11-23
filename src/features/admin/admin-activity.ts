@@ -29,7 +29,7 @@ export type AdminActivity = z.infer<typeof adminActivitySchema>;
 type Tone = "info" | "warning" | "success";
 
 export const adminNoticePresentation: Record<AdminNotice["type"], { title: string; tone: Tone; pending?: boolean }> = {
-  ACCOUNT_READY: { title: "Cadastro pronto para vinculação", tone: "info", pending: true },
+  ACCOUNT_READY: { title: "Cadastro pronto para análise", tone: "info", pending: true },
   ACCOUNT_UPDATED: { title: "Situação do cadastro atualizada", tone: "info" },
   ACCOUNT_LINKED: { title: "Empresa vinculada ao Sandbox", tone: "success" },
   CHARGE_CREATED: { title: "Cobrança Pix registrada", tone: "info" },
@@ -54,6 +54,7 @@ const openingNoticeTitles: Record<string, string> = {
   UNDER_REVIEW: "Cadastro em análise",
   CHANGES_REQUESTED: "Ajustes cadastrais solicitados",
   RESUBMITTED: "Cadastro reenviado para análise",
+  APPROVED: "Cadastro aprovado",
   REJECTED: "Recusa de cadastro registrada",
 };
 
@@ -62,7 +63,7 @@ export function presentAdminNotice(notice: AdminNotice) {
   const openingTitle = notice.type === "ACCOUNT_UPDATED" && Object.hasOwn(openingNoticeTitles, notice.sourceState)
     ? openingNoticeTitles[notice.sourceState]
     : undefined;
-  return openingTitle ? { ...presentation, title: openingTitle } : presentation;
+  return openingTitle ? { ...presentation, title: openingTitle, tone: notice.sourceState === "APPROVED" ? "success" : presentation.tone } : presentation;
 }
 
 export function showAdminNoticeToast(notice: AdminNotice, preferences: AdminPreferences) {

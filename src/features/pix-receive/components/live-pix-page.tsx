@@ -14,12 +14,14 @@ export async function LivePixPage({ view }: { view: PixPageView }) {
   const page = pages[view];
   const user = await requireSession(page.path, { operations: true });
   if (user.role === "ADMIN") redirect("/admin");
-  const overview = user.role === "MERCHANT" && view !== "hub" ? await loadDashboardOverview() : null;
+  const canUsePix = user.role === "MERCHANT" || (user.role === "OPERATOR" && view === "receive" && Boolean(user.merchantId));
+  const overview = canUsePix && view !== "hub" ? await loadDashboardOverview() : null;
   return (
     <MerchantPanel user={user}>
-      <PanelHeading title={page.title} description={user.role === "MERCHANT" ? page.description : "As operações Pix estão disponíveis para o perfil de lojista."} />
-      {user.role === "MERCHANT" && (
+      <PanelHeading title={page.title} description={canUsePix ? page.description : "Confira as permissões do seu perfil para esta operação."} />
+      {canUsePix && (
         <LivePixOperations key={user.id + ":" + view} merchantId={user.id} view={view}
+          environment={overview?.environment ?? "live"}
           receiveAvailable={!!overview?.pixReceiveAvailable} withdrawAvailable={!!overview?.pixWithdrawAvailable}
           unavailable={view !== "hub" && !overview} />
       )}

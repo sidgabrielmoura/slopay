@@ -6,7 +6,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Building2, Check, Circle, Fingerprint, Link2, Mail } from "lucide-react";
+import { ArrowLeft, Building2, Check, Circle, Fingerprint, Mail } from "lucide-react";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,20 +25,21 @@ import {
 } from "../account-openings";
 import { retryAdminRead } from "../admin-query";
 import { AccountOpeningStatus } from "./account-opening-status";
-import { OpeningLinkDialog, OpeningReviewDialog } from "./account-opening-actions";
+import { OpeningApprovalDialog, OpeningReviewDialog } from "./account-opening-actions";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 
 type Application = OpeningDetail["application"];
-type Action = OpeningReview["action"] | "LINK";
+type Action = OpeningReview["action"] | "APPROVE";
 const actionStates: OpeningStatus[] = ["READY", "UNDER_REVIEW", "RESUBMITTED"];
 const nextStep: Record<OpeningStatus, string> = {
   AWAITING_EMAIL: "O titular precisa confirmar o endereço de e-mail.",
   AWAITING_MFA: "O titular precisa cadastrar o autenticador no próprio acesso.",
   AWAITING_APPLICATION: "O titular ainda está preenchendo a solicitação de abertura.",
-  READY: "Confira os dados enviados pelo titular.",
-  UNDER_REVIEW: "Revise os dados e registre os ajustes necessários.",
+  READY: "Assuma a análise para habilitar a aprovação.",
+  UNDER_REVIEW: "Confira os dados enviados antes de aprovar o cadastro.",
   CHANGES_REQUESTED: "Acompanhe a resposta do titular pelo painel.",
-  RESUBMITTED: "O titular solicitou nova análise. Confira o cadastro atualizado.",
+  RESUBMITTED: "O titular atualizou o cadastro. Assuma a nova análise para habilitar a aprovação.",
+  APPROVED: "O titular já pode acessar o painel do Slopay.",
   LINKED: "O vínculo Sandbox está registrado. Use o caminho do webhook para configurar as confirmações da conta.",
   REJECTED: "A recusa foi registrada. Reabra a análise se houver novos dados para avaliar.",
   RESTRICTED: "A situação do acesso precisa ser regularizada para seguir com o cadastro.",
@@ -56,13 +57,17 @@ export function AdminAccountOpeningDetail({ user, ownerId }: { user: AdminIdenti
   const result = useQuery({
     queryKey: ["admin-account-opening-detail", user.id, ownerId, page],
     queryFn: ({ signal }) => accountOpenings.detail(ownerId, page, signal),
-    placeholderData: (previous) => previous?.application.id === ownerId ? previous : undefined,
+    placeholderData: (previous, request) => request?.queryKey[1] === user.id && previous?.application.id === ownerId ? previous : undefined,
     staleTime: 10_000,
     refetchInterval: 30_000,
     retry: retryAdminRead,
   });
   const record = result.data;
   const application = record?.application;
+  const analysisAssignedToAdmin = application?.status === "UNDER_REVIEW" && application.analystId === user.id;
+  const nextStepStatus = application?.status === "UNDER_REVIEW" && !analysisAssignedToAdmin
+    ? "READY"
+    : application?.status;
 
   function update() {
     for (const key of ["admin-account-openings", "admin-account-opening-detail", "admin-pending", "admin-notifications", "admin-dashboard"]) {
@@ -109,7 +114,11 @@ export function AdminAccountOpeningDetail({ user, ownerId }: { user: AdminIdenti
                   <h2 className="text-balance text-lg font-semibold">Próxima etapa</h2>
                   {development && <Badge variant="secondary">Sandbox</Badge>}
                 </div>
-                <p className="text-pretty text-sm text-muted-foreground">{nextStep[application.status]}</p>
+                <p className="text-pretty text-sm text-muted-foreground">
+                  {analysisAssignedToAdmin && !application.submittedAt
+                    ? "A aprovação fica disponível após o titular enviar a solicitação de abertura."
+                    : nextStep[nextStepStatus ?? application.status]}
+                </p>
               </CardHeader>
               <CardContent className="grid gap-4 px-5 pb-5">
                 {application.reason && (
@@ -120,7 +129,7 @@ export function AdminAccountOpeningDetail({ user, ownerId }: { user: AdminIdenti
                     <p className="wrap-anywhere whitespace-pre-wrap text-pretty text-sm">{application.reason}</p>
                   </div>
                 )}
-                <ApplicationActions application={application} adminId={user.id} open={open} />
+                <ApplicationActions application={application} analysisAssignedToAdmin={analysisAssignedToAdmin} open={open} />
               </CardContent>
             </Card>
             <div className="grid min-w-0 items-start gap-5 xl:grid-cols-2">
@@ -177,8 +186,8 @@ export function AdminAccountOpeningDetail({ user, ownerId }: { user: AdminIdenti
         )}
       </SkeletonReveal>
 
-      {development && application && action === "LINK" && <OpeningLinkDialog application={application} {...handoff} />}
-      {application && action && action !== "LINK" && <OpeningReviewDialog application={application} action={action} {...handoff} />}
+      {application && action === "APPROVE" && <OpeningApprovalDialog application={application} {...handoff} />}
+      {application && action && action !== "APPROVE" && <OpeningReviewDialog application={application} action={action} {...handoff} />}
     </AdminPanel>
   );
 }
@@ -213,10 +222,9 @@ function ApplicationSubmission({ data, submittedAt }: {
   );
 }
 
-function ApplicationActions({ application, adminId, open }: {
-  application: Application; adminId: string; open: (action: Action, target: HTMLElement) => void;
+function ApplicationActions({ application, analysisAssignedToAdmin, open }: {
+  application: Application; analysisAssignedToAdmin: boolean; open: (action: Action, target: HTMLElement) => void;
 }) {
-  const development = useDevelopmentFeatures();
   if (application.status === "REJECTED") {
     return <Button type="button" className="h-11 w-fit" onClick={(event) => open("REOPEN", event.currentTarget)}>Reabrir análise</Button>;
   }
@@ -230,11 +238,16 @@ function ApplicationActions({ application, adminId, open }: {
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap gap-2">
-        {development && application.sandboxEnabled && <Button type="button" className="h-11" onClick={(event) => open("LINK", event.currentTarget)}>
-          <Link2 aria-hidden="true" />Vincular conta Sandbox
-        </Button>}
-        {application.analystId !== adminId && <Button type="button" variant="outline" className="h-11"
-          onClick={(event) => open("START_REVIEW", event.currentTarget)}>Assumir análise</Button>}
+        {!analysisAssignedToAdmin && (
+          <Button type="button" className="h-11" onClick={(event) => open("START_REVIEW", event.currentTarget)}>
+            Assumir análise
+          </Button>
+        )}
+        {analysisAssignedToAdmin && application.submittedAt && (
+          <Button type="button" className="h-11" onClick={(event) => open("APPROVE", event.currentTarget)}>
+            Aprovar cadastro
+          </Button>
+        )}
         <Button type="button" variant="outline" className="h-11" onClick={(event) => open("REQUEST_CHANGES", event.currentTarget)}>Solicitar ajustes</Button>
         <Button type="button" variant="ghost" className="h-11 text-destructive" onClick={(event) => open("REJECT", event.currentTarget)}>Recusar cadastro</Button>
       </div>

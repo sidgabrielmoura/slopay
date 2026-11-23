@@ -6,6 +6,7 @@ import {
   FileCheck2,
   Building2,
   Wallet,
+  WalletCards,
   ArrowDownUp,
   QrCode,
   Layers,
@@ -25,16 +26,17 @@ import {
 } from "lucide-react";
 import { PanelSidebar, type PanelSidebarGroup } from "@/components/layout/panel-sidebar";
 
-export function AdminSidebar({ pendingSummary, live = false }: {
+type AdminNavigationOptions = {
   pendingSummary?: { pendingApplicationsCount?: number; pendingFinancialApprovalsCount?: number; totalUrgentTasks?: number };
   live?: boolean;
-}) {
+};
 
+export function adminNavigationGroups({ pendingSummary, live = false }: AdminNavigationOptions): PanelSidebarGroup[] {
   const pendingAppsCount = pendingSummary?.pendingApplicationsCount ?? 0;
   const pendingApprovalsCount = pendingSummary?.pendingFinancialApprovalsCount ?? 0;
   const totalUrgent = pendingSummary?.totalUrgentTasks ?? 0;
 
-  const navGroups: PanelSidebarGroup[] = [
+  return [
     {
       label: "Visão Geral",
       items: [
@@ -60,6 +62,7 @@ export function AdminSidebar({ pendingSummary, live = false }: {
         },
         { title: "Empresas", path: "/admin/empresas", icon: Building2 },
         { title: "Contas Operacionais", path: "/admin/contas", icon: Wallet },
+        ...(live ? [{ title: "Contas bolsão", path: "/admin/contas-bolsao", icon: WalletCards }] : []),
       ],
     },
     {
@@ -103,14 +106,21 @@ export function AdminSidebar({ pendingSummary, live = false }: {
       ],
     },
   ];
+}
+
+export function adminNavigationFooter(live: boolean) {
+  return live
+    ? [{ title: "Segurança da conta", path: "/conta/seguranca", icon: Shield }]
+    : [{ title: "Painel do cliente", path: "/inicio", icon: ExternalLink }];
+}
+
+export function AdminSidebar({ pendingSummary, live = false }: AdminNavigationOptions) {
   return <PanelSidebar
-    groups={navGroups}
+    groups={adminNavigationGroups({ pendingSummary, live })}
     homePath="/admin"
     homeLabel="Início do superadmin"
     subtitle="Superadmin"
     navigationLabel="Menu do superadmin"
-    footerLinks={live
-      ? [{ title: "Segurança da conta", path: "/conta/seguranca", icon: Shield }]
-      : [{ title: "Painel do cliente", path: "/inicio", icon: ExternalLink }]}
+    footerLinks={adminNavigationFooter(live)}
   />;
 }

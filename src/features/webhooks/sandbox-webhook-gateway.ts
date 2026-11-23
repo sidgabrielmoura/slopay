@@ -8,7 +8,7 @@ import {
 } from "./sandbox-webhooks";
 
 const endpoint = "/api/integrations/webhooks";
-const unavailable = "Os webhooks do Sandbox estão temporariamente indisponíveis.";
+const unavailable = "Os webhooks estão temporariamente indisponíveis.";
 
 function post(value: object): RequestInit {
   return { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) };

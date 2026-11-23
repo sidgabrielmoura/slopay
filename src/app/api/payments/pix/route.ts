@@ -1,10 +1,10 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { pixAmountSchema, pixPaymentIdSchema, pixPaymentSchema } from "@/features/pix-receive/pix-receipt";
+import { pixAmountSchema, pixPayerSchema, pixPaymentIdSchema, pixPaymentSchema } from "@/features/pix-receive/pix-receipt";
 import { forwardPixRequest, pixResponse, validatePixPostOrigin } from "@/lib/server/pix-payments";
 import { readJson, RequestBodyError } from "@/lib/server/request-json";
 
-const bodySchema = z.strictObject({ amountInCents: pixAmountSchema });
+const bodySchema = z.strictObject({ amountInCents: pixAmountSchema, payer: pixPayerSchema.optional() });
 
 export async function POST(request: NextRequest) {
   const originError = validatePixPostOrigin(request);
@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     if (!body.success) return pixResponse({ message: "Informe um valor válido para receber." }, 400);
     return forwardPixRequest(request, "/payments/pix", pixPaymentSchema, {
       amountInCents: body.data.amountInCents,
+      payer: body.data.payer,
       idempotencyKey: key.data,
     });
   } catch (error) {

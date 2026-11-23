@@ -24,7 +24,7 @@ export function PixReceiptDetails({
   receipt, environment, inline, headingRef, code, qrError, qrFetching, onRetryQr, onSimulate, simulationRequested, onReconcile, reconciling, animateOutcome, onOutcomeEnd, onClose, onNew,
 }: {
   receipt: PixReceipt;
-  environment: "demo" | "sandbox";
+  environment: "demo" | "sandbox" | "live";
   inline: boolean;
   headingRef: Ref<HTMLHeadingElement>;
   code?: PixReceiptCode;

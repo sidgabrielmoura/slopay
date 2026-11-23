@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -64,6 +63,7 @@ function ApprovalHistory({ approval }: { approval: AdminApprovalDetail }) {
 }
 
 function ApprovalDetails({ approval }: { approval: AdminApprovalDetail }) {
+  const development = useDevelopmentFeatures();
   const decision = approvalStates[approval.decision];
   const transactionHref = pixTransactionsPath + pixQueryString(
     { type: "WITHDRAW", period: "ALL", status: "ALL", search: approval.id, page: 1 },
@@ -76,7 +76,7 @@ function ApprovalDetails({ approval }: { approval: AdminApprovalDetail }) {
         <div className="min-w-0 space-y-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Solicitação de saque</h1>
-            <Badge variant="secondary">Sandbox</Badge>
+            {development && <Badge variant="secondary">Sandbox</Badge>}
           </div>
           <p className="wrap-anywhere font-mono text-xs text-muted-foreground">{approval.id}</p>
         </div>
@@ -108,12 +108,12 @@ function ApprovalDetails({ approval }: { approval: AdminApprovalDetail }) {
           <h2 id="approval-origin" className="text-balance text-lg font-semibold">Empresa e destino</h2>
           <dl className="mt-4 grid min-w-0 grid-cols-2 gap-4">
             <CompanyField label="Empresa">
-              <Link href={`/admin/empresas/${approval.companyId}`} prefetch={false} className="text-primary underline-offset-4 hover:underline">{approval.company}</Link>
+              {approval.companyId ? <Link href={`/admin/empresas/${approval.companyId}`} prefetch={false} className="text-primary underline-offset-4 hover:underline">{approval.company}</Link> : approval.company}
             </CompanyField>
             <CompanyField label="Titular">{approval.ownerName}</CompanyField>
             <CompanyField label="Documento"><span className="tabular-nums">{approval.cnpj ? formatCNPJ(approval.cnpj) : "Pessoa física"}</span></CompanyField>
             <CompanyField label="Carteira">
-              <Link href={`/admin/contas/${approval.accountId}`} prefetch={false} className="text-primary underline-offset-4 hover:underline">Final {approval.walletSuffix}</Link>
+              {approval.accountId ? <Link href={`/admin/contas/${approval.accountId}`} prefetch={false} className="text-primary underline-offset-4 hover:underline">Final {approval.walletSuffix}</Link> : "A definir na autorização"}
             </CompanyField>
             <CompanyField label="Tipo de chave Pix">{pixKeyLabels[approval.pixKeyType]}</CompanyField>
             {approval.destination && <CompanyField label="Chave Pix mascarada"><span className="font-mono text-xs">{approval.destination}</span></CompanyField>}
@@ -126,17 +126,15 @@ function ApprovalDetails({ approval }: { approval: AdminApprovalDetail }) {
 }
 
 export function AdminWithdrawalApprovalScreen({ user, approvalId }: { user: AdminIdentity; approvalId: string }) {
-  const development = useDevelopmentFeatures();
   const backHref = adminApprovalHref(adminApprovalQueryFrom(useSearchParams()));
   const result = useQuery({
-    enabled: development,
     queryKey: ["admin-withdrawal-approval", user.id, approvalId],
     queryFn: ({ signal }) => adminWithdrawalApprovals.detail(approvalId, signal),
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
   const status = result.error instanceof ApiError ? result.error.status : null;
   const missing = status === 404;
-  const data = development ? (missing || status === 401 || status === 403 ? undefined : result.data) : undefined;
+  const data = missing || status === 401 || status === 403 ? undefined : result.data;
 
   return (
     <AdminPanel user={user}>
@@ -157,7 +155,7 @@ export function AdminWithdrawalApprovalScreen({ user, approvalId }: { user: Admi
             <h1 className="text-balance text-lg font-semibold">Solicitação de aprovação não encontrada</h1>
             <Button asChild variant="outline" className="h-11"><Link href={backHref} prefetch={false}>Voltar às aprovações</Link></Button>
           </Card>
-        ) : !development ? <OperationalDataUnavailable /> : result.isError && <CompanyReadError title="Não foi possível carregar a solicitação" retry={() => void result.refetch()} />}
+        ) : result.isError && <CompanyReadError title="Não foi possível carregar a solicitação" retry={() => void result.refetch()} />}
       </SkeletonReveal>
     </AdminPanel>
   );

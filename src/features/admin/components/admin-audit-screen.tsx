@@ -84,7 +84,7 @@ function AuditFilters({ query, onChange }: { query: AdminAuditQuery; onChange: (
         <div className="grid min-w-0 gap-2">
           <span id="audit-category" className="text-sm font-medium">Módulo</span>
           <GlideSelect aria-labelledby="audit-category" size="lg" value={query.category}
-            options={development ? categories : categories.filter(({ value }) => value !== "PIX" && value !== "INTEGRATIONS")} menuWidth={220}
+            options={development ? categories : categories.filter(({ value }) => value !== "PIX")} menuWidth={220}
             onChange={(category) => onChange({ ...query, category: auditCategoryFilter.parse(category), page: 1 })} />
         </div>
         <div className="grid min-w-0 gap-2">
@@ -214,7 +214,7 @@ export function AdminAuditScreen({ user }: { user: AdminIdentity }) {
   const detailsTrigger = useRef<HTMLButtonElement>(null);
   const [details, setDetails] = useState<{ id: string; open: boolean } | null>(null);
   const requestedQuery = adminAuditQueryFrom(useSearchParams());
-  const query = !development && (requestedQuery.category === "PIX" || requestedQuery.category === "INTEGRATIONS")
+  const query = !development && requestedQuery.category === "PIX"
     ? { ...requestedQuery, category: "ALL" as const, page: 1 } : requestedQuery;
   const filterKey = adminAuditHref({ ...query, page: 1 });
   const filtered = filterKey !== adminAuditHref(initialQuery);

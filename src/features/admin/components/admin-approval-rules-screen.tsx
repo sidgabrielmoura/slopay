@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, ChevronRight, Search, ShieldCheck } from "lucide-react";
@@ -57,12 +56,12 @@ function OwnerRule({ channels }: { channels?: ApprovalRuleChannels }) {
         <div className="min-w-0 space-y-1 px-4 py-4 sm:px-5">
           <dt className="text-sm font-semibold">Saques via API</dt>
           <dd className="text-pretty text-sm text-muted-foreground">O saque fica em espera até o titular aprovar ou recusar.</dd>
-          {channels?.api === false && <dd><Badge variant="warning">Integrações Sandbox desativadas</Badge></dd>}
+          {channels?.api === false && <dd><Badge variant="warning">Saques via API indisponíveis</Badge></dd>}
         </div>
         <div className="min-w-0 space-y-1 px-4 py-4 sm:px-5">
           <dt className="text-sm font-semibold">Saques e lotes no painel</dt>
-          <dd className="text-pretty text-sm text-muted-foreground">No piloto, o titular confirma a operação no momento do envio.</dd>
-          {channels?.panelPilot === false && <dd><Badge variant="secondary">Piloto indisponível no ambiente</Badge></dd>}
+          <dd className="text-pretty text-sm text-muted-foreground">O titular confirma a operação no momento do envio.</dd>
+          {channels?.panelPilot === false && <dd><Badge variant="secondary">Saques pelo painel indisponíveis</Badge></dd>}
         </div>
       </dl>
     </Card>
@@ -85,13 +84,14 @@ function RuleFilters({ query, onChange }: { query: ApprovalRulesQuery; onChange:
     onChange({ ...query, search: parsed.data, page: 1 });
   }
 
+  const development = useDevelopmentFeatures();
   return (
     <form role="search" aria-label="Filtrar alçadas por carteira" onSubmit={submit}
       className="grid gap-3 border-y border-border px-4 py-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] sm:px-5 lg:grid-cols-[minmax(0,26rem)_minmax(0,16rem)]">
       <div className="grid min-w-0 gap-2">
         <label htmlFor="approval-rules-search" className="text-sm font-medium">Buscar carteira</label>
         <div className="flex min-w-0 gap-2">
-          <Input id="approval-rules-search" ref={input} type="search" placeholder="Empresa, titular, CNPJ ou carteira"
+          <Input id="approval-rules-search" ref={input} type="search" placeholder={development ? "Empresa, titular, CNPJ ou carteira" : "Nome ou ID da carteira"}
             maxLength={120} autoComplete="off" className="h-11 min-w-0" value={search}
             onChange={(event) => setDraft({ submitted: query.search, value: event.target.value })} />
           <Button type="submit" variant="outline" size="icon" className="size-11 shrink-0" aria-label="Buscar carteira">
@@ -116,11 +116,12 @@ function RuleFilters({ query, onChange }: { query: ApprovalRulesQuery; onChange:
 }
 
 function WalletIdentity({ item }: { item: ApprovalRuleWallet }) {
+  const development = useDevelopmentFeatures();
   return (
     <div className="min-w-0 space-y-0.5">
       <p className="truncate font-medium" title={item.company}>{item.company}</p>
-      <p className="truncate text-sm text-muted-foreground" title={item.ownerName}>{item.ownerName}</p>
-      <p className="text-xs text-muted-foreground tabular-nums">{(item.cnpj ? formatCNPJ(item.cnpj) : "Pessoa física")} · Final {item.walletSuffix}</p>
+      {item.ownerName && <p className="truncate text-sm text-muted-foreground" title={item.ownerName}>{item.ownerName}</p>}
+      <p className="text-xs text-muted-foreground tabular-nums">{development ? (item.cnpj ? formatCNPJ(item.cnpj) : "Pessoa física") + " · " : ""}Final {item.walletSuffix}</p>
     </div>
   );
 }
@@ -132,7 +133,7 @@ function WalletValidation({ item }: { item: ApprovalRuleWallet }) {
       <Badge variant={variant} className="max-w-full whitespace-normal">{label}</Badge>
       {item.enabledAt && (
         <p className="text-xs text-muted-foreground tabular-nums">
-          Ativada em <time dateTime={item.enabledAt}>{formatDateTime(item.enabledAt, "date-only")}</time>
+          Atualizada em <time dateTime={item.enabledAt}>{formatDateTime(item.enabledAt, "date-only")}</time>
         </p>
       )}
     </div>
@@ -163,6 +164,7 @@ function AccountLink({ item }: { item: ApprovalRuleWallet }) {
 }
 
 function WalletRows({ items }: { items: ApprovalRuleWallet[] }) {
+  const development = useDevelopmentFeatures();
   return (
     <>
       <div className="hidden xl:block">
@@ -170,9 +172,9 @@ function WalletRows({ items }: { items: ApprovalRuleWallet[] }) {
           <colgroup><col className="w-5/12" /><col className="w-4/12" /><col /><col className="w-16" /></colgroup>
           <TableHeader className="bg-secondary/20">
             <TableRow className="hover:bg-transparent">
-              <TableHead scope="col" className="pl-5">Empresa e titular</TableHead>
+              <TableHead scope="col" className="pl-5">{development ? "Empresa e titular" : "Carteira"}</TableHead>
               <TableHead scope="col">Validação de saque</TableHead>
-              <TableHead scope="col" className="whitespace-normal">Aguardando titular</TableHead>
+              <TableHead scope="col" className="whitespace-normal">{development ? "Aguardando titular" : "Aprovação"}</TableHead>
               <TableHead scope="col"><span className="sr-only">Conta operacional</span></TableHead>
             </TableRow>
           </TableHeader>
@@ -180,7 +182,7 @@ function WalletRows({ items }: { items: ApprovalRuleWallet[] }) {
             <TableRow key={item.id}>
               <TableCell className="py-3 pl-5"><WalletIdentity item={item} /></TableCell>
               <TableCell className="py-3"><WalletValidation item={item} /></TableCell>
-              <TableCell className="py-2"><PendingLink item={item} /></TableCell>
+              <TableCell className="py-2">{development ? <PendingLink item={item} /> : "Titular"}</TableCell>
               <TableCell className="px-2 py-2 text-right"><AccountLink item={item} /></TableCell>
             </TableRow>
           ))}</TableBody>
@@ -192,7 +194,7 @@ function WalletRows({ items }: { items: ApprovalRuleWallet[] }) {
             <div className="flex min-w-0 items-center justify-between gap-2"><WalletIdentity item={item} /><AccountLink item={item} /></div>
             <WalletValidation item={item} />
             <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-2">
-              <span className="text-xs text-muted-foreground">Aguardando titular</span><PendingLink item={item} />
+              <span className="text-xs text-muted-foreground">{development ? "Aguardando titular" : "Aprovação"}</span>{development ? <PendingLink item={item} /> : <span className="text-sm">Titular</span>}
             </div>
           </li>
         ))}
@@ -206,7 +208,6 @@ export function AdminApprovalRulesScreen({ user }: { user: AdminIdentity }) {
   const query = approvalRulesQueryFrom(useSearchParams());
   const filters = approvalRulesParams({ ...query, page: 1 }).toString();
   const result = useQuery({
-    enabled: development,
     queryKey: ["admin-approval-rules", user.id, filters, query.page],
     queryFn: ({ signal }) => fetchAdminApprovalRules(query, signal),
     placeholderData: (previous, prior) => prior?.queryKey[1] === user.id && prior.queryKey[2] === filters ? previous : undefined,
@@ -215,7 +216,7 @@ export function AdminApprovalRulesScreen({ user }: { user: AdminIdentity }) {
     retry: retryAdminRead,
   });
   const denied = result.error instanceof ApiError && [401, 403].includes(result.error.status);
-  const report = development ? (denied ? undefined : result.data) : undefined;
+  const report = denied ? undefined : result.data;
   const loading = result.isLoading || result.isPlaceholderData;
 
   function navigate(next: ApprovalRulesQuery) {
@@ -263,10 +264,10 @@ export function AdminApprovalRulesScreen({ user }: { user: AdminIdentity }) {
               {filters ? (
                 <Button type="button" variant="outline" className="h-11" onClick={() => navigate(initialQuery)}>Limpar busca e filtros</Button>
               ) : (
-                <Button asChild variant="outline" className="h-11"><Link href={openingsPath} prefetch={false}>Ver abertura de contas</Link></Button>
+                <Button asChild variant="outline" className="h-11"><Link href={development ? openingsPath : "/admin/contas-bolsao"} prefetch={false}>{development ? "Ver abertura de contas" : "Ver contas bolsão"}</Link></Button>
               )}
             </div>
-          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
+          ) : result.isError && (
             <div className="grid min-h-40 content-center justify-items-center gap-3 px-4 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Consulta de alçadas indisponível</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>

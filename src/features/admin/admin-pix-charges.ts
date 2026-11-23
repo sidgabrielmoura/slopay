@@ -26,10 +26,10 @@ export const adminChargeQuery = z.strictObject({
 const row = z.object({
   id: adminChargeId, status: chargeStatus, company: z.string(), companyId: uuid.nullable(), accountId: uuid.nullable(),
   walletSuffix: z.string().max(8), description: z.string().nullable(), amountInCents: cents,
-  createdAt: dateTime, dueDate: z.iso.date(),
+  createdAt: dateTime, dueDate: z.iso.date().nullable(),
 });
 export const adminPixChargesSchema = z.object({
-  environment: z.literal("sandbox"), items: z.array(row).max(8),
+  environment: z.enum(["sandbox", "live"]), items: z.array(row).max(8),
   pagination: adminPaginationSchema,
   summary: z.object({
     registeredCents: cents, outstandingCents: cents, outstandingCount: z.int().nonnegative(),

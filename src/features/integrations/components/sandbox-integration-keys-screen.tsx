@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CirclePause, CirclePlay, Copy, Ellipsis, KeyRound, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +24,8 @@ import {
   issuedKeySchema, keyDraftSchema, sandboxKeyPermissions, sandboxKeySchema,
   type IssuedKey, type KeyChange, type KeyDraft, type KeyProof, type SandboxKey,
 } from "../sandbox-keys";
+import { integrationSecurityPath } from "../navigation";
+import { webhooksPath } from "@/features/webhooks/webhooks";
 import { IntegrationHeading } from "./integration-heading";
 
 const endpoint = "/api/integrations/keys";
@@ -60,10 +63,11 @@ async function copySecret(value: string) {
 }
 
 export function SandboxIntegrationKeysScreen({
-  initialKeys, companyName,
+  initialKeys, companyName, development,
 }: {
   initialKeys: SandboxKey[];
   companyName: string;
+  development: boolean;
 }) {
   const router = useRouter();
   const [keys, setKeys] = useState(initialKeys);
@@ -157,7 +161,7 @@ export function SandboxIntegrationKeysScreen({
     <div className="grid min-w-0 gap-5">
       <IntegrationHeading
         title="Chaves de API"
-        description="Gerencie o acesso das aplicações ao Sandbox da sua empresa."
+        description={development ? "Gerencie o acesso das aplicações ao Sandbox da sua empresa." : "Gerencie o acesso das aplicações à sua conta Slopay."}
         action={<Button className="h-11 w-full sm:w-auto" onClick={(event) => {
           button.current = event.currentTarget;
           setModal({ kind: "form" });
@@ -170,7 +174,7 @@ export function SandboxIntegrationKeysScreen({
             <h2 ref={listTitle} tabIndex={-1} className="text-lg font-semibold">Chaves cadastradas</h2>
             <p className="wrap-anywhere text-sm text-muted-foreground">{companyName}</p>
           </div>
-          <Badge variant="secondary">Sandbox</Badge>
+          {development && <Badge variant="secondary">Sandbox</Badge>}
         </CardHeader>
         {keys.length === 0 ? (
           <Empty icon={<KeyRound aria-hidden="true" />} className="rounded-none border-0" title="Nenhuma chave cadastrada" />
@@ -227,6 +231,25 @@ export function SandboxIntegrationKeysScreen({
         )}
       </Card>
 
+      {!development && (
+        <Card className="min-w-0 gap-3 p-4 sm:p-5" aria-labelledby="integration-quick-start">
+          <h2 id="integration-quick-start" className="text-lg font-semibold">Conectar uma aplicação</h2>
+          <p className="text-sm text-muted-foreground">
+            Envie a chave no cabeçalho <code className="text-foreground">X-API-Key</code> a partir do servidor da sua aplicação.
+            Para criar uma cobrança ou solicitar um saque, envie também <code className="text-foreground">Idempotency-Key</code> e o valor em centavos.
+          </p>
+          <dl className="grid gap-2 text-sm">
+            <div className="grid gap-1 sm:grid-cols-[15rem_1fr]"><dt className="font-mono text-xs">POST /v1/pix/charges</dt><dd>Cria uma cobrança Pix.</dd></div>
+            <div className="grid gap-1 sm:grid-cols-[15rem_1fr]"><dt className="font-mono text-xs">GET /v1/pix/charges</dt><dd>Consulta as cobranças da conta.</dd></div>
+            <div className="grid gap-1 sm:grid-cols-[15rem_1fr]"><dt className="font-mono text-xs">POST /v1/pix/withdrawals</dt><dd>Solicita um saque para aprovação do titular.</dd></div>
+          </dl>
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+            <Link href={integrationSecurityPath} className="font-medium text-primary hover:underline">Redes permitidas</Link>
+            <Link href={webhooksPath} className="font-medium text-primary hover:underline">Configurar webhooks</Link>
+          </div>
+        </Card>
+      )}
+
       <Dialog open={modal !== null} onOpenChange={(open) => { if (!open) close(); }}>
         <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-lg"
           onInteractOutside={(event) => { if (busy || modal?.kind === "issued") event.preventDefault(); }}
@@ -241,7 +264,7 @@ export function SandboxIntegrationKeysScreen({
                 : modal?.kind === "done" ? "O novo status já vale para as próximas requisições."
                   : confirmation?.kind === "change" ? `Confirme a alteração de acesso da chave ${confirmation.key.name}.`
                     : confirmation ? "Confira as permissões antes de confirmar sua identidade."
-                      : "Defina quais operações a aplicação poderá realizar no Sandbox."}
+                      : "Defina quais operações a aplicação poderá realizar."}
             </DialogDescription>
           </DialogHeader>
 

@@ -1,7 +1,6 @@
 import { ApiError } from "@/lib/api-client";
-import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
-import { recentWithdrawalsSchema, withdrawalOptionsSchema, withdrawalSchema, withdrawalUnavailable, type WithdrawalDraftInput, type WithdrawalInput } from "./pix-withdrawal";
+import { recentWithdrawalsSchema, withdrawalOptionsSchema, withdrawalPasskeyOptionsSchema, withdrawalSchema, withdrawalUnavailable, type WithdrawalDraftInput, type WithdrawalInput } from "./pix-withdrawal";
 
 const endpoint = "/api/payments/pix-withdrawals";
 
@@ -12,7 +11,7 @@ export const asaasPixWithdrawals = {
   options: (signal?: AbortSignal) => requestPixGateway(endpoint + "/options", withdrawalOptionsSchema, withdrawalUnavailable, { signal }),
   recent: (signal?: AbortSignal) => requestPixGateway(endpoint, recentWithdrawalsSchema, withdrawalUnavailable, { signal }),
   passkeyOptions: (id: string, input: WithdrawalDraftInput) => requestPixGateway(
-    endpoint + "/passkey-options", passkeyOptionsSchema, withdrawalUnavailable, {
+    endpoint + "/passkey-options", withdrawalPasskeyOptionsSchema, withdrawalUnavailable, {
       method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": id }, body: JSON.stringify(input),
     },
   ),

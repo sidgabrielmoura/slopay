@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
+import { withdrawalPasskeyOptionsSchema } from "@/features/pix-withdraw/pix-withdrawal";
 import { integrationProofSchema, type IntegrationProof } from "@/features/integrations/integration-proof";
 import { sandboxApiPost } from "@/features/integrations/sandbox-api";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
@@ -7,7 +7,7 @@ import { requestPixGateway } from "@/lib/pix-gateway-client";
 const date = z.iso.datetime();
 const cents = z.number().int().nonnegative();
 export const approvalItemSchema = z.object({
-  id: z.uuid(), environment: z.literal("sandbox"), currency: z.literal("BRL"),
+  id: z.uuid(), environment: z.enum(["sandbox", "live"]), currency: z.literal("BRL"),
   state: z.enum(["AWAITING_APPROVAL", "QUEUED", "SUBMITTING", "RECONCILING", "PENDING", "IN_BANK_PROCESSING", "BLOCKED", "DONE", "FAILED", "CANCELLED", "REVIEW"]),
   amountInCents: cents, feeInCents: cents.nullable(), destination: z.string(),
   pixKeyType: z.enum(["CPF", "CNPJ", "EMAIL", "PHONE", "EVP"]),
@@ -23,21 +23,32 @@ export const approvalDecisionSchema = z.discriminatedUnion("decision", [approve,
 export const confirmedApprovalSchema = z.discriminatedUnion("decision", [
   approve.extend({ proof: integrationProofSchema }), reject.extend({ proof: integrationProofSchema }),
 ]);
+const liveProof = { proof: integrationProofSchema, review: z.string().regex(/^\d{13}\.[0-9a-f]{64}$/).optional() };
+export const confirmedLiveApprovalSchema = z.discriminatedUnion("decision", [
+  approve.extend(liveProof), reject.extend(liveProof),
+]);
 export type ApprovalGroup = z.infer<typeof approvalGroupSchema>;
 export type WithdrawalApproval = z.infer<typeof approvalItemSchema>;
 export type WithdrawalApprovalReview = z.infer<typeof approvalReviewSchema>;
 export type ApprovalDecision = z.infer<typeof approvalDecisionSchema>;
 
-const base = "/api/integrations/sandbox/withdrawal-approvals";
 const unavailable = "As aprovações estão temporariamente indisponíveis.";
 
-export const withdrawalApprovalsGateway = {
-  list: (group: ApprovalGroup, before?: string, signal?: AbortSignal) => {
-    const search = new URLSearchParams({ group, ...(before && { before }) });
-    return requestPixGateway(`${base}?${search}`, approvalPageSchema, unavailable, { signal });
-  },
-  review: (id: string, signal?: AbortSignal) => requestPixGateway(`${base}/${id}`, approvalReviewSchema, unavailable, { signal }),
-  options: (id: string, decision: ApprovalDecision) => requestPixGateway(`${base}/${id}/passkey-options`, passkeyOptionsSchema, unavailable, sandboxApiPost(decision)),
-  decide: (id: string, decision: ApprovalDecision, proof: IntegrationProof) =>
-    requestPixGateway(`${base}/${id}/actions`, approvalItemSchema, unavailable, sandboxApiPost({ ...decision, proof })),
-};
+export function withdrawalApprovalsGateway(development: boolean) {
+  const base = `/api/integrations/${development ? "sandbox" : "live"}/withdrawal-approvals`;
+  const options = (id: string, decision: ApprovalDecision) =>
+    requestPixGateway(`${base}/${id}/passkey-options`, withdrawalPasskeyOptionsSchema, unavailable, sandboxApiPost(decision));
+
+  return {
+    list: (group: ApprovalGroup, before?: string, signal?: AbortSignal) => {
+      const search = new URLSearchParams({ group, ...(before && { before }) });
+      return requestPixGateway(`${base}?${search}`, approvalPageSchema, unavailable, { signal });
+    },
+    review: (id: string, signal?: AbortSignal) => requestPixGateway(`${base}/${id}`, approvalReviewSchema, unavailable, { signal }),
+    options,
+    decide: async (id: string, decision: ApprovalDecision, proof: IntegrationProof) => {
+      const review = !development && "verificationCode" in proof ? (await options(id, decision)).review : undefined;
+      return requestPixGateway(`${base}/${id}/actions`, approvalItemSchema, unavailable, sandboxApiPost({ ...decision, proof, review }));
+    },
+  };
+}

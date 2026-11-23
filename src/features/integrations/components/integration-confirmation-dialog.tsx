@@ -10,7 +10,7 @@ import type { PasskeyOptions } from "@/features/auth/passkey-contract";
 import { ApiError } from "@/lib/api-client";
 import type { IntegrationProof } from "../integration-proof";
 
-export function IntegrationConfirmationDialog<Result>({ scope, title, description, completed, children, options, apply, onSuccess, onClose, restoreFocus, resultContent }: {
+export function IntegrationConfirmationDialog<Result>({ scope, title, description, completed, children, options, apply, onSuccess, onClose, restoreFocus, resultContent, preventOutsideClose }: {
   scope: string;
   title: string;
   description: string;
@@ -22,6 +22,7 @@ export function IntegrationConfirmationDialog<Result>({ scope, title, descriptio
   onClose: () => void;
   restoreFocus?: () => void;
   resultContent?: ReactNode;
+  preventOutsideClose?: boolean;
 }) {
   const fieldId = useId();
   const [finished, setFinished] = useState(false);
@@ -53,7 +54,7 @@ export function IntegrationConfirmationDialog<Result>({ scope, title, descriptio
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) close(); }}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-lg"
-        onInteractOutside={(event) => { if (busy) event.preventDefault(); }}
+        onInteractOutside={(event) => { if (busy || preventOutsideClose) event.preventDefault(); }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus?.(); onClose(); }}>
         <DialogHeader className="text-left">
           <DialogTitle>{finished ? completed : title}</DialogTitle>

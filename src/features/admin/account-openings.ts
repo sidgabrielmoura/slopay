@@ -10,7 +10,7 @@ const endpoint = "/api/admin/account-openings";
 export const openingsUnavailable = "Não foi possível consultar a abertura de contas.";
 export const openingStatus = z.enum([
   "AWAITING_EMAIL", "AWAITING_MFA", "AWAITING_APPLICATION", "READY", "UNDER_REVIEW", "CHANGES_REQUESTED",
-  "RESUBMITTED", "LINKED", "REJECTED", "RESTRICTED", "PILOT",
+  "RESUBMITTED", "APPROVED", "LINKED", "REJECTED", "RESTRICTED", "PILOT",
 ]);
 export const openingFilter = z.enum(["ALL", ...openingStatus.options]);
 export const openingSearch = z.string().trim().max(120).regex(/^[^\p{Cc}\p{Cf}]*$/u);
@@ -31,6 +31,7 @@ export const openingStatusLabels: Record<OpeningStatus, string> = {
   UNDER_REVIEW: "Em análise",
   CHANGES_REQUESTED: "Ajustes solicitados",
   RESUBMITTED: "Reenviado",
+  APPROVED: "Aprovado",
   LINKED: "Vinculado",
   REJECTED: "Recusado",
   RESTRICTED: "Acesso restrito",
@@ -46,12 +47,12 @@ const application = z.object({
   createdAt: instant, status: openingStatus,
 });
 export const accountOpeningsSchema = z.object({
-  summary: z.object({ total: z.int().nonnegative(), waitingForOwner: z.int().nonnegative(), actionable: z.int().nonnegative(), linked: z.int().nonnegative() }),
+  summary: z.object({ total: z.int().nonnegative(), waitingForOwner: z.int().nonnegative(), actionable: z.int().nonnegative(), approved: z.int().nonnegative() }),
   pagination: adminPaginationSchema,
   items: z.array(application).max(8),
 });
 const reviewAction = z.enum(["START_REVIEW", "REQUEST_CHANGES", "REJECT", "REOPEN"]);
-const historyAction = z.enum(["REGISTERED", "EMAIL_VERIFIED", "MFA_ENABLED", "SUBMIT", "RESUBMIT", "LINKED", ...reviewAction.options]);
+const historyAction = z.enum(["REGISTERED", "EMAIL_VERIFIED", "MFA_ENABLED", "SUBMIT", "RESUBMIT", "APPROVE", "LINKED", ...reviewAction.options]);
 export const openingHistoryLabels: Record<z.infer<typeof historyAction>, string> = {
   REGISTERED: "Titular cadastrado",
   EMAIL_VERIFIED: "E-mail confirmado",
@@ -62,6 +63,7 @@ export const openingHistoryLabels: Record<z.infer<typeof historyAction>, string>
   RESUBMIT: "Cadastro reenviado",
   REJECT: "Cadastro recusado",
   REOPEN: "Análise reaberta",
+  APPROVE: "Cadastro aprovado",
   LINKED: "Conta Sandbox vinculada",
 };
 const webhookPath = z.string().regex(/^\/webhooks\/asaas\/accounts\/[0-9a-f-]{36}$/);
@@ -85,19 +87,9 @@ export const openingReviewSchema = z.strictObject({
   version, action: reviewAction,
   reason: z.string().trim().min(1).max(600).regex(/^(?:[^\p{Cc}\p{Cf}]|[\r\n])*$/u).optional(),
 });
-export const openingLinkDraftSchema = z.strictObject({
-  version,
-  legalName: z.string().trim().min(1).max(150).regex(/^[^\p{Cc}\p{Cf}]+$/u),
-  cnpj: z.string().regex(/^[A-Z0-9]{12}\d{2}$/).nullable(),
-  walletId: z.uuid(),
-  testCustomerId: z.string().regex(/^cus_[A-Za-z0-9]{1,60}$/),
-  asaasApiKey: z.string().regex(/^\$aact_hmlg_[!-~]{10,500}$/),
-});
-export const openingLinkSchema = openingLinkDraftSchema.extend({ proof: integrationProofSchema });
-export const openingLinkedSchema = z.object({ webhookPath, webhookToken: z.string().regex(/^[a-f0-9]{64}$/) });
+export const openingApprovalOptionsSchema = z.strictObject({ version });
+export const openingApprovalSchema = openingApprovalOptionsSchema.extend({ proof: integrationProofSchema });
 export const openingUpdatedSchema = z.object({ updated: z.literal(true) });
-export type OpeningLinkDraft = z.infer<typeof openingLinkDraftSchema>;
-export type OpeningLinked = z.infer<typeof openingLinkedSchema>;
 export type OpeningReview = z.infer<typeof openingReviewSchema>;
 export type OpeningItem = z.infer<typeof application>;
 export type OpeningDetail = z.infer<typeof accountOpeningDetailSchema>;
@@ -130,8 +122,8 @@ export const accountOpenings = {
     requestPixGateway(endpoint + "/" + id + "?page=" + page, accountOpeningDetailSchema, openingsUnavailable, { signal }),
   review: (id: string, input: OpeningReview) =>
     requestPixGateway(endpoint + "/" + id + "/review", openingUpdatedSchema, "Não foi possível registrar a decisão.", post(input)),
-  options: (id: string, input: OpeningLinkDraft) =>
-    requestPixGateway(endpoint + "/" + id + "/link/options", passkeyOptionsSchema, "Não foi possível preparar a confirmação.", post(input)),
-  link: (id: string, input: OpeningLinkDraft, proof: IntegrationProof) =>
-    requestPixGateway(endpoint + "/" + id + "/link", openingLinkedSchema, "Consulte a situação do cadastro antes de tentar vincular novamente.", post({ ...input, proof }, 24_000)),
+  approvalOptions: (id: string, version: number) =>
+    requestPixGateway(endpoint + "/" + id + "/approve/options", passkeyOptionsSchema, "Não foi possível preparar a confirmação.", post({ version })),
+  approve: (id: string, version: number, proof: IntegrationProof) =>
+    requestPixGateway(endpoint + "/" + id + "/approve", openingUpdatedSchema, "Consulte a situação do cadastro antes de tentar aprovar novamente.", post({ version, proof })),
 };

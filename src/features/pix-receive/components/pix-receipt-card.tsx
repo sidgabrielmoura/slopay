@@ -25,7 +25,7 @@ export const receiptStatusLabels = {
 
 export function PixReceiptCard({ receipt, environment, checkingError, onOpen, onDismiss, onCheck, animateOutcome, onOutcomeEnd }: {
   receipt: PixReceipt;
-  environment: "demo" | "sandbox";
+  environment: "demo" | "sandbox" | "live";
   checkingError: boolean;
   onOpen: () => void;
   onDismiss: () => void;
@@ -87,7 +87,7 @@ export function PixReceiptCard({ receipt, environment, checkingError, onOpen, on
         {waiting ? (
           <>
             <Button type="button" variant="outline" size="sm" onClick={onOpen} className="cursor-pointer">
-              {status === "pending" && environment === "sandbox" ? "Ver QR Code" : "Ver cobrança"}
+              {status === "pending" && environment !== "demo" ? "Ver QR Code" : "Ver cobrança"}
             </Button>
             {checkingError && (
               <Button type="button" variant="ghost" size="sm" disabled={checking} onClick={check}>

@@ -40,5 +40,5 @@ export function AdminPanel({ user, children, pendingSummary }: {
         <div className="ml-1 border-l border-border pl-2"><LogoutButton compact /></div>
       </div>
     </PanelTopbarFrame>
-  )} bottomNav={<AdminBottomNav />}><SessionMonitor />{children}</PanelFrame>;
+  )} bottomNav={<AdminBottomNav live />}><SessionMonitor />{children}</PanelFrame>;
 }

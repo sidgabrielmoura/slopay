@@ -31,13 +31,13 @@ const row = z.object({
 });
 
 export const adminApprovalsSchema = z.object({
-  environment: z.literal("sandbox"), items: z.array(row).max(8), pagination: adminPaginationSchema,
+  environment: z.enum(["sandbox", "live"]), items: z.array(row).max(8), pagination: adminPaginationSchema,
   summary: z.object({ pendingCount: count, pendingCents: cents, approvedCount: count, rejectedCount: count, closedCount: count }),
 });
 
 export const adminApprovalDetailSchema = row.extend({
-  companyId: z.uuid(), cnpj: z.string().nullable(), accountId: z.uuid(), walletSuffix: z.string().max(8),
-  destination: z.string().max(9).nullable(), pixKeyType: pixKeyTypeSchema,
+  companyId: z.uuid().nullable(), cnpj: z.string().nullable(), accountId: z.uuid().nullable(), walletSuffix: z.string().max(8).nullable(),
+  destination: z.string().max(80).nullable(), pixKeyType: pixKeyTypeSchema,
   authorizedAt: date.nullable(), updatedAt: date, confirmedAt: date.nullable(), effectiveAt: date.nullable(),
   effectiveDate: z.iso.date().nullable(), approvedFeeLimitInCents: cents.nullable(), feeInCents: cents.nullable(),
 });

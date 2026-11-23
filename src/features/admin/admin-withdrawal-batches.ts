@@ -34,7 +34,7 @@ const batchRow = z.object({
   amountInCents: cents, completedAmountInCents: cents, recordedFeesInCents: cents.nullable(), recordedFeeCount: count,
 });
 export const adminBatchesSchema = z.object({
-  environment: z.literal("sandbox"), items: z.array(batchRow).max(8), pagination: adminPaginationSchema,
+  environment: z.enum(["sandbox", "live"]), items: z.array(batchRow).max(8), pagination: adminPaginationSchema,
   summary: z.object({
     amountInCents: cents, transferCount: count, completedAmountInCents: cents, completedCount: count,
     recordedFeesInCents: cents.nullable(), recordedFeeCount: count,
@@ -44,7 +44,7 @@ export const adminBatchesSchema = z.object({
 const transfer = z.object({
   id: adminBatchId, position: count.positive(),
   state: z.enum([...withdrawalSchema.shape.state.options, "AWAITING_APPROVAL", "REJECTED"]),
-  pixKeyType: pixKeyTypeSchema, destination: z.string().max(9).nullable(), expenseCategory: expenseCategorySchema.nullable(),
+  pixKeyType: pixKeyTypeSchema, destination: z.string().max(80).nullable(), expenseCategory: expenseCategorySchema.nullable(),
   amountInCents: cents, feeInCents: cents.nullable(),
   effectiveAt: datetime.nullable(), effectiveDate: z.iso.date().nullable(), confirmedAt: datetime.nullable(),
 });

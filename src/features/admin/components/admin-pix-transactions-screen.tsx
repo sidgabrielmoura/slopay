@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
@@ -241,13 +240,12 @@ export function AdminPixTransactionsScreen({ user }: { user: AdminIdentity }) {
   const title = useRef<HTMLHeadingElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const result = useQuery({
-    enabled: development,
     queryKey: ["admin-pix-transactions", user.id, filterKey, query.page],
     queryFn: ({ signal }) => adminPixTransactions.list(query, signal),
-    placeholderData: (previous, previousQuery) => previousQuery?.queryKey[2] === filterKey ? previous : undefined,
+    placeholderData: (previous, previousQuery) => previousQuery?.queryKey[1] === user.id && previousQuery.queryKey[2] === filterKey ? previous : undefined,
     staleTime: 15_000, refetchInterval: 30_000, retry: retryAdminRead,
   });
-  const data = development ? (result.data) : undefined;
+  const data = result.data;
   const displayedQuery = { ...query, page: data?.pagination.page ?? query.page };
 
   function navigate(next: PixTransactionsQuery) {
@@ -312,7 +310,7 @@ export function AdminPixTransactionsScreen({ user }: { user: AdminIdentity }) {
               <TablePagination {...data.pagination} busy={result.isPlaceholderData} label="Paginação de transações Pix"
                 onPageChange={(page) => navigate({ ...query, page })} />
             </>
-          ) : !development ? <OperationalDataUnavailable /> : result.isError && (
+          ) : result.isError && (
             <div className="grid min-h-48 content-center justify-items-center gap-3 px-5 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Não foi possível consultar as transações</h3>
               <Button type="button" variant="outline" className="h-11" onClick={() => void result.refetch()}>Tentar novamente</Button>
@@ -320,7 +318,7 @@ export function AdminPixTransactionsScreen({ user }: { user: AdminIdentity }) {
           )}
         </SkeletonReveal>
       </Card>
-      <PixTransactionDialog adminId={user.id} selection={development ? selection : undefined} onClose={closeDetail} onOpen={openDetail}
+      <PixTransactionDialog adminId={user.id} selection={selection} onClose={closeDetail} onOpen={openDetail}
         onScope={(scope, value) => {
           trigger.current = null;
           navigate({ ...query, companyId: undefined, accountId: undefined, [scope]: value, page: 1 });

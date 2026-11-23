@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight } from "lucide-react";
@@ -15,27 +14,26 @@ import type { z } from "zod";
 import { PixConditionsLayout, PixTermsList, PixTermsLoading, StatementFeesLink } from "./pix-conditions-layout";
 import { PixFeeCards } from "./pix-fee-cards";
 
-type SandboxTerms = Extract<z.infer<typeof pixConditionsSchema>, { environment: "sandbox" }>;
+type PixTerms = Exclude<z.infer<typeof pixConditionsSchema>, { environment: null }>;
 
 export function LiveTaxesAndLimitsScreen({ merchantId }: { merchantId: string }) {
   const development = useDevelopmentFeatures();
   const report = useQuery({
-    enabled: development,
     queryKey: ["pix-conditions", merchantId],
     queryFn: ({ signal }) => requestPixGateway("/api/payments/pix/conditions", pixConditionsSchema, pixConditionsUnavailable, { signal }),
     retry: false,
     staleTime: 60_000,
   });
-  const conditions = development && report.data?.environment === "sandbox" ? report.data : null;
-  const fallback = !development ? <Card><OperationalDataUnavailable title="Consulta de taxas e limites indisponível" /></Card> : report.isPending ? <PixTermsLoading /> : (
+  const conditions = report.data?.environment === (development ? "sandbox" : "live") ? report.data : null;
+  const fallback = report.isPending ? <PixTermsLoading /> : (
     <Card className="grid min-h-36 content-center justify-items-start gap-2 p-5">
-      <h2 className="text-balance text-base font-semibold">{report.isError ? "Consulta indisponível" : "Carteira Asaas não vinculada"}</h2>
+      <h2 className="text-balance text-base font-semibold">{report.isError ? "Consulta indisponível" : "Operações Pix indisponíveis"}</h2>
       {report.isError ? (
         <Button type="button" variant="outline" className="h-11" disabled={report.isFetching} onClick={() => void report.refetch()}>
           Tentar novamente
         </Button>
       ) : (
-        <p className="text-pretty text-sm text-muted-foreground">As condições Pix aparecem quando há uma carteira Asaas conectada à conta.</p>
+        <p className="text-pretty text-sm text-muted-foreground">As condições aparecem quando o Pix está disponível para a conta.</p>
       )}
     </Card>
   );
@@ -44,7 +42,7 @@ export function LiveTaxesAndLimitsScreen({ merchantId }: { merchantId: string })
     <>
       <ToastNotice message={report.isError ? pixConditionsUnavailable : null} />
       <PixConditionsLayout
-        source={conditions ? "Sandbox" : undefined}
+        source={conditions?.environment === "sandbox" ? "Sandbox" : undefined}
         checkedAt={conditions?.checkedAt}
         fees={conditions ? <><PixFeeCards data={conditions.fees} /><StatementFeesLink /></> : fallback}
         limits={conditions ? <AccountLimits data={conditions} /> : fallback}
@@ -54,7 +52,7 @@ export function LiveTaxesAndLimitsScreen({ merchantId }: { merchantId: string })
   );
 }
 
-function AccountLimits({ data }: { data: SandboxTerms }) {
+function AccountLimits({ data }: { data: PixTerms }) {
   return (
     <>
       <div className="grid gap-4 md:grid-cols-2">
@@ -80,14 +78,14 @@ function AccountLimits({ data }: { data: SandboxTerms }) {
               ) : (
                 <>
                   <p className="wrap-break-word text-2xl font-semibold tabular-nums"><PanelAmount cents={data.availableBalanceInCents} /></p>
-                  <p className="mt-1 text-sm text-muted-foreground">Saldo da carteira Asaas Sandbox.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{data.environment === "sandbox" ? "Saldo da carteira Asaas Sandbox." : "Saldo disponível do titular."}</p>
                 </>
               )}
             </CardContent>
           </Card>
         )}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5">
+      {data.environment === "sandbox" && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5">
         <div className="space-y-1">
           <h2 className="text-balance text-base font-semibold">Limites da conta Asaas</h2>
           <p className="text-pretty text-sm text-muted-foreground">
@@ -97,7 +95,7 @@ function AccountLimits({ data }: { data: SandboxTerms }) {
         <Button asChild variant="outline" className="h-11">
           <a href={asaasPixLimitsHelp} target="_blank" rel="noreferrer">Como consultar <ArrowUpRight aria-hidden="true" /></a>
         </Button>
-      </div>
+      </div>}
     </>
   );
 }

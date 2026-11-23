@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { developmentFeaturesEnabled } from "@/config/development";
 import type { ZodType } from "zod";
 import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
 import {
@@ -7,12 +8,12 @@ import {
 } from "@/features/integrations/sandbox-keys";
 import { forwardIntegrationRequest, integrationResponse } from "@/lib/server/integration-request";
 
-const base = "/integrations/sandbox/api-keys";
 const unavailable = "As chaves de API estão temporariamente indisponíveis.";
 
 type Operation = { path: `/${string}`; input: ZodType<object>; output: ZodType<object> };
 
 function operationRoute(segments: string[]): Operation | null {
+  const base = `/integrations/${developmentFeaturesEnabled() ? "sandbox" : "live"}/api-keys` as const;
   if (segments.length === 0) return { path: base, input: keyCreateSchema, output: issuedKeySchema };
   if (segments.length === 1 && segments[0] === "passkey-options")
     return { path: `${base}/passkey-options`, input: keyDraftSchema, output: passkeyOptionsSchema };

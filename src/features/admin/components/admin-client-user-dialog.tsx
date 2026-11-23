@@ -129,6 +129,7 @@ export function AdminClientUserDialog({ adminId, id, open, onOpenChange, onClose
                       <p>O cadastro tem um vínculo operacional.</p>}
                     {(deletion.blocked === "HISTORY" || deletion.hasFinancialHistory) &&
                       <p>Há movimentações financeiras vinculadas a este cadastro.</p>}
+                    {detail.closureFinancialPending && <p>Regularize o saldo e as operações em aberto para encerrar a conta.</p>}
                     {detail.closedAt && <p>Encerrado em <time dateTime={detail.closedAt}>{formatDateTime(detail.closedAt, "medium")}</time>.</p>}
                     {detail.closureVersion != null && <Button type="button" ref={deleteButton} variant="outline" className="mt-2 h-11 w-fit"
                       aria-haspopup="dialog" disabled={result.isError} onClick={() => setDeletionTarget({

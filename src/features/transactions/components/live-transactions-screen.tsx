@@ -1,6 +1,5 @@
 "use client";
 
-import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { ExpenseCharts } from "@/features/expenses/components/expense-charts";
 import { fetchLiveTransactions } from "../live-transactions";
 import type { TransactionTab } from "../transaction-presentation";
@@ -12,10 +11,9 @@ export function LiveTransactionsScreen({ initialTab, initialSearch, merchantId, 
   merchantId: string;
   owner?: boolean;
 }) {
-  const available = useDevelopmentFeatures();
   return (
     <StatementScreen
-      available={available}
+      available
       initialTab={initialTab}
       initialSearch={initialSearch}
       merchantId={merchantId}

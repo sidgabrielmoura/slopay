@@ -25,16 +25,16 @@ export const sandboxKeySchema = z.object({
   keyPrefix: z.string(),
   scopes: z.array(scope),
   status: z.enum(["active", "paused", "expired", "revoked"]),
-  environment: z.literal("sandbox"),
+  environment: z.enum(["sandbox", "live"]),
   expiresAt: z.iso.datetime().nullable(),
   lastUsedAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
 });
 
-export const issuedKeySchema = sandboxKeySchema.extend({ secret: z.string().regex(/^slopay_sbx_[0-9a-f]{64}$/) });
+export const issuedKeySchema = sandboxKeySchema.extend({ secret: z.string().regex(/^slopay_(?:sbx|live)_[0-9a-f]{64}$/) });
 export const sandboxKeysSchema = z.array(sandboxKeySchema);
 export const sandboxIntegrationStatusSchema = z.object({
-  environment: z.literal("sandbox"),
+  environment: z.enum(["sandbox", "live"]),
   company: z.object({ id: z.uuid(), legalName: z.string(), cnpj: z.string().nullable() }).nullable(),
   verifiedAt: z.iso.datetime().nullable(),
 });

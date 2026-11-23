@@ -1,3 +1,5 @@
+import { developmentFeaturesEnabled } from "@/config/development";
+import { AdminLiveBalancePositions } from "@/features/admin/components/admin-live-balance-positions";
 import type { Metadata } from "next";
 import { balancePositionsPath } from "@/features/admin/admin-balance-positions";
 import { AdminActivityProvider } from "@/features/admin/components/admin-activity-provider";
@@ -10,7 +12,8 @@ export default async function AdminBalancePositionsPage() {
   const { id, fullName, email } = await requireSession(balancePositionsPath, { admin: true });
   return (
     <AdminActivityProvider accountId={id}>
-      <AdminBalancePositionsScreen user={{ id, fullName, email }} />
+      {developmentFeaturesEnabled() ? <AdminBalancePositionsScreen user={{ id, fullName, email }} />
+        : <AdminLiveBalancePositions user={{ id, fullName, email }} />}
     </AdminActivityProvider>
   );
 }

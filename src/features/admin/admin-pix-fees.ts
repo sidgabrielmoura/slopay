@@ -29,6 +29,9 @@ export const adminPixFeesList = z.object({
   summary: z.object({ total: z.int().nonnegative(), checked: z.int().nonnegative() }),
   limits: z.object({
     minimumChargeInCents: z.int().positive(),
+    maxChargeInCents: z.int().positive().nullable().optional(),
+    maxWithdrawalInCents: z.int().positive().nullable().optional(),
+    maxDailyWithdrawalInCents: z.int().positive().nullable().optional(),
     pilotBatchLimits: z.object({ minimum: z.int().positive(), maximum: z.int().positive() }).nullable(),
   }),
   pagination: adminPaginationSchema,

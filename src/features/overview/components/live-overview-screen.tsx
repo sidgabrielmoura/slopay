@@ -40,9 +40,9 @@ function metricsForPeriod(data: DashboardOverview, period: OverviewPeriod): Over
   return {
     activityCount: periodDays.reduce((sum, day) => sum + day.count, 0),
     activityInCents: periodDays.reduce((sum, day) => sum + day.amountInCents, 0),
-    availableBalanceInCents: null,
-    settledBalanceInCents: null,
-    reservedBalanceInCents: null,
+    availableBalanceInCents: data.availableBalanceInCents ?? null,
+    settledBalanceInCents: data.settledBalanceInCents ?? null,
+    reservedBalanceInCents: data.reservedBalanceInCents ?? null,
     outflowsCount: data.pixWithdrawAvailable ? periodDays.reduce((sum, day) => sum + (day.outflowsCount ?? 0), 0) : null,
     outflowsAmountInCents: data.pixWithdrawAvailable ? periodDays.reduce((sum, day) => sum + (day.outflowsInCents ?? 0), 0) : null,
     feesAmountInCents: null,
@@ -88,7 +88,8 @@ export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive 
     retry: false,
   });
   const withdrawals = recentWithdrawals.data?.withdrawals;
-  const availableBalanceInCents = balance.isError ? null : balance.data?.availableBalanceInCents ?? null;
+  const availableBalanceInCents = data?.environment === "live"
+    ? data.availableBalanceInCents ?? null : balance.isError ? null : balance.data?.availableBalanceInCents ?? null;
   const metrics = useMemo(() => {
     if (!data) return null;
     const summary = metricsForPeriod(data, period);
@@ -124,7 +125,7 @@ export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive 
         <DashboardPixReceive
           key={`receive-${merchantId}`}
           gateway={owner ? asaasPixReceive : operatorPixReceive}
-          environment="sandbox"
+          environment={data?.environment ?? "live"}
           accountId={merchantId}
           available={data?.pixReceiveAvailable === true}
           onReceiptChange={() => {

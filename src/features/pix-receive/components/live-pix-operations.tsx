@@ -98,9 +98,10 @@ function PixHistory({ direction, rows, loading, error, retry }: {
   );
 }
 
-export function LivePixOperations({ merchantId, view, receiveAvailable, withdrawAvailable, unavailable }: {
+export function LivePixOperations({ merchantId, view, environment, receiveAvailable, withdrawAvailable, unavailable }: {
   merchantId: string;
   view: PixPageView;
+  environment: "live" | "sandbox";
   receiveAvailable: boolean;
   withdrawAvailable: boolean;
   unavailable: boolean;
@@ -109,13 +110,13 @@ export function LivePixOperations({ merchantId, view, receiveAvailable, withdraw
   const router = useRouter();
   const client = useQueryClient();
   const direction = view === "withdraw" ? "OUT" : "IN";
-  const available = development && (view === "withdraw" ? withdrawAvailable : receiveAvailable);
-  const useWithdrawals = development && view === "withdraw" && withdrawAvailable;
+  const available = view === "withdraw" ? withdrawAvailable : receiveAvailable;
+  const useWithdrawals = view === "withdraw" && withdrawAvailable;
   const historyKey = ["pix-recent-operations", merchantId, direction] as const;
   const history = useQuery({
     queryKey: historyKey,
     queryFn: ({ signal }) => fetchLiveTransactions({ direction }, signal),
-    enabled: development && view !== "hub" && !useWithdrawals,
+    enabled: view !== "hub" && !useWithdrawals && !unavailable,
     staleTime: 10_000,
     retry: false,
   });
@@ -186,7 +187,7 @@ export function LivePixOperations({ merchantId, view, receiveAvailable, withdraw
             </CardHeader>
             <CardContent className="px-5 pb-5">
               {available ? direction === "IN" ? (
-                <DashboardPixReceive inline environment="sandbox" accountId={merchantId} gateway={asaasPixReceive}
+                <DashboardPixReceive inline environment={environment} accountId={merchantId} gateway={asaasPixReceive}
                   onReceiptChange={() => {
                     void client.invalidateQueries({ queryKey: historyKey });
                     void client.invalidateQueries({ queryKey: ["pix-statement", merchantId] });
@@ -208,11 +209,11 @@ export function LivePixOperations({ merchantId, view, receiveAvailable, withdraw
               )}
             </CardContent>
           </Card>
-          <PixHistory direction={direction} rows={development ? records : []} loading={historyQuery.isLoading}
-            error={development && historyQuery.isError ? historyQuery.error.message : undefined} retry={() => void historyQuery.refetch()} />
+          <PixHistory direction={direction} rows={records} loading={historyQuery.isLoading}
+            error={historyQuery.isError ? historyQuery.error.message : undefined} retry={() => void historyQuery.refetch()} />
         </div>
       )}
-      <ExpenseCharts merchantId={merchantId} preview />
+      {development && <ExpenseCharts merchantId={merchantId} preview />}
     </div>
   );
 }

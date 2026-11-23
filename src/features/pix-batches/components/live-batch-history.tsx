@@ -1,6 +1,5 @@
 "use client";
 
-import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 
 import { useLayoutEffect, useRef, useState } from "react";
@@ -42,28 +41,26 @@ function BatchLoading() {
   );
 }
 
-export function LiveBatchHistory({ merchantId }: { merchantId: string }) {
+export function LiveBatchHistory({ merchantId, canCreate }: { merchantId: string; canCreate: boolean }) {
   const [page, setPage] = useState(1);
-  const development = useDevelopmentFeatures();
   const history = useQuery({
-    enabled: development,
     queryKey: [...batchKeys.list(merchantId), page],
     queryFn: ({ signal }) => liveBatchesGateway.list(page, signal),
     retry: false,
     refetchInterval: ({ state }) => state.data?.data.some(batchIsPending) ? 8_000 : false,
   });
-  const data = development ? history.data : undefined;
+  const data = history.data;
   return (
     <div className="grid min-w-0 gap-5">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="grid gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Saques em lote</h1>
-            {data && <Badge variant="secondary">Sandbox</Badge>}
+            {data?.data[0]?.environment === "sandbox" && <Badge variant="secondary">Sandbox</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">Autorize vários Pix juntos e acompanhe o resultado de cada transferência.</p>
         </div>
-        {data && (
+        {canCreate && (
           <Button asChild className="h-11">
             <Link href={batchesPath + "/novo"} prefetch={false}><Plus aria-hidden="true" /> Novo lote</Link>
           </Button>
@@ -76,13 +73,13 @@ export function LiveBatchHistory({ merchantId }: { merchantId: string }) {
             {data && <p className="mt-1 text-sm text-muted-foreground">{data.total} {data.total === 1 ? "lote registrado" : "lotes registrados"}</p>}
           </div>
           <Button variant="outline" size="icon" aria-label="Atualizar lotes" className="size-11"
-            onClick={() => void history.refetch()} disabled={!development || history.isFetching}>
+            onClick={() => void history.refetch()} disabled={history.isFetching}>
             <RotateCw aria-hidden="true" />
           </Button>
         </CardHeader>
         <CardContent className="px-5 pb-5">
           <ToastNotice message={history.isError ? history.error.message : null} />
-          {!development ? <OperationalDataUnavailable title="Consulta de lotes indisponível" /> : history.isPending ? <BatchLoading /> : !data ? (
+          {history.isPending ? <BatchLoading /> : !data ? (
             <Empty icon={<Layers aria-hidden="true" />} title="Consulta de lotes indisponível"
               action={<Button variant="outline" onClick={() => void history.refetch()}>Consultar novamente</Button>} />
           ) : !data.total ? (
@@ -146,15 +143,13 @@ export function LiveBatchDetail({ merchantId, batchId }: { merchantId: string; b
   const query = useQueryClient();
   const lastState = useRef<BatchSummary>(null);
   const [animate, setAnimate] = useState(false);
-  const development = useDevelopmentFeatures();
   const detail = useQuery({
-    enabled: development,
     queryKey: batchKeys.detail(merchantId, batchId),
     queryFn: ({ signal }) => liveBatchesGateway.get(batchId, signal),
     retry: false,
     refetchInterval: ({ state }) => state.data && batchIsPending(state.data) ? 4_000 : false,
   });
-  const batch = development ? detail.data : undefined;
+  const batch = detail.data;
   useLayoutEffect(() => {
     if (!batch) return;
     const previous = lastState.current;
@@ -179,7 +174,7 @@ export function LiveBatchDetail({ merchantId, batchId }: { merchantId: string; b
         <Link href={batchesPath} prefetch={false}><ArrowLeft aria-hidden="true" /> Voltar aos lotes</Link>
       </Button>
       <ToastNotice message={detail.isError ? detail.error.message : null} />
-      {!development ? <OperationalDataUnavailable title="Consulta de lote indisponível" /> : detail.isPending ? <BatchLoading /> : !batch ? (
+      {detail.isPending ? <BatchLoading /> : !batch ? (
         <Empty title={notFound ? "Lote ainda não localizado" : "Consulta de lote indisponível"}
           description={notFound ? "Confira novamente se o envio acabou de ser autorizado." : undefined}
           action={<Button variant="outline" onClick={() => void detail.refetch()} disabled={detail.isFetching}>Consultar novamente</Button>} />
@@ -190,7 +185,7 @@ export function LiveBatchDetail({ merchantId, batchId }: { merchantId: string; b
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{batch.title || "Detalhes do lote"}</h1>
                 <BatchStatus state={batch.state} />
-                <Badge variant="secondary">{batch.simulated ? "Simulado" : "Sandbox"}</Badge>
+                {batch.environment === "sandbox" && <Badge variant="secondary">{batch.simulated ? "Simulado" : "Sandbox"}</Badge>}
               </div>
               <p className="break-all text-sm text-muted-foreground">
                 Criado em <time dateTime={batch.createdAt}>{formatDateTime(batch.createdAt)}</time> · <span className="font-mono">{batch.id}</span>

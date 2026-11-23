@@ -37,7 +37,7 @@ const delivery = z.object({
   createdAt: date, nextAttemptAt: date.nullable(), completedAt: date.nullable(),
 });
 export const adminWebhooksSchema = z.object({
-  environment: z.literal("sandbox"), summary: webhookSummary, items: z.array(webhook).max(8), pagination: adminPaginationSchema,
+  environment: z.enum(["sandbox", "live"]), summary: webhookSummary, items: z.array(webhook).max(8), pagination: adminPaginationSchema,
 });
 export const adminWebhookHistorySchema = z.object({
   webhook, queued: count, blockedDeliveryId: webhookIdSchema.nullable(), pagination: adminPaginationSchema,

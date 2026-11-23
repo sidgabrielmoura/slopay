@@ -150,7 +150,9 @@ function ReceiptDocument({ data: { receipt, expiresAt } }: { data: SharedReceipt
         <LoadingConfirmation size={44} />
         <h1 className="text-balance text-xl font-semibold">Comprovante Pix</h1>
         <p className="text-sm text-muted-foreground">{receipt.kind === "refund" ? "Estorno Pix confirmado" : incoming ? "Recebimento confirmado" : "Saque confirmado"}</p>
-        <p className="text-sm text-muted-foreground">{receipt.simulated ? "Simulação de saque · Asaas Sandbox" : "Operação de teste · Asaas Sandbox"}</p>
+        {receipt.environment === "sandbox" && <p className="text-sm text-muted-foreground">
+          {receipt.simulated ? "Simulação de saque · Asaas Sandbox" : "Operação de teste · Asaas Sandbox"}
+        </p>}
       </header>
 
       <div className={styles.perforation} aria-hidden="true" />

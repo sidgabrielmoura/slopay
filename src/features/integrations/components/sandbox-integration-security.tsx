@@ -1,7 +1,6 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,15 +13,16 @@ import { Empty } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-client";
-import { apiAccessDraftSchema, sandboxApiGateway, type ApiAccessDraft } from "../sandbox-api";
+import { apiAccessDraftSchema, integrationApiGateway, type ApiAccessDraft } from "../sandbox-api";
 import { IntegrationConfirmationDialog } from "./integration-confirmation-dialog";
 import { IntegrationHeading } from "./integration-heading";
 
 export function SandboxIntegrationSecurity({ accountId }: { accountId: string }) {
   const development = useDevelopmentFeatures();
   const queryClient = useQueryClient();
-  const key = ["sandbox-api-security", accountId] as const;
-  const security = useQuery({ enabled: development, queryKey: key, queryFn: ({ signal }) => sandboxApiGateway.security(signal), retry: false });
+  const gateway = integrationApiGateway(development);
+  const key = ["integration-api-security", accountId, development] as const;
+  const security = useQuery({ queryKey: key, queryFn: ({ signal }) => gateway.security(signal), retry: false });
   const editor = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState<{ version: number; text: string } | null>(null);
   const [review, setReview] = useState<ApiAccessDraft | null>(null);
@@ -44,16 +44,16 @@ export function SandboxIntegrationSecurity({ accountId }: { accountId: string })
   return (
     <div className="grid min-w-0 gap-5">
       <IntegrationHeading title="Segurança da integração" description="Controle quais redes podem usar as chaves de API da empresa." />
-      {!development ? <Card><OperationalDataUnavailable title="Segurança da integração indisponível" /></Card> : security.isPending ? (
+      {security.isPending ? (
         <Card className="grid gap-3 p-5" aria-busy="true" aria-label="Carregando segurança da integração">
           <Skeleton className="h-6 w-44" /><Skeleton className="h-32 w-full" />
         </Card>
       ) : !data || !access ? (
         <Card>
           <Empty icon={<ShieldCheck aria-hidden="true" />} className="rounded-none border-0"
-            title={security.data ? "Conta Sandbox aguardando vínculo" : "Segurança da integração indisponível"}
+            title={security.data ? (development ? "Conta Sandbox aguardando vínculo" : "Cadastro aguardando aprovação") : "Segurança da integração indisponível"}
             description={security.data || (security.error instanceof ApiError && security.error.status === 404)
-              ? "A equipe do Slopay habilita o acesso da empresa ao Sandbox."
+              ? (development ? "A equipe do Slopay habilita o acesso da empresa ao Sandbox." : "A integração fica disponível após a habilitação da conta.")
               : "Tente carregar as configurações novamente."}
             action={security.isError && <Button variant="outline" onClick={() => void security.refetch()}>Tentar novamente</Button>} />
         </Card>
@@ -67,7 +67,7 @@ export function SandboxIntegrationSecurity({ accountId }: { accountId: string })
                   {access.networks.length ? "Restrição ativa" : "Acesso por chave"}
                 </Badge>
               </div>
-              <CardDescription>As redes valem para todas as chaves de API da empresa no Sandbox.</CardDescription>
+              <CardDescription>As redes valem para todas as chaves de API da empresa.</CardDescription>
             </CardHeader>
             <CardContent className="grid min-w-0 gap-4">
               {access.networks.length ? (
@@ -116,7 +116,7 @@ export function SandboxIntegrationSecurity({ accountId }: { accountId: string })
       )}
       {review && <IntegrationConfirmationDialog scope={JSON.stringify(review)} title="Confirmar redes permitidas"
         description="Revise a lista que será aplicada às chaves da empresa." completed="Redes atualizadas"
-        options={() => sandboxApiGateway.options(review)} apply={(proof) => sandboxApiGateway.update(review, proof)}
+        options={() => gateway.options(review)} apply={(proof) => gateway.update(review, proof)}
         onSuccess={(result) => { queryClient.setQueryData(key, result); setEditing(null); }}
         onClose={() => setReview(null)} restoreFocus={() => editor.current?.focus()}>
         {review.networks.length ? <ul className="grid gap-1 rounded-lg border p-3 font-mono text-sm">

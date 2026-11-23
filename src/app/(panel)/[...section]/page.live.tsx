@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { MerchantPanel, PanelHeading } from "@/components/layout/merchant-panel";
 import { merchantNavigation } from "@/components/layout/panel-navigation";
-import { developmentFeaturesEnabled } from "@/config/development";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { developmentFeaturesEnabled } from "@/config/development";
 import { panelSections } from "@/components/layout/panel-sections";
 import { Button } from "@/components/ui/button";
 import { ToastNotice } from "@/components/ui/toast-notice";
@@ -25,7 +25,6 @@ export default async function PanelPage({
 }) {
   const { section } = await params;
   const returnTo = "/" + section.map(encodeURIComponent).join("/");
-  const development = developmentFeaturesEnabled();
   const page = Object.hasOwn(panelSections, returnTo) ? panelSections[returnTo] : undefined;
   const tab = (Object.keys(transactionTabs) as TransactionTab[]).find((key) => transactionTabs[key].path === returnTo);
   const reference = !tab && section[0] === "movimentacoes" && section.length === 2 && transactionReferencePattern.test(section[1])
@@ -65,13 +64,6 @@ export default async function PanelPage({
     const backTo = typeof origem === "string" && Object.hasOwn(transactionTabs, origem)
       ? transactionTabs[origem as TransactionTab].path
       : transactionTabs.ALL.path;
-    if (!development) {
-      return <MerchantPanel user={user}>
-        <PanelHeading title="Detalhes da movimentação" />
-        <p className="text-sm text-muted-foreground">A consulta de movimentações ainda não está disponível.</p>
-        <Button asChild variant="outline"><Link href={backTo} prefetch={false}>Voltar às movimentações</Link></Button>
-      </MerchantPanel>;
-    }
     const result = await loadDashboardTransaction(reference);
     if (result.state === "ready") {
       return <MerchantPanel user={user}><LiveTransactionDetail data={result.data} backTo={backTo} share={merchant} /></MerchantPanel>;
@@ -79,7 +71,7 @@ export default async function PanelPage({
 
     let sample: Awaited<ReturnType<typeof loadDashboardOperation>> | null = null;
     if (result.state === "absent") {
-      if (!merchant) notFound();
+      if (!merchant || !developmentFeaturesEnabled()) notFound();
       if (reference.startsWith("saque-") || reference.length > 48) notFound();
       sample = await loadDashboardOperation(reference);
       if (sample.state === "absent" || (sample.state === "ready" && sample.data.operation.status !== "SAMPLE")) notFound();

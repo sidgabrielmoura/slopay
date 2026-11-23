@@ -29,6 +29,8 @@ const withdrawalMessages: Partial<Record<string, string>> = {
   PIX_WITHDRAWAL_INSUFFICIENT_BALANCE: "O saldo disponível não cobre o valor total e as tarifas.",
   PIX_WITHDRAWAL_FEE_CHANGED: "A tarifa mudou. Revise a operação com a tarifa atual.",
   PIX_WITHDRAWAL_VALIDATION_NOT_CONFIGURED: "A conta ainda precisa habilitar a validação de saques.",
+  PIX_WITHDRAWAL_REVIEW_EXPIRED: "Revise os dados do saque antes de confirmar.",
+  PIX_WITHDRAWAL_LIMIT: "O valor excede o limite de saque da conta.",
   PIX_WITHDRAWAL_BATCH_NOT_FOUND: "Lote não encontrado.",
 };
 
@@ -55,8 +57,9 @@ export async function forwardWithdrawalRequest(
       if (parsed.success) return pixResponse(parsed.data, response.status);
     } else {
       const error: { code?: string; message?: unknown } | null = await response.json().catch(() => null);
-      const code = typeof error?.code === "string" && /^PIX_WITHDRAWAL_[A-Z_]{1,48}$/.test(error.code)
-        ? error.code : undefined;
+      const code = error?.code === "INTEGRATION_CODE_REJECTED" ? "PIX_WITHDRAWAL_CODE_REJECTED"
+        : error?.code === "INTEGRATION_PASSKEY_REJECTED" ? "PIX_WITHDRAWAL_PASSKEY_REJECTED"
+          : typeof error?.code === "string" && /^PIX_WITHDRAWAL_[A-Z_]{1,48}$/.test(error.code) ? error.code : undefined;
       const rowError = code === "PIX_WITHDRAWAL_INVALID_KEY" && typeof error?.message === "string" &&
         /^Confira a chave Pix da transferência \d{1,2}\.$/.test(error.message) ? error.message : undefined;
       const message = rowError ?? (code ? withdrawalMessages[code] : undefined) ?? contextErrors[response.status];

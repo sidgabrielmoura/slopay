@@ -70,7 +70,7 @@ export function AdminPendingScreen({ user, initialReport }: { user: AdminIdentit
     queryKey: ["admin-pending", user.id, "list", category, search, page],
     queryFn: ({ signal }) => fetchAdminPending(category, search, page, signal),
     initialData: category === "ALL" && !search && page === 1 ? initialReport ?? undefined : undefined,
-    placeholderData: (previous) => previous?.category === category && previous.search === search ? previous : undefined,
+    placeholderData: (previous, request) => request?.queryKey[1] === user.id && previous?.category === category && previous.search === search ? previous : undefined,
     staleTime: 10_000, retry: false, refetchInterval: activity?.connection === "live" ? false : 15_000,
   });
   const detail = useQuery({
@@ -107,20 +107,20 @@ export function AdminPendingScreen({ user, initialReport }: { user: AdminIdentit
     <ToastNotice message={report.isError ? report.error.message : null} />
     <SkeletonReveal flow revealed={!report.isPending} skeleton={<PendingSkeleton />}>
       {data && summary ? <div className="grid min-w-0 gap-5">
-        {development ? <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border xl:grid-cols-4">
           <Summary label="Pendências abertas" value={summary.total} caption="Todas as frentes da operação" />
           <Summary label="Com a equipe Slopay" value={summary.onboarding + summary.review} caption="Cadastros e revisões Pix" />
           <Summary label="Aguardando o titular" value={summary.ownerApproval} caption="Autorização de saques" />
           <Summary label="Webhooks interrompidos" value={summary.webhooks} caption="Entregas que precisam de atenção" />
-        </div> : <Card><Summary label="Cadastros pendentes" value={summary.onboarding} caption="Solicitações que precisam de atenção" /></Card>}
+        </div>
         <Card className="min-w-0 overflow-hidden">
           <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-end">
-            {development && <div className="grid gap-2 lg:w-64 lg:shrink-0">
+            <div className="grid gap-2 lg:w-64 lg:shrink-0">
               <label id="pending-category-label" className="text-sm font-medium">Tipo de pendência</label>
               <GlideSelect ariaLabel="Tipo de pendência" value={category} size="lg"
                 options={pendingCategories.map((value) => ({ value, label: pendingCategoryLabels[value] }))}
                 onChange={(value) => { setCategory(pendingCategorySchema.parse(value)); setPage(1); }} />
-            </div>}
+            </div>
             <form className="flex min-w-0 flex-1 items-end gap-2" onSubmit={submitSearch}>
               <div className="grid min-w-0 flex-1 gap-2">
                 <label htmlFor="pending-search" className="text-sm font-medium">Buscar na fila</label>
