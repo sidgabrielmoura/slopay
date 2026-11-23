@@ -8,7 +8,7 @@ import type {
   RegistrationResponseJSON,
 } from "@simplewebauthn/browser";
 
-type LoginUser = Pick<SessionUser, "id" | "role" | "status" | "isEmailVerified" | "isTwoFactorEnabled">;
+type LoginUser = Pick<SessionUser, "id" | "role" | "status" | "onboardingRequired" | "isEmailVerified" | "isTwoFactorEnabled">;
 type LoginResult = { requires2FA: true } | { user: LoginUser };
 type Success = { success: true; message?: string };
 const authRequestTimeoutMs = process.env.NODE_ENV === "development" ? 60_000 : 12_000;

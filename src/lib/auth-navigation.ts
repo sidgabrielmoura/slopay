@@ -14,8 +14,9 @@ export function needsAccountOpening(user: Pick<SessionUser, "role" | "onboarding
 }
 
 export function onboardingDestination(
-  user: Pick<SessionUser, "status" | "isEmailVerified" | "isTwoFactorEnabled">,
+  user: Pick<SessionUser, "role" | "onboardingRequired" | "status" | "isEmailVerified" | "isTwoFactorEnabled">,
 ) {
+  if (needsAccountOpening(user)) return accountOpeningPath;
   if (!user.isTwoFactorEnabled) return "/conta/seguranca";
   if (!user.isEmailVerified) return emailVerificationPath;
   if (user.status !== "ACTIVE") return "/conta-em-validacao";

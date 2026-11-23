@@ -4,7 +4,8 @@ import { AuthBrandImage, AuthFormMotion, AuthMotionSurface } from "./auth-motion
 import styles from "./auth-shell.module.css";
 
 export const loginSteps = ["Credenciais", "Verificar acesso"];
-export const accountSetupSteps = ["Criar usuário", "Ativar autenticador", "Confirmar e-mail", "Validação da conta"];
+export const accountOpeningSteps = ["Criar usuário", "Enviar solicitação", "Análise da conta"];
+export const securitySetupSteps = ["Ativar autenticador", "Confirmar e-mail"];
 export const recoverySteps = ["Solicitar recuperação", "Redefinir senha"];
 
 type AuthProgress = {

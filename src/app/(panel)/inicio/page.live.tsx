@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { MerchantPanel, PanelHeading } from "@/components/layout/merchant-panel";
 import { LiveOverviewScreen } from "@/features/overview/components/live-overview-screen";
-import { accountOpeningPath, needsAccountOpening, onboardingDestination } from "@/lib/auth-navigation";
+import { onboardingDestination } from "@/lib/auth-navigation";
 import { loadDashboardOverview } from "@/lib/server/dashboard";
 import { requireSession } from "@/lib/server/session";
 
@@ -15,7 +15,6 @@ export default async function InicioPage() {
   const destination = onboardingDestination(user);
   if (destination && (destination !== "/conta-em-validacao" || user.role !== "MERCHANT")) redirect(destination);
   if (user.role === "ADMIN") redirect("/admin");
-  if (!destination && needsAccountOpening(user)) redirect(accountOpeningPath);
 
   const pending = destination === "/conta-em-validacao";
   const merchant = user.role === "MERCHANT";

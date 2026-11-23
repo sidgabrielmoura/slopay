@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { AuthHeading } from "@/features/auth/components/auth-form-controls";
-import { AuthShell, accountSetupSteps } from "@/features/auth/components/auth-shell";
+import { AuthShell } from "@/features/auth/components/auth-shell";
 import { LogoutButton } from "@/features/auth/components/live-auth-forms";
 import { SessionMonitor } from "@/features/auth/components/session-monitor";
 import { onboardingDestination, registrationCompletePath } from "@/lib/auth-navigation";
@@ -15,7 +15,7 @@ export default async function ContaEmValidacaoPage() {
   if (user.role === "MERCHANT") redirect("/inicio");
 
   return (
-    <AuthShell progress={{ steps: accountSetupSteps, current: 3 }}>
+    <AuthShell>
       <SessionMonitor />
       <section className="space-y-5">
         <header className="space-y-2">

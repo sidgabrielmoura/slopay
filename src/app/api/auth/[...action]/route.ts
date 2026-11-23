@@ -122,7 +122,7 @@ const backendMessage = z.object({
 
 const authIssue = z.object({ user: sessionUserSchema, tokens: authTokensSchema });
 const loginUser = sessionUserSchema.pick({
-  id: true, role: true, status: true, isEmailVerified: true, isTwoFactorEnabled: true,
+  id: true, role: true, status: true, onboardingRequired: true, isEmailVerified: true, isTwoFactorEnabled: true,
 });
 const challenge = z.object({
   requires2FA: z.literal(true),

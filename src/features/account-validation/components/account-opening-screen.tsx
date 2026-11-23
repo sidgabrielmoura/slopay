@@ -32,7 +32,7 @@ const tracking = {
   RESUBMITTED: { title: "Dados atualizados", description: "Recebemos as correções. Sua solicitação voltou para análise." },
   CHANGES_REQUESTED: { title: "Precisamos de alguns ajustes", description: "Atualize os dados solicitados para que a equipe continue a análise." },
   REJECTED: { title: "Solicitação não aprovada", description: "A análise da sua conta foi concluída." },
-  APPROVED: { title: "Sua conta está pronta", description: "A abertura foi aprovada. Você já pode acessar seu painel." },
+  APPROVED: { title: "Conta aprovada", description: "Continue para acessar sua conta no Slopay." },
 };
 
 function Title({ title, description }: { title: string; description: string }) {
@@ -233,7 +233,7 @@ function AccountOpeningTracking({ snapshot, onEdit, demo }: {
           )}
         </dl>
         {corrections && <Button type="button" className="h-11 w-full" onClick={onEdit}>Atualizar dados</Button>}
-        {approved && <Button asChild className="h-11 w-full"><Link href="/inicio">Acessar painel <ArrowRight size={16} aria-hidden="true" /></Link></Button>}
+        {approved && <Button asChild className="h-11 w-full"><Link href="/inicio">Continuar <ArrowRight size={16} aria-hidden="true" /></Link></Button>}
       </section>
     </AccountOpeningLayout>
   );

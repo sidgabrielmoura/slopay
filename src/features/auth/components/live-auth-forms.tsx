@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { ApiError } from "@/lib/api-client";
-import { onboardingDestination, safeReturnTo } from "@/lib/auth-navigation";
+import { accountOpeningPath, onboardingDestination, safeReturnTo } from "@/lib/auth-navigation";
 import { cleanDocument, isValidCPF } from "@/lib/validators";
 import { authApiService } from "@/services/auth-api.service";
 import { AUTH_PASSWORD_MAX_LENGTH, AUTH_PASSWORD_MIN_LENGTH, getAuthPasswordRequirements } from "../auth-password";
@@ -210,7 +210,7 @@ export function LiveRegistration({ invitation }: { invitation?: string } = {}) {
         password: submittedPassword,
         invitation,
       });
-      window.location.replace("/conta/seguranca");
+      window.location.replace(invitation ? "/conta/seguranca" : accountOpeningPath);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Não foi possível criar o usuário.");
     } finally {

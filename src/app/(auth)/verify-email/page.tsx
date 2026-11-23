@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { AuthShell, accountSetupSteps } from "@/features/auth/components/auth-shell";
+import { AuthShell, securitySetupSteps } from "@/features/auth/components/auth-shell";
 import { RegistrationEmailStep } from "@/features/auth/components/registration-email-step";
 import { SessionMonitor } from "@/features/auth/components/session-monitor";
 import { VerifyEmailLink } from "@/features/auth/components/verify-email-link";
@@ -14,7 +14,7 @@ export default async function VerifyEmailPage({ searchParams }: {
 }) {
   const { token } = await searchParams;
   const legacyToken = typeof token === "string" ? token.trim() : "";
-  const progress = { steps: accountSetupSteps, current: 2 };
+  const progress = { steps: securitySetupSteps, current: 1 };
   if (legacyToken) {
     return <AuthShell progress={progress}><VerifyEmailLink token={legacyToken} /></AuthShell>;
   }

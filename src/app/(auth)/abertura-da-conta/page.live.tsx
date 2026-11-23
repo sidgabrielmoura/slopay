@@ -10,7 +10,7 @@ import { accessCookie, requireSession } from "@/lib/server/session";
 export const metadata: Metadata = { title: "Abertura de conta" };
 
 export default async function AccountOpeningPage() {
-  const user = await requireSession(accountOpeningPath, { operations: true, allowOpening: true });
+  const user = await requireSession(accountOpeningPath);
   if (user.role !== "MERCHANT") redirect(user.role === "ADMIN" ? "/admin" : "/inicio");
 
   const accessToken = (await cookies()).get(accessCookie)?.value;

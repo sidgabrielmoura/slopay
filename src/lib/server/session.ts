@@ -4,7 +4,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import type { NextResponse } from "next/server";
-import { accountOpeningPath, authEntry, needsAccountOpening, onboardingDestination } from "@/lib/auth-navigation";
+import { authEntry, onboardingDestination } from "@/lib/auth-navigation";
 import { requestAuthBackend, sessionUserSchema, type AuthTokens } from "./auth-backend";
 
 const secure = process.env.NODE_ENV === "production";
@@ -66,7 +66,7 @@ const loadSession = cache(async () => {
 
 export async function requireSession(
   returnTo: string,
-  { operations = false, admin = false, allowOpening = false } = {},
+  { operations = false, admin = false } = {},
 ) {
   const result = await loadSession();
   if (result.state === "expired") redirect(authEntry("/renovar", returnTo));
@@ -80,7 +80,6 @@ export async function requireSession(
   if (operations || admin) {
     const destination = onboardingDestination(user);
     if (destination) redirect(destination);
-    if (!allowOpening && needsAccountOpening(user)) redirect(accountOpeningPath);
   }
 
   return user;
