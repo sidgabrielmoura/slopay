@@ -4,17 +4,19 @@ import { authEntry, safeReturnTo } from "@/lib/auth-navigation";
 import { requireSession } from "@/lib/server/session";
 
 export default async function AtivarBiometriaPage({ searchParams }: {
-  searchParams: Promise<{ returnTo?: string | string[] }>;
+  searchParams: Promise<{ returnTo?: string | string[]; modo?: string | string[] }>;
 }) {
-  const { returnTo } = await searchParams;
+  const { returnTo, modo } = await searchParams;
   const target = typeof returnTo === "string" && returnTo.split("?")[0] !== "/ativar-biometria"
     ? safeReturnTo(returnTo, "") : "";
-  const user = await requireSession(authEntry("/ativar-biometria", target || "/inicio"), { operations: true });
+  const renew = modo === "recadastrar";
+  const entry = authEntry("/ativar-biometria", target || "/inicio") + (renew ? "&modo=recadastrar" : "");
+  const user = await requireSession(entry, { operations: true });
   const destination = target || (user.role === "ADMIN" ? "/admin" : "/inicio");
 
   return (
     <AuthShell>
-      <RegisterPasskey userId={user.id} returnTo={destination} />
+      <RegisterPasskey userId={user.id} returnTo={destination} renew={renew} />
     </AuthShell>
   );
 }

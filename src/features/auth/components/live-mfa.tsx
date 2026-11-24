@@ -292,7 +292,9 @@ export function LiveMfa({ userId, enabled, panelPath, needsEmailConfirmation = f
             } : undefined}
           />
           {enabled ? currentPasskey.showPasskey ? (
-            <PasskeyActions prompt={currentPasskey} onConfirm={() => formRef.current?.requestSubmit()} />
+            <PasskeyActions prompt={currentPasskey} onConfirm={(method) => {
+              if (formRef.current?.reportValidity()) void currentPasskey.confirm(method);
+            }} />
           ) : (
             <>
               <CodeSlots
@@ -307,7 +309,7 @@ export function LiveMfa({ userId, enabled, panelPath, needsEmailConfirmation = f
                 <Button type="button" variant="link" className="h-11 px-0" disabled={currentFactor.busy} onClick={() => {
                   currentFactor.reset();
                   currentPasskey.choosePasskey();
-                }}>Usar biometria</Button>
+                }}>Usar chave de acesso</Button>
               )}
             </>
           ) : (

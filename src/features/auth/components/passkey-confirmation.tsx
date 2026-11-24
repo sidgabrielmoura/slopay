@@ -1,15 +1,13 @@
 "use client";
 
-import {
-  startAuthentication, type AuthenticationResponseJSON, type PublicKeyCredentialRequestOptionsJSON,
-} from "@simplewebauthn/browser";
-import { Fingerprint, ScanFace } from "lucide-react";
+import type { AuthenticationResponseJSON, PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
+import { Fingerprint, ScanFace, Smartphone } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ToastNotice } from "@/components/ui/toast-notice";
-import { ApiError } from "@/lib/api-client";
 import type { PasskeyOptions } from "../passkey-contract";
-import { hasPlatformPasskeySupport, isIphoneOrIpad } from "../passkey-device";
+import { canUseWebAuthn, hasPlatformPasskeySupport, isIphoneOrIpad, passkeyFailureMessage,
+  authenticateWithPasskey, type PasskeyMethod } from "../passkey-device";
 import { AuthActionButton, AuthLoadingStatus } from "./auth-form-controls";
 
 type Challenge = { options: PublicKeyCredentialRequestOptionsJSON; issuedAt: number };
@@ -23,8 +21,8 @@ export function usePasskeyConfirmation<Result>({ scope, loadOptions, verify, onS
   onError?: (error: unknown) => void;
 }) {
   const session = useRef<PromptSession>(null);
-  const [available, setAvailable] = useState<{ scope: string; supported: boolean; apple: boolean }>();
-  const [codeScope, setCodeScope] = useState<string | null>(null);
+  const [available, setAvailable] = useState<{ scope: string; supported: boolean; local: boolean; apple: boolean }>();
+  const [choice, setChoice] = useState<"code" | "passkey" | null>(null);
   const [busyScope, setBusyScope] = useState<string | null>(null);
   const [error, setError] = useState("");
   const fetchOptions = useEffectEvent(loadOptions);
@@ -35,7 +33,7 @@ export function usePasskeyConfirmation<Result>({ scope, loadOptions, verify, onS
 
   useEffect(() => {
     setAvailable(undefined);
-    setCodeScope(null);
+    setChoice(null);
     setBusyScope(null);
     setError("");
     if (!scope) return;
@@ -44,22 +42,25 @@ export function usePasskeyConfirmation<Result>({ scope, loadOptions, verify, onS
     session.current = state;
 
     async function discover() {
+      let local = false;
       try {
-        if (await hasPlatformPasskeySupport() && !abort.signal.aborted) {
+        if (canUseWebAuthn()) {
+          local = await hasPlatformPasskeySupport();
+          if (abort.signal.aborted) return;
           const { options } = await fetchOptions();
           if (options) state.challenge = { options, issuedAt: Date.now() };
         }
       } catch (failure) {
         if (!abort.signal.aborted) reportDiscoveryError(failure);
       } finally {
-        if (!abort.signal.aborted) setAvailable({ scope: state.scope, supported: Boolean(state.challenge), apple: isIphoneOrIpad() });
+        if (!abort.signal.aborted) setAvailable({ scope: state.scope, supported: Boolean(state.challenge), local, apple: isIphoneOrIpad() });
       }
     }
     void discover();
     return () => abort.abort();
   }, [scope]);
 
-  async function confirm() {
+  async function confirm(method: PasskeyMethod = "device") {
     const state = session.current;
     if (!state || state.scope !== scope || state.pending || state.abort.signal.aborted) return;
     state.pending = true;
@@ -71,12 +72,12 @@ export function usePasskeyConfirmation<Result>({ scope, loadOptions, verify, onS
         const { options } = await loadOptions();
         if (state.abort.signal.aborted) return;
         if (!options) {
-          setAvailable({ scope: state.scope, supported: false, apple: isIphoneOrIpad() });
+          setAvailable({ scope: state.scope, supported: false, local: false, apple: isIphoneOrIpad() });
           return;
         }
         state.challenge = { options, issuedAt: Date.now() };
       }
-      const credential = await startAuthentication({ optionsJSON: state.challenge.options });
+      const credential = await authenticateWithPasskey(state.challenge.options, method);
       if (state.abort.signal.aborted) return;
       const result = await verify(credential);
       if (state.abort.signal.aborted) return;
@@ -86,7 +87,7 @@ export function usePasskeyConfirmation<Result>({ scope, loadOptions, verify, onS
       if (state.abort.signal.aborted) return;
       state.challenge = undefined;
       onError?.(failure);
-      setError(failure instanceof ApiError ? failure.message : "A confirmação no aparelho foi cancelada ou não pôde ser concluída.");
+      setError(passkeyFailureMessage(failure, method));
     } finally {
       if (!confirmed && !state.abort.signal.aborted) {
         state.pending = false;
@@ -99,12 +100,12 @@ export function usePasskeyConfirmation<Result>({ scope, loadOptions, verify, onS
     busy,
     checking,
     available: current?.supported === true,
-    showPasskey: Boolean(scope && codeScope !== scope && (checking || current?.supported)),
+    showPasskey: Boolean(scope && choice !== "code" && (checking || (current?.supported && (current.local || choice === "passkey")))),
     apple: current?.apple === true,
     error,
     confirm,
-    chooseCode: () => { if (!busy) { setCodeScope(scope); setError(""); } },
-    choosePasskey: () => { setCodeScope(null); setError(""); },
+    chooseCode: () => { if (!busy) { setChoice("code"); setError(""); } },
+    choosePasskey: () => { setChoice("passkey"); setError(""); },
   };
 }
 
@@ -112,19 +113,23 @@ type PasskeyPrompt = ReturnType<typeof usePasskeyConfirmation>;
 
 export function PasskeyActions({ prompt, onConfirm, autoFocus }: {
   prompt: PasskeyPrompt;
-  onConfirm?: () => void;
+  onConfirm?: (method: PasskeyMethod) => void;
   autoFocus?: boolean;
 }) {
   const Icon = prompt.apple ? ScanFace : Fingerprint;
   return (
     <div className="grid gap-2" aria-busy={prompt.busy || prompt.checking}>
-      {prompt.checking ? <AuthLoadingStatus>Verificando biometria…</AuthLoadingStatus> : (
+      {prompt.checking ? <AuthLoadingStatus>Consultando chaves de acesso…</AuthLoadingStatus> : (
         <AuthActionButton type="button" pending={prompt.busy} pendingLabel="Aguardando confirmação…"
-          autoFocus={autoFocus} onClick={onConfirm ?? prompt.confirm}
+          autoFocus={autoFocus} onClick={() => (onConfirm ?? prompt.confirm)("device")}
           endIcon={<Icon aria-hidden="true" />}>
-          {prompt.apple ? "Usar Face ID ou Touch ID" : "Usar biometria"}
+          {prompt.apple ? "Usar Face ID ou Touch ID" : "Usar neste aparelho"}
         </AuthActionButton>
       )}
+      {!prompt.checking && <Button type="button" variant="outline" className="h-11" disabled={prompt.busy}
+        onClick={() => (onConfirm ?? prompt.confirm)("phone")}>
+        <Smartphone aria-hidden="true" /> Usar celular
+      </Button>}
       <Button type="button" variant="outline" className="h-11" disabled={prompt.busy} onClick={prompt.chooseCode}>
         Usar autenticador
       </Button>

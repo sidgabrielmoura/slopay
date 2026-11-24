@@ -1,6 +1,6 @@
 "use client";
 
-import { startAuthentication, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
+import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import { Fingerprint, LockKeyhole, ScanFace, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -10,7 +10,8 @@ import { ToastNotice } from "@/components/ui/toast-notice";
 import { ApiError } from "@/lib/api-client";
 import { authEntry } from "@/lib/auth-navigation";
 import { authApiService, type SessionStatus } from "@/services/auth-api.service";
-import { hasPlatformPasskeySupport, isIphoneOrIpad } from "../passkey-device";
+import { canUseWebAuthn, hasPlatformPasskeySupport, isIphoneOrIpad, passkeyFailureMessage,
+  authenticateWithPasskey, type PasskeyMethod } from "../passkey-device";
 import { refreshSessionIfActive, sessionCanResume, sessionEnded, sessionErrorCode, withSessionLock } from "../session-refresh";
 import { AuthActionButton, AuthField, AuthHeading, AuthLoadingStatus } from "./auth-form-controls";
 import { CodeSlots, useCodeVerification } from "./code-slots";
@@ -44,14 +45,15 @@ export function RenewSession({ returnTo }: { returnTo: string }) {
           window.location.replace(returnTo);
           return;
         }
-        const platform = current.hasPasskey && await hasPlatformPasskeySupport();
+        const available = current.hasPasskey && canUseWebAuthn();
+        const platform = available && await hasPlatformPasskeySupport();
         if (!mounted) return;
         setStatus(current);
         setApple(isIphoneOrIpad());
-        setCanUsePasskey(platform);
+        setCanUsePasskey(available);
         setMethod(platform ? "passkey" : "password");
         setOpen(true);
-        if (platform) {
+        if (available) {
           const data = await authApiService.passkeyUnlockOptions();
           if (mounted) setOptions({ data, fetchedAt: Date.now() });
         }
@@ -81,7 +83,7 @@ export function RenewSession({ returnTo }: { returnTo: string }) {
     else setError(failure instanceof ApiError ? failure.message : fallback);
   }
 
-  async function unlockWithPasskey() {
+  async function unlockWithPasskey(method: PasskeyMethod) {
     if (busy || checking) return;
     setError("");
     setBusy(true);
@@ -91,12 +93,12 @@ export function RenewSession({ returnTo }: { returnTo: string }) {
         current = { data: await authApiService.passkeyUnlockOptions(), fetchedAt: Date.now() };
         setOptions(current);
       }
-      const credential = await startAuthentication({ optionsJSON: current.data });
+      const credential = await authenticateWithPasskey(current.data, method);
       await withSessionLock(() => authApiService.unlockWithPasskey(credential));
       window.location.replace(returnTo);
     } catch (failure) {
       setOptions(undefined);
-      fail(failure, "A confirmação foi cancelada ou não pôde ser concluída.");
+      fail(failure, passkeyFailureMessage(failure, method));
     } finally {
       setBusy(false);
     }
@@ -188,9 +190,12 @@ export function RenewSession({ returnTo }: { returnTo: string }) {
             {method === "passkey" ? (
               <div className="grid gap-2">
                 <AuthActionButton type="button" pending={busy || checking}
-                  pendingLabel={checking ? "Preparando…" : "Aguardando confirmação…"} onClick={unlockWithPasskey}>
-                  {apple ? "Usar Face ID ou Touch ID" : "Usar biometria"}
+                  pendingLabel={checking ? "Preparando…" : "Aguardando confirmação…"} onClick={() => unlockWithPasskey("device")}>
+                  {apple ? "Usar Face ID ou Touch ID" : "Usar neste aparelho"}
                 </AuthActionButton>
+                <Button type="button" variant="outline" className="h-11" disabled={busy || checking} onClick={() => unlockWithPasskey("phone")}>
+                  Usar celular
+                </Button>
                 <Button type="button" variant="outline" className="h-11" disabled={busy} onClick={() => { setMethod("password"); setError(""); }}>
                   {status?.requiresMfa ? "Usar autenticador" : "Usar senha"}
                 </Button>
@@ -207,7 +212,7 @@ export function RenewSession({ returnTo }: { returnTo: string }) {
                 <AuthActionButton pending={busy} pendingLabel="Validando…">Continuar</AuthActionButton>
                 {canUsePasskey && (
                   <Button type="button" variant="ghost" className="h-11" disabled={busy} onClick={() => { setMethod("passkey"); setError(""); }}>
-                    Usar biometria
+                    Usar chave de acesso
                   </Button>
                 )}
               </form>

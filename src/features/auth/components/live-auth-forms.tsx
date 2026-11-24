@@ -150,7 +150,7 @@ function LoginFactorStep({ onSuccess, onBack }: {
               <Button type="button" variant="link" className="h-11 px-0" disabled={verification.busy} onClick={() => {
                 verification.reset();
                 passkey.choosePasskey();
-              }}>Usar biometria</Button>
+              }}>Usar chave de acesso</Button>
             )}
             <Button type="button" variant="link" className="h-11 px-0" disabled={verification.busy} onClick={() => {
               verification.reset();

@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { profilePhoneRequestSchema, profilePhoneResponseSchema } from "@/features/account/profile";
-import { passkeyAssertionSchema, passkeyOptionsSchema } from "@/features/auth/passkey-contract";
+import { passkeyAssertionSchema, passkeyEnrolledSchema, passkeyIdSchema, passkeyListSchema,
+  passkeyOptionsSchema, passkeyPairSchema } from "@/features/auth/passkey-contract";
 import {
   passwordChangeChallenge, passwordChangeCompletion, passwordChangeGrant, passwordChangeRequest, passwordChangeVerification,
 } from "@/features/auth/password-change-contract";
@@ -50,6 +51,7 @@ type Action = {
   body?: z.ZodType;
   response?: z.ZodType;
   bodyLimit?: number;
+  optionalBody?: boolean;
   refreshRequired?: boolean;
   sessionRequired?: boolean;
   challengeRequired?: boolean;
@@ -62,7 +64,7 @@ const actions: Record<string, Action> = {
   "passkeys/login": { mode: "challenge", body: z.object({ credential: passkeyAssertionSchema }), bodyLimit: 32_768 },
   "passkeys/security/options": {
     mode: "data",
-    body: z.object({ action: z.literal("replace-authenticator") }),
+    body: z.object({ action: z.enum(["replace-authenticator", "test-passkey"]) }),
     response: passkeyOptionsSchema,
     sessionRequired: true,
   },
@@ -101,8 +103,20 @@ const actions: Record<string, Action> = {
     mode: "data", body: profilePhoneRequestSchema, response: profilePhoneResponseSchema, sessionRequired: true,
   },
   "session/unlock": { mode: "unlock", body: z.object({ password, code: code.optional() }), refreshRequired: true },
-  "passkeys/register/options": { mode: "data", response: webAuthnOptions, sessionRequired: true },
-  "passkeys/register": { mode: "message", body: z.object({ credential }), bodyLimit: 32_768, sessionRequired: true },
+  "passkeys/credentials": { mode: "data", response: passkeyListSchema, sessionRequired: true },
+  "passkeys/test": { mode: "message", body: z.object({ credential: passkeyAssertionSchema }), bodyLimit: 32_768, sessionRequired: true },
+  "passkeys/register/options": {
+    mode: "data", body: z.strictObject({ replaceId: passkeyIdSchema.optional() }),
+    optionalBody: true, response: webAuthnOptions, sessionRequired: true,
+  },
+  "passkeys/register": {
+    mode: "data", body: z.strictObject({ credential, replaceId: passkeyIdSchema.optional() }),
+    response: passkeyEnrolledSchema, bodyLimit: 32_768, sessionRequired: true,
+  },
+  "passkeys/replace/options": { mode: "data", body: passkeyPairSchema, response: webAuthnOptions, sessionRequired: true },
+  "passkeys/replace": {
+    mode: "message", body: passkeyPairSchema.extend({ credential: passkeyAssertionSchema }), bodyLimit: 32_768, sessionRequired: true,
+  },
   "passkeys/unlock/options": { mode: "data", response: webAuthnOptions, refreshRequired: true },
   "passkeys/unlock": { mode: "unlock", body: z.object({ credential }), bodyLimit: 32_768, refreshRequired: true },
   "2fa/setup": {
@@ -178,7 +192,7 @@ export async function POST(
 
   let body: unknown;
   try {
-    if (action.body) {
+    if (action.body && (request.body || !action.optionalBody)) {
       const parsed = action.body.safeParse(await readJson(request, action.bodyLimit ?? maxBodyBytes));
       if (!parsed.success) return json({ message: "Confira os dados informados." }, 400);
       body = parsed.data;

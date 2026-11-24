@@ -2,6 +2,7 @@ import type { AuthenticationResponseJSON, PublicKeyCredentialRequestOptionsJSON 
 import { z } from "zod";
 
 const base64url = (max: number) => z.string().min(1).max(max).regex(/^[A-Za-z0-9_-]+$/);
+export const passkeyIdSchema = base64url(1024);
 
 export const passkeyAssertionSchema: z.ZodType<AuthenticationResponseJSON> = z.object({
   id: base64url(1024),
@@ -31,3 +32,11 @@ const authenticationOptions = z.object({
 
 export const passkeyOptionsSchema = z.object({ options: authenticationOptions.nullable() });
 export type PasskeyOptions = z.infer<typeof passkeyOptionsSchema>;
+
+export const passkeyListSchema = z.object({ credentials: z.array(z.object({
+  id: passkeyIdSchema, createdAt: z.iso.datetime(), lastUsedAt: z.iso.datetime().nullable(),
+})) });
+export const passkeyEnrolledSchema = z.object({ success: z.literal(true), credentialId: passkeyIdSchema });
+export const passkeyPairSchema = z.strictObject({ replaceId: passkeyIdSchema, newId: passkeyIdSchema });
+export type PasskeyList = z.infer<typeof passkeyListSchema>;
+export type PasskeyPair = z.infer<typeof passkeyPairSchema>;

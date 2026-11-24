@@ -74,7 +74,7 @@ export function IntegrationConfirmationDialog<Result>({ scope, title, descriptio
                 <CodeSlots {...code.field} id={fieldId} format="totp" label="Código do autenticador"
                   autoFocus successLabel="Identidade confirmada." />
                 {passkey.available && <Button type="button" variant="outline" disabled={busy}
-                  onClick={() => { code.reset(); passkey.choosePasskey(); }}>Usar biometria</Button>}
+                  onClick={() => { code.reset(); passkey.choosePasskey(); }}>Usar chave de acesso</Button>}
               </>
             )}
             <Button type="button" variant="ghost" className="justify-self-end" disabled={busy} onClick={close}>Cancelar</Button>

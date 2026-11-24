@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api-client";
-import type { PasskeyOptions } from "@/features/auth/passkey-contract";
+import type { PasskeyList, PasskeyOptions, PasskeyPair } from "@/features/auth/passkey-contract";
 import type { PasswordChangeChallenge, PasswordChangeGrant } from "@/features/auth/password-change-contract";
 import type { RegistrationEmailChallenge } from "@/features/auth/registration-email-contract";
 import type { SessionUser } from "@/lib/server/auth-backend";
@@ -95,11 +95,26 @@ export const authApiService = {
   updateProfilePhone(expectedUserId: string, phone: string) {
     return post<{ phone: string }>("profile/phone", { expectedUserId, phone });
   },
-  passkeyRegistrationOptions() {
-    return post<PublicKeyCredentialCreationOptionsJSON>("passkeys/register/options");
+  passkeyCredentials() {
+    return post<PasskeyList>("passkeys/credentials");
   },
-  registerPasskey(credential: RegistrationResponseJSON) {
-    return post<Success>("passkeys/register", { credential });
+  passkeyTestOptions() {
+    return post<PasskeyOptions>("passkeys/security/options", { action: "test-passkey" });
+  },
+  testPasskey(credential: AuthenticationResponseJSON) {
+    return post<Success>("passkeys/test", { credential });
+  },
+  passkeyRegistrationOptions(replaceId?: string) {
+    return post<PublicKeyCredentialCreationOptionsJSON>("passkeys/register/options", { replaceId });
+  },
+  registerPasskey(credential: RegistrationResponseJSON, replaceId?: string) {
+    return post<Success & { credentialId: string }>("passkeys/register", { credential, replaceId });
+  },
+  passkeyRotateOptions(pair: PasskeyPair) {
+    return post<PublicKeyCredentialRequestOptionsJSON>("passkeys/replace/options", pair);
+  },
+  rotatePasskey(pair: PasskeyPair, credential: AuthenticationResponseJSON) {
+    return post<Success>("passkeys/replace", { ...pair, credential });
   },
   passkeyUnlockOptions() {
     return post<PublicKeyCredentialRequestOptionsJSON>("passkeys/unlock/options");

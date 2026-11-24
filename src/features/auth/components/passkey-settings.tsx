@@ -7,13 +7,18 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ToastNotice } from "@/components/ui/toast-notice";
 import { SecurityMethod } from "@/features/account/components/security-layout";
 import { authEntry } from "@/lib/auth-navigation";
 import { authApiService } from "@/services/auth-api.service";
-import { hasPlatformPasskeySupport, isIphoneOrIpad } from "../passkey-device";
+import { canUseWebAuthn, isIphoneOrIpad, passkeyFailureMessage, rememberBrowserPasskey, authenticateWithPasskey } from "../passkey-device";
+import { AuthActionButton } from "./auth-form-controls";
 
 export function PasskeySettings({ userId, returnTo }: { userId: string; returnTo: string }) {
-  const [device, setDevice] = useState<{ supported: boolean; apple: boolean }>();
+  const [device, setDevice] = useState<{ available: boolean; apple: boolean }>();
+  const [testing, setTesting] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [error, setError] = useState("");
   const session = useQuery({
     queryKey: ["security-session", userId],
     queryFn: () => authApiService.sessionStatus(),
@@ -22,35 +27,67 @@ export function PasskeySettings({ userId, returnTo }: { userId: string; returnTo
   });
 
   useEffect(() => {
-    let mounted = true;
-    void hasPlatformPasskeySupport().then((supported) => {
-      if (mounted) setDevice({ supported, apple: isIphoneOrIpad() });
-    });
-    return () => { mounted = false; };
+    setDevice({ available: canUseWebAuthn(), apple: isIphoneOrIpad() });
   }, []);
 
   const status = session.data;
-  const available = status?.passkeysEnabled && device?.supported;
+  const available = status?.passkeysEnabled && device?.available;
   const loading = session.isPending || !device;
-  const label = status?.hasPasskey ? "Cadastrada"
-    : status ? (available ? "Sem cadastro" : "Indisponível neste aparelho") : "Status indisponível";
+  const label = confirmed ? "Confirmada neste aparelho" : status?.hasPasskey ? "Cadastrada na conta"
+    : status ? (available ? "Sem chave cadastrada" : "Indisponível") : "Status indisponível";
   const title = device?.apple ? "Face ID ou Touch ID" : "Biometria";
+  const enrollment = authEntry("/ativar-biometria", returnTo) + (status?.hasPasskey ? "&modo=recadastrar" : "");
+
+  async function testKey() {
+    if (testing) return;
+    setTesting(true);
+    setConfirmed(false);
+    setError("");
+    try {
+      const { options } = await authApiService.passkeyTestOptions();
+      if (!options) {
+        await session.refetch();
+        setError("Nenhuma chave foi encontrada para a conta neste endereço.");
+        return;
+      }
+      const credential = await authenticateWithPasskey(options, "device");
+      await authApiService.testPasskey(credential);
+      rememberBrowserPasskey(userId);
+      setConfirmed(true);
+    } catch (failure) {
+      setError(passkeyFailureMessage(failure, "device"));
+    } finally {
+      setTesting(false);
+    }
+  }
 
   return (
-    <SecurityMethod
+    <><SecurityMethod
       icon={device?.apple ? ScanFace : Fingerprint}
       title={title}
-      description="Confirme o acesso e retome sua sessão com uma chave de acesso do aparelho."
+      description={status?.hasPasskey && !confirmed
+        ? "Teste a chave cadastrada para verificar se ela funciona neste aparelho."
+        : "Confirme o acesso e retome sua sessão com uma chave de acesso do aparelho."}
       status={loading ? <Skeleton aria-hidden="true" className="h-5 w-24 motion-reduce:animate-none" /> : (
-        <Badge variant={status?.hasPasskey ? "success" : "secondary"}>{label}</Badge>
+        <Badge variant={status?.hasPasskey || confirmed ? "success" : "secondary"} aria-live="polite">{label}</Badge>
       )}
-      action={available && !status?.hasPasskey && (
-        <Button asChild variant="outline" className="h-11">
-          <Link href={authEntry("/ativar-biometria", returnTo)} prefetch={false}>
-            {device?.apple ? "Cadastrar Face ID ou Touch ID" : "Cadastrar biometria"}
-          </Link>
-        </Button>
+      action={available && (
+        <div className="flex flex-wrap gap-2">
+          {status?.hasPasskey && (
+            <AuthActionButton type="button" variant="outline" pending={testing} pendingLabel="Testando…" onClick={testKey}>
+              Testar neste aparelho
+            </AuthActionButton>
+          )}
+          <Button asChild variant="outline" className="h-11">
+            <Link href={enrollment} prefetch={false}>
+              {status?.hasPasskey ? "Recadastrar biometria"
+                : device?.apple ? "Cadastrar Face ID ou Touch ID" : "Cadastrar biometria"}
+            </Link>
+          </Button>
+        </div>
       )}
     />
+    <ToastNotice message={error} persistent />
+    </>
   );
 }
