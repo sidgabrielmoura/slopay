@@ -106,11 +106,8 @@ export const authApiService = {
   passkeyTestOptions() {
     return post<PasskeyOptions>("passkeys/security/options", { action: "test-passkey" });
   },
-  passkeyReauthenticationOptions() {
-    return post<PasskeyOptions>("passkeys/security/options", { action: "reauthenticate" });
-  },
-  reauthenticate(password: string, factor: { twoFactorCode: string } | { credential: AuthenticationResponseJSON }) {
-    return post<Success>("reauth", { password, ...factor });
+  reauthenticate(password: string, twoFactorCode: string) {
+    return post<Success>("reauth", { password, twoFactorCode });
   },
   testPasskey(credential: AuthenticationResponseJSON) {
     return post<Success>("passkeys/test", { credential });

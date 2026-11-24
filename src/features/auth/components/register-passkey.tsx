@@ -126,7 +126,7 @@ export function RegisterPasskey({ userId, returnTo, renew = false }: { userId: s
   const title = confirmation === "factor" ? "Confirme sua identidade"
     : done ? "Chave de acesso recadastrada" : pair ? "Confirme a nova chave" : renew ? "Recadastrar biometria"
     : device?.apple ? "Ativar Face ID ou Touch ID" : "Ativar biometria";
-  const description = confirmation === "factor" ? "Use sua senha e um segundo fator para continuar com o cadastro."
+  const description = confirmation === "factor" ? "Digite sua senha e o código de seis dígitos do aplicativo autenticador."
     : done ? "A chave nova está ativa neste aparelho e substituiu a chave selecionada."
     : pair ? "Use a chave que acabou de cadastrar. A chave anterior continua ativa até essa confirmação."
     : renew ? "Cadastre uma chave neste aparelho. Você vai testá-la antes de substituir a anterior."

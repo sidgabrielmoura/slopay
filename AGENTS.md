@@ -18,7 +18,9 @@ Ao adicionar uma tela, rota, ação, worker ou consulta exclusiva de teste, use 
 
 ## Preferência por biometria na autenticação
 
-Em qualquer fluxo que peça um segundo fator ou uma confirmação de identidade, ofereça primeiro a chave de acesso WebAuthn cadastrada e utilizável no dispositivo. Apresente a biometria ou o reconhecimento facial como ação principal e mantenha **Usar autenticador** visível como alternativa explícita. Quando a chave de acesso estiver indisponível, abra diretamente o fluxo por código. Depois de uma confirmação WebAuthn válida, avance sem pedir o código do autenticador.
+No recadastro de biometria, a confirmação de identidade usa senha e o código de seis dígitos do aplicativo autenticador como único segundo fator. Mostre o Code Slots logo abaixo da senha e verifique o código automaticamente. A nova chave é confirmada na etapa de teste do aparelho.
+
+Nos demais fluxos que peçam um segundo fator ou uma confirmação de identidade, ofereça primeiro a chave de acesso WebAuthn cadastrada e utilizável no dispositivo. Apresente a biometria ou o reconhecimento facial como ação principal e mantenha **Usar autenticador** visível como alternativa explícita. Quando a chave de acesso estiver indisponível, abra diretamente o fluxo por código. Depois de uma confirmação WebAuthn válida, avance sem pedir o código do autenticador.
 
 Valide a assinatura e a verificação do usuário no servidor. Use um desafio de curta duração e de uso único, vinculado à conta e à sessão ou etapa de login. Em operações sensíveis, vincule o desafio também à ação e aos dados revisados. Preserve os códigos de recuperação nos fluxos que já os aceitam. Ao cadastrar ou trocar o autenticador, o código do novo aplicativo comprova o próprio cadastro e continua obrigatório.
 

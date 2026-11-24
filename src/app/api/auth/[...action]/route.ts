@@ -66,17 +66,13 @@ const actions: Record<string, Action> = {
   "passkeys/login": { mode: "challenge", body: z.object({ credential: passkeyAssertionSchema }), bodyLimit: 32_768 },
   "passkeys/security/options": {
     mode: "data",
-    body: z.object({ action: z.enum(["replace-authenticator", "test-passkey", "reauthenticate"]) }),
+    body: z.object({ action: z.enum(["replace-authenticator", "test-passkey"]) }),
     response: passkeyOptionsSchema,
     sessionRequired: true,
   },
   reauth: {
     mode: "rotate",
-    body: z.union([
-      z.strictObject({ password, credential: passkeyAssertionSchema }),
-      z.strictObject({ password, twoFactorCode: z.string().regex(/^\d{6}$/) }),
-    ]),
-    bodyLimit: 32_768,
+    body: z.strictObject({ password, twoFactorCode: z.string().regex(/^\d{6}$/) }),
     sessionRequired: true,
   },
   register: {
