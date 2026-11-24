@@ -75,6 +75,8 @@ function OperationRow({ operation }: { operation: CompanyOperation }) {
 const eventLabels = {
   COMPANY_PROFILE_UPDATED: "Cadastro atualizado",
   COMPANY_ACCESS_CHANGED: "Acesso atualizado",
+  ACCOUNT_SUPPORT_ACCESSED: "Acesso de suporte à conta",
+  SLOPAY_PIX_PRICING_CHANGED: "Tarifa Pix do Slopay alterada",
   ASAAS_CONNECTION_CREATED: "Conta Sandbox vinculada",
   ASAAS_CREDENTIAL_ROTATED: "Credencial da conta atualizada",
   ASAAS_WEBHOOK_TOKEN_ROTATED: "Token de webhook renovado",
@@ -93,11 +95,11 @@ export function CompanyAudit({ adminId, companyId }: ActivityProps) {
     staleTime: 15_000, retry: retryAdminRead, placeholderData: keepPreviousData,
   });
   return (
-    <AdminRecordActivity title="Histórico de alterações" paginationLabel="Paginação da auditoria" pagination={result.data?.pagination}
+    <AdminRecordActivity title="Histórico administrativo" paginationLabel="Paginação da auditoria" pagination={result.data?.pagination}
       pending={result.isPending} busy={result.isPlaceholderData} error={result.error}
       retry={() => void result.refetch()} onPage={setPage}>
       {result.data?.items.length ? (
-        <ul className="divide-y divide-border" aria-label="Histórico de alterações da empresa">
+        <ul className="divide-y divide-border" aria-label="Histórico administrativo da empresa">
           {result.data.items.map((event) => (
             <li key={event.id} className="grid min-w-0 gap-1 px-5 py-4">
               <p className="text-sm font-semibold">{eventTitle(event)}</p>
@@ -108,7 +110,7 @@ export function CompanyAudit({ adminId, companyId }: ActivityProps) {
             </li>
           ))}
         </ul>
-      ) : <p className="p-5 text-pretty text-sm text-muted-foreground">Nenhuma alteração administrativa registrada.</p>}
+      ) : <p className="p-5 text-pretty text-sm text-muted-foreground">Nenhum evento administrativo registrado.</p>}
     </AdminRecordActivity>
   );
 }

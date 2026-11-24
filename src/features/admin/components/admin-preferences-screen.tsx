@@ -19,6 +19,7 @@ import { formatDateTime } from "@/lib/dates";
 import { adminAppearanceSchema, maxPixNoticeMinimum, type AdminPreferenceChanges, type AdminPreferences, type AdminPreferencesView } from "../admin-preferences";
 import { AdminConnectionStatus } from "./admin-activity-provider";
 import { useAdminPreferences } from "./admin-preferences-provider";
+import { AdminPixPricingCard } from "./admin-pix-pricing-card";
 import { CompanyField, CompanyReadError } from "./company-display";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 
@@ -201,6 +202,7 @@ export function AdminPreferencesScreen({ user }: { user: AdminIdentity }) {
           <PanelPolicy view={view} />
         </div> : readError && <CompanyReadError title="Preferências indisponíveis" retry={retry} />}
       </SkeletonReveal>
+      <AdminPixPricingCard adminId={user.id} />
     </AdminPanel>
   );
 }

@@ -27,7 +27,7 @@ const detailSchema = z.object({
   environment: environmentSchema,
   operation: operationSchema.extend({ receipt: pixReceiptDatesSchema.nullish() }),
 });
-const overviewSchema = z.object({
+export const overviewSchema = z.object({
   environment: environmentSchema,
   pixReceiveAvailable: z.boolean().default(false),
   pixWithdrawAvailable: z.boolean().default(false),

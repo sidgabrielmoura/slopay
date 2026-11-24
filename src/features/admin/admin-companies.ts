@@ -70,6 +70,7 @@ export const companiesSchema = z.object({
 const profileVersion = z.int().min(0).max(2_000_000_000);
 export const companyDetailSchema = companyProfileSchema.extend({
   id: z.uuid(), ownerId: z.uuid(), cnpj: z.string().nullable(), profileVersion, createdAt: date, canManage: z.boolean(),
+  canSupport: z.boolean().default(false),
   owner: z.object({
     operationalClosedAt: z.iso.datetime({ offset: true }).nullish(),
     fullName: z.string(), email: z.string(), phone: z.string(), status: companyAccessStatus,
@@ -90,7 +91,7 @@ export const companyAuditSchema = z.object({
   pagination: adminPaginationSchema,
   items: z.array(z.object({
     id: z.string(),
-    action: z.enum(["COMPANY_PROFILE_UPDATED", "COMPANY_ACCESS_CHANGED", "ASAAS_CONNECTION_CREATED",
+    action: z.enum(["COMPANY_PROFILE_UPDATED", "COMPANY_ACCESS_CHANGED", "ACCOUNT_SUPPORT_ACCESSED", "SLOPAY_PIX_PRICING_CHANGED", "ASAAS_CONNECTION_CREATED",
       "ASAAS_CREDENTIAL_ROTATED", "ASAAS_WEBHOOK_TOKEN_ROTATED"]),
     actor: z.string().nullable(), createdAt: date, reason: z.string().nullable(), accessStatus: companyAccessStatus.nullable(),
   })).max(8),

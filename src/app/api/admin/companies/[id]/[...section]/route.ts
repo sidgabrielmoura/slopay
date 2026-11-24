@@ -1,8 +1,10 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
+import { supportProofSchema, supportRequestSchema, supportStartedSchema } from "@/features/admin/account-support";
 import { companyAuditSchema, companyChangeSchema, companyOperationsSchema, companyPage, companyProofSchema, companyUpdatedSchema } from "@/features/admin/admin-companies";
 import { forwardIntegrationRequest, integrationResponse } from "@/lib/server/integration-request";
+import { forwardPixPricing } from "@/lib/server/pix-pricing-request";
 
 type Context = { params: Promise<{ id: string; section: string[] }> };
 
@@ -10,6 +12,7 @@ export async function GET(request: NextRequest, { params }: Context) {
   const path = await params;
   const id = z.uuid().safeParse(path.id);
   const section = path.section[0];
+  if (id.success && path.section.length === 1 && section === "pix-pricing") return forwardPixPricing(request, id.data);
   if (!id.success || path.section.length !== 1 || (section !== "operations" && section !== "audit")) {
     return integrationResponse({ message: "Consulta não encontrada." }, 404);
   }
@@ -28,6 +31,18 @@ export async function POST(request: NextRequest, { params }: Context) {
   const path = await params;
   const id = z.uuid().safeParse(path.id);
   const action = path.section.join("/");
+  if (id.success && (action === "pix-pricing" || action === "pix-pricing/options")) {
+    return forwardPixPricing(request, id.data, action.endsWith("/options"));
+  }
+  if (id.success && (action === "support" || action === "support/options")) {
+    const options = action === "support/options";
+    return forwardIntegrationRequest(request, {
+      path: `/admin/companies/${id.data}/${action}`,
+      input: options ? supportRequestSchema : supportProofSchema,
+      output: options ? passkeyOptionsSchema : supportStartedSchema,
+      unavailable: "Não foi possível acessar a conta.",
+    });
+  }
   if (!id.success || (action !== "change" && action !== "change/options")) {
     return integrationResponse({ message: "Operação não encontrada." }, 404);
   }

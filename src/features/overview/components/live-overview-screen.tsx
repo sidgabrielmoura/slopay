@@ -22,7 +22,7 @@ function chartLabel(date: string, formatter: Intl.DateTimeFormat) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function metricsForPeriod(data: DashboardOverview, period: OverviewPeriod): OverviewMetricsView {
+function metricsForPeriod(data: DashboardOverview, period: OverviewPeriod, readOnly: boolean): OverviewMetricsView {
   const { days, recentOperations } = data;
   const periodDays = period === "yesterday" ? days.slice(-2, -1)
     : days.slice(period === "week" ? -7 : period === "month" ? -30 : -1);
@@ -43,8 +43,8 @@ function metricsForPeriod(data: DashboardOverview, period: OverviewPeriod): Over
     availableBalanceInCents: data.availableBalanceInCents ?? null,
     settledBalanceInCents: data.settledBalanceInCents ?? null,
     reservedBalanceInCents: data.reservedBalanceInCents ?? null,
-    outflowsCount: data.pixWithdrawAvailable ? periodDays.reduce((sum, day) => sum + (day.outflowsCount ?? 0), 0) : null,
-    outflowsAmountInCents: data.pixWithdrawAvailable ? periodDays.reduce((sum, day) => sum + (day.outflowsInCents ?? 0), 0) : null,
+    outflowsCount: data.pixWithdrawAvailable || (readOnly && data.environment === "live") ? periodDays.reduce((sum, day) => sum + (day.outflowsCount ?? 0), 0) : null,
+    outflowsAmountInCents: data.pixWithdrawAvailable || (readOnly && data.environment === "live") ? periodDays.reduce((sum, day) => sum + (day.outflowsInCents ?? 0), 0) : null,
     feesAmountInCents: null,
     dailyLimitInCents: null,
     usedDailyLimitInCents: null,
@@ -62,13 +62,13 @@ function metricsForPeriod(data: DashboardOverview, period: OverviewPeriod): Over
       amountInCents: operation.amountInCents,
       statusLabel: operationStatus[operation.status],
       statusVariant: operation.status === "PAID" ? "success" : "secondary",
-      href: `/movimentacoes/${encodeURIComponent(operation.reference)}`,
+      href: readOnly ? undefined : `/movimentacoes/${encodeURIComponent(operation.reference)}`,
     })),
   };
 }
 
-export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive = true }: {
-  data: DashboardOverview | null; merchantId: string; owner?: boolean; canReceive?: boolean;
+export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive = true, readOnly = false }: {
+  data: DashboardOverview | null; merchantId: string; owner?: boolean; canReceive?: boolean; readOnly?: boolean;
 }) {
   const router = useRouter();
   const [period, setPeriod] = useState<OverviewPeriod>("today");
@@ -76,23 +76,23 @@ export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive 
   const balance = useQuery({
     queryKey: withdrawalOptionsKey(merchantId),
     queryFn: ({ signal }) => asaasPixWithdrawals.options(signal),
-    enabled: data?.pixWithdrawAvailable === true,
+    enabled: !readOnly && data?.pixWithdrawAvailable === true,
     staleTime: 15_000,
     retry: false,
   });
   const recentWithdrawals = useQuery({
     queryKey: recentWithdrawalsKey(merchantId),
     queryFn: ({ signal }) => asaasPixWithdrawals.recent(signal),
-    enabled: data?.pixWithdrawAvailable === true,
+    enabled: !readOnly && data?.pixWithdrawAvailable === true,
     staleTime: 10_000,
     retry: false,
   });
-  const withdrawals = recentWithdrawals.data?.withdrawals;
+  const withdrawals = readOnly ? undefined : recentWithdrawals.data?.withdrawals;
   const availableBalanceInCents = data?.environment === "live"
     ? data.availableBalanceInCents ?? null : balance.isError ? null : balance.data?.availableBalanceInCents ?? null;
   const metrics = useMemo(() => {
     if (!data) return null;
-    const summary = metricsForPeriod(data, period);
+    const summary = metricsForPeriod(data, period, readOnly);
     const recentOutflows: OverviewMetricsView["recentTransactions"] = (withdrawals ?? []).map((withdrawal) => ({
       id: withdrawal.id,
       amountInCents: withdrawal.amountInCents,
@@ -110,7 +110,7 @@ export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive 
       recentTransactions: [...summary.recentTransactions, ...recentOutflows]
         .sort((first, second) => second.createdAt.localeCompare(first.createdAt)).slice(0, 6),
     };
-  }, [data, period, availableBalanceInCents, withdrawals]);
+  }, [data, period, readOnly, availableBalanceInCents, withdrawals]);
 
   return (
     <OverviewScreen
@@ -119,9 +119,10 @@ export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive 
       onPeriodChange={setPeriod}
       onRetry={() => router.refresh()}
       metrics={metrics}
-      accountNotice={owner ? <OwnerAccountOpeningNotice merchantId={merchantId} /> : null}
-      showWithdrawalLinks={owner}
-      receiveAction={canReceive && (
+      readOnly={readOnly}
+      accountNotice={owner && !readOnly ? <OwnerAccountOpeningNotice merchantId={merchantId} /> : null}
+      showWithdrawalLinks={owner && !readOnly}
+      receiveAction={canReceive && !readOnly && (
         <DashboardPixReceive
           key={`receive-${merchantId}`}
           gateway={owner ? asaasPixReceive : operatorPixReceive}
@@ -134,7 +135,7 @@ export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive 
           }}
         />
       )}
-      withdrawAction={owner && (
+      withdrawAction={owner && !readOnly && (
         <DashboardPixWithdraw
           key={`withdraw-${merchantId}`}
           accountId={merchantId}

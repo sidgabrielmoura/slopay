@@ -1,7 +1,7 @@
 import type { SessionUser } from "@/lib/server/auth-backend";
 
 const privateSegments = new Set([
-  "inicio", "admin", "pix", "movimentacoes", "aprovacoes",
+  "inicio", "admin", "pix", "movimentacoes", "aprovacoes", "suporte",
   "integracoes", "conta", "conta-em-validacao", "indicadores", "ativar-biometria",
   "preferencias", "mais", "ajuda", "controle-financeiro", "comprovantes", "abertura-da-conta", "verify-email",
 ]);

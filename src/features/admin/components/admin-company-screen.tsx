@@ -24,6 +24,8 @@ import { retryAdminRead } from "../admin-query";
 import { CompanyAudit, CompanyOperations } from "./admin-company-activity";
 import { AdminCompanyEdit } from "./admin-company-edit";
 import { CompanyAccessDialog } from "./company-change-dialog";
+import { CompanySupportAction } from "./company-support-action";
+import { AdminPixPricingCard } from "./admin-pix-pricing-card";
 import { CompanyAccessBadge, CompanyField, CompanyReadError, CompanyRowsSkeleton } from "./company-display";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 
@@ -116,11 +118,12 @@ function CompanyDetails({ company, adminId, editHref, onChange }: {
           </div>
           <p className="text-sm tabular-nums text-muted-foreground">{company.cnpj ? formatCNPJ(company.cnpj) : "Pessoa física"}</p>
         </div>
-        {company.canManage && (
+        {(company.canManage || company.canSupport) && (
           <div className="flex flex-wrap gap-2">
-            <Button asChild className="h-11">
+            {company.canSupport && <CompanySupportAction companyId={company.id} companyName={company.tradeName ?? company.legalName} />}
+            {company.canManage && <Button asChild className="h-11">
               <Link href={editHref} prefetch={false}><Pencil aria-hidden="true" />Editar cadastro</Link>
-            </Button>
+            </Button>}
             {changeAccess && (
               <Button type="button" ref={trigger} variant="outline" className="h-11" onClick={() => setAccessDialog(true)}>
                 <ShieldCheck aria-hidden="true" />{company.owner.status === "ACTIVE" ? "Suspender acesso" : "Reativar acesso"}
@@ -186,6 +189,7 @@ function CompanyDetails({ company, adminId, editHref, onChange }: {
         )}
       </div>
 
+      {!company.owner.operationalClosedAt && <AdminPixPricingCard adminId={adminId} companyId={company.id} />}
       {development ? <Tabs defaultValue="account" className="grid min-w-0 gap-3">
         <TabsList aria-label="Dados operacionais da empresa" className="grid h-auto w-full grid-cols-[1fr_1.35fr_1fr] gap-1 sm:w-fit sm:grid-cols-3">
           <TabsTrigger value="account" className="min-h-11 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">Vínculo</TabsTrigger>

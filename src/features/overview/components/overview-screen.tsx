@@ -6,6 +6,7 @@ import { ToastNotice } from "@/components/ui/toast-notice";
 import { usePreferences } from "@/providers/preferences-provider";
 import { formatCentsToBrl } from "@/lib/money";
 import { formatDateTime } from "@/lib/dates";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +84,7 @@ export function OverviewScreen({
   showWithdrawalLinks = true,
   accountNotice,
   isLoading = false,
+  readOnly = false,
 }: {
   mode: "demo" | "sandbox" | "live";
   metrics: OverviewMetricsView | null;
@@ -94,6 +96,7 @@ export function OverviewScreen({
   showWithdrawalLinks?: boolean;
   accountNotice?: ReactNode;
   isLoading?: boolean;
+  readOnly?: boolean;
 }) {
   const preferences = usePreferences();
   const demo = mode === "demo";
@@ -187,7 +190,7 @@ export function OverviewScreen({
 
       {accountNotice}
 
-      {pendingApprovals > 0 && (
+      {!readOnly && pendingApprovals > 0 && (
         <ToastNotice
           variant="warning"
           message={`${pendingApprovals} ${pendingApprovals === 1 ? "operação aguarda" : "operações aguardam"} sua aprovação.`}
@@ -198,9 +201,11 @@ export function OverviewScreen({
       )}
 
       {/* Grid de Saldos (Atual da Conta - Diferente das Métricas do Período) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+      {(!readOnly || metrics.settledBalanceInCents !== null) && <div className={cn(
+        "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5", !readOnly && "lg:grid-cols-3",
+      )}>
         {/* Saldo Disponível */}
-        <Card className="border-border bg-card/80 relative overflow-hidden">
+        {!readOnly && <Card className="border-border bg-card/80 relative overflow-hidden">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -221,7 +226,7 @@ export function OverviewScreen({
                 : "Disponível para saques imediatos e liquidação Pix"}
             </p>
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Saldo Contabilizado */}
         <Card className="border-border bg-card/80">
@@ -243,11 +248,11 @@ export function OverviewScreen({
         </Card>
 
         {/* Saldo Reservado */}
-        <Card className="border-border bg-card/80 sm:col-span-2 lg:col-span-1">
+        <Card className={cn("border-border bg-card/80", !readOnly && "sm:col-span-2 lg:col-span-1")}>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Reservado em Aprovação
+                {readOnly ? "Saldo reservado" : "Reservado em Aprovação"}
               </span>
               {(metrics.reservedBalanceInCents ?? 0) > 0 && (
                 <Badge variant="warning" className="text-[10px]">
@@ -263,15 +268,15 @@ export function OverviewScreen({
             <p className="text-xs text-muted-foreground mt-1.5">
               {metrics.reservedBalanceInCents === null ? "Aguardando liberação de saques"
                 : metrics.reservedBalanceInCents > 0
-                  ? "Comprometido em saques aguardando quórum"
+                  ? readOnly ? "Valor comprometido em saques" : "Comprometido em saques aguardando quórum"
                   : "Nenhum valor retido no momento"}
             </p>
           </CardContent>
         </Card>
-      </div>
+      </div>}
 
       {/* Atalhos Rápidos Operacionais */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {!readOnly && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {receiveAction}
 
         {showWithdrawalLinks && (withdrawAction ?? <NextLink
@@ -309,7 +314,7 @@ export function OverviewScreen({
           <span className="text-sm font-semibold text-foreground">Ver Extrato</span>
           <span className="text-[11px] text-muted-foreground mt-0.5">Lançamentos</span>
         </NextLink>
-      </div>
+      </div>}
 
       {/* 4 Indicadores Principais do Período */}
       <div>
@@ -322,7 +327,7 @@ export function OverviewScreen({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2", !readOnly && "lg:grid-cols-4")}>
           <Card className="border-border bg-card/60 p-4">
             <p className="text-xs text-muted-foreground font-medium">
               {demo ? "Entradas Pix" : mode === "sandbox" ? "Registros de teste" : "Pagamentos registrados"}
@@ -335,7 +340,7 @@ export function OverviewScreen({
             </p>
           </Card>
 
-          <Card className="border-border bg-card/60 p-4">
+          {(!readOnly || metrics.outflowsCount !== null) && <Card className="border-border bg-card/60 p-4">
             <p className="text-xs text-muted-foreground font-medium">Saídas Pix</p>
             <p className="text-xl font-bold tabular-nums text-foreground mt-1">
               {displayAmount(metrics.outflowsAmountInCents)}
@@ -343,9 +348,9 @@ export function OverviewScreen({
             <p className="text-[11px] text-muted-foreground mt-1">
               {metrics.outflowsCount === null ? "Saques indisponíveis" : `${metrics.outflowsCount} saques concluídos`}
             </p>
-          </Card>
+          </Card>}
 
-          <Card className="border-border bg-card/60 p-4">
+          {(!readOnly || metrics.feesAmountInCents !== null) && <Card className="border-border bg-card/60 p-4">
             <p className="text-xs text-muted-foreground font-medium">Tarifas Operacionais</p>
             <p className="text-xl font-bold tabular-nums text-muted-foreground mt-1">
               {displayAmount(metrics.feesAmountInCents)}
@@ -353,9 +358,9 @@ export function OverviewScreen({
             <p className="text-[11px] text-muted-foreground mt-1">
               {metrics.feesAmountInCents === null ? "Tarifas indisponíveis" : "Custos Pix do período"}
             </p>
-          </Card>
+          </Card>}
 
-          <Card className="border-border bg-card/60 p-4">
+          {(!readOnly || dailyLimitRemaining !== null) && <Card className="border-border bg-card/60 p-4">
             <p className="text-xs text-muted-foreground font-medium">Limite Diário Restante</p>
             <p className="text-xl font-bold tabular-nums text-primary mt-1">
               {displayAmount(dailyLimitRemaining)}
@@ -364,7 +369,7 @@ export function OverviewScreen({
               {demo ? "De R$ 100.000,00 diários"
                 : metrics.dailyLimitInCents === null ? "Limite indisponível" : `De ${formatAmount(metrics.dailyLimitInCents)} diários`}
             </p>
-          </Card>
+          </Card>}
         </div>
       </div>
 
@@ -502,12 +507,12 @@ export function OverviewScreen({
               Atividade operacional recente na conta
             </CardDescription>
           </div>
-          <Button asChild variant="ghost" size="sm" className="gap-1 text-xs text-primary">
+          {!readOnly && <Button asChild variant="ghost" size="sm" className="gap-1 text-xs text-primary">
             <NextLink href="/movimentacoes" prefetch={demo ? undefined : false}>
               <span>Ver todas</span>
               <ArrowRight className="size-3.5" />
             </NextLink>
-          </Button>
+          </Button>}
         </CardHeader>
         <CardContent>
           {metrics.recentTransactions.length === 0 ? (
@@ -515,14 +520,15 @@ export function OverviewScreen({
               title="Nenhuma transação recente"
               description={demo
                 ? "Sua conta ainda não possui movimentações registradas neste período."
-                : "Sua conta ainda não possui movimentações registradas."}
-              action={
+                : readOnly ? "Esta conta ainda não possui movimentações registradas."
+                  : "Sua conta ainda não possui movimentações registradas."}
+              action={!readOnly && (
                 <Button asChild size="sm">
                   <NextLink href={demo ? "/pix/receber" : "/movimentacoes"} prefetch={demo ? undefined : false}>
                     {demo ? "Gerar Primeira Cobrança" : "Ver movimentações"}
                   </NextLink>
                 </Button>
-              }
+              )}
             />
           ) : (
             <div className="divide-y divide-border/60">
@@ -550,11 +556,11 @@ export function OverviewScreen({
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">
-                          {tx.href ? (
+                          {!readOnly && tx.href ? (
                             <NextLink href={tx.href} prefetch={false} className="underline-offset-4 hover:underline">
                               {tx.description}
                             </NextLink>
-                            ) : tx.onOpen ? (
+                            ) : !readOnly && tx.onOpen ? (
                               <button type="button" className="text-left underline-offset-4 hover:underline" onClick={tx.onOpen}>
                                 {tx.description}
                               </button>

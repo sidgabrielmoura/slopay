@@ -171,6 +171,13 @@ function AuditRowsSkeleton() {
   ))}</div>;
 }
 
+const supportStatus = { ACTIVE: "Em andamento", ENDED: "Encerrado", EXPIRED: "Expirado" } as const;
+
+function supportDuration(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  return minutes ? `${minutes} min ${seconds % 60} s` : `${seconds} s`;
+}
+
 function AuditEventDialog({ id, userId, open, onOpenChange, onCloseAutoFocus }: {
   id: string; userId: string; open: boolean; onOpenChange: (open: boolean) => void; onCloseAutoFocus: (event: Event) => void;
 }) {
@@ -196,6 +203,15 @@ function AuditEventDialog({ id, userId, open, onOpenChange, onCloseAutoFocus }: 
               <CompanyField label="Tipo de evento"><code className="wrap-anywhere text-xs">{event.eventType}</code></CompanyField>
               {event.environment && <CompanyField label="Ambiente">{event.environment === "SANDBOX" ? "Sandbox" : "Produção"}</CompanyField>}
               {event.change && <CompanyField label="Alteração">{event.change}</CompanyField>}
+              {event.support && <>
+                <CompanyField label="Sessão de suporte">{supportStatus[event.support.status]}</CompanyField>
+                <CompanyField label="Duração registrada"><span className="tabular-nums">{supportDuration(event.support.durationSeconds)}</span></CompanyField>
+                <CompanyField label="Início"><time dateTime={event.support.startedAt}>{formatDateTime(event.support.startedAt, "medium")}</time></CompanyField>
+                <CompanyField label="Término">{event.support.endedAt ? <time dateTime={event.support.endedAt}>
+                  {formatDateTime(event.support.endedAt, "medium")}
+                </time> : "—"}</CompanyField>
+                {!event.actor && <CompanyField label="ID do superadmin"><code className="wrap-anywhere text-xs">{event.support.adminId}</code></CompanyField>}
+              </>}
               <CompanyField label="ID do registro" className="sm:col-span-2"><code className="wrap-anywhere text-xs">{event.id}</code></CompanyField>
               {event.target && <CompanyField label={event.target.label} className="sm:col-span-2"><code className="wrap-anywhere text-xs">{event.target.id}</code></CompanyField>}
               {event.reason && <CompanyField label="Justificativa" className="sm:col-span-2"><span className="wrap-anywhere whitespace-pre-wrap">{event.reason}</span></CompanyField>}

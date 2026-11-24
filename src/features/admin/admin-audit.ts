@@ -30,6 +30,11 @@ export const adminAuditSchema = z.object({ items: z.array(auditEntry).max(8), pa
 export const adminAuditEventSchema = auditEntry.extend({
   target: z.object({ id: z.guid(), label: z.string() }).nullable(),
   environment: z.enum(["SANDBOX", "LIVE"]).nullable(), change: z.string().nullable(), reason: z.string().max(600).nullable(),
+  support: z.object({
+    status: z.enum(["ACTIVE", "ENDED", "EXPIRED"]), adminId: z.uuid(),
+    startedAt: z.iso.datetime({ offset: true }), endedAt: z.iso.datetime({ offset: true }).nullable(),
+    durationSeconds: z.int().min(0).max(1800),
+  }).nullish(),
 });
 
 export type AdminAuditQuery = z.infer<typeof adminAuditQuery>;
