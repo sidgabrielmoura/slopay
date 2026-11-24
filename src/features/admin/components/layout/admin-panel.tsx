@@ -8,7 +8,6 @@ import { PanelProfileIdentity } from "@/components/layout/header-motion";
 import { PanelPrivacyToggle } from "@/components/layout/panel-privacy";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/features/auth/components/live-auth-forms";
-import { SessionMonitor } from "@/features/auth/components/session-monitor";
 import type { SessionUser } from "@/lib/server/auth-backend";
 import { adminPreferencesPath } from "../../admin-preferences";
 import { AdminNotifications, useAdminActivity } from "../admin-activity-provider";
@@ -23,7 +22,7 @@ export function AdminPanel({ user, children, pendingSummary }: {
 }) {
   const activity = useAdminActivity();
   const summary = activity?.summary;
-  return <PanelFrame className="admin-panel" sidebar={<AdminSidebar live pendingSummary={summary ? {
+  return <PanelFrame kind="admin" className="admin-panel" sidebar={<AdminSidebar live pendingSummary={summary ? {
     pendingApplicationsCount: summary.onboarding, pendingFinancialApprovalsCount: summary.ownerApproval, totalUrgentTasks: summary.total,
   } : pendingSummary} />} topbar={(
     <PanelTopbarFrame>
@@ -40,5 +39,5 @@ export function AdminPanel({ user, children, pendingSummary }: {
         <div className="ml-1 border-l border-border pl-2"><LogoutButton compact /></div>
       </div>
     </PanelTopbarFrame>
-  )} bottomNav={<AdminBottomNav live />}><SessionMonitor />{children}</PanelFrame>;
+  )} bottomNav={<AdminBottomNav live />}>{children}</PanelFrame>;
 }

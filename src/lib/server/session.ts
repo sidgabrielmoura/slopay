@@ -71,6 +71,13 @@ const loadSession = cache(async () => {
   }
 });
 
+export async function loadPanelUser() {
+  const result = await loadSession();
+  return result.state === "ready" && result.user.mfaVerified && !onboardingDestination(result.user)
+    ? result.user
+    : null;
+}
+
 export async function requireSession(
   returnTo: string,
   { operations = false, admin = false } = {},

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { developmentFeaturesEnabled } from "@/config/development";
 import { LogoutButton } from "@/features/auth/components/live-auth-forms";
-import { SessionMonitor } from "@/features/auth/components/session-monitor";
 import type { SessionUser } from "@/lib/server/auth-backend";
 import { BottomNav } from "./bottom-nav";
 import { DashboardNotifications } from "./dashboard-notifications";
@@ -26,6 +25,7 @@ export function MerchantPanel({
     user.isEmailVerified && user.isTwoFactorEnabled && user.mfaVerified;
   const panel = (
     <PanelFrame
+      kind="merchant"
       sidebar={<Sidebar restricted={restricted} member={member} />}
       topbar={
         <PanelTopbarFrame>
@@ -45,7 +45,6 @@ export function MerchantPanel({
       }
       bottomNav={!restricted && <BottomNav member={member} />}
     >
-      <SessionMonitor />
       {children}
     </PanelFrame>
   );

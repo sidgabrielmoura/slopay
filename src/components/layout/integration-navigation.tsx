@@ -35,6 +35,7 @@ export function IntegrationNavigation({ className, onNavigate }: { className?: s
               <Link
                 href={path}
                 prefetch={false}
+                scroll={false}
                 onNavigate={onNavigate}
                 aria-current={active ? "page" : undefined}
                 className={cn(panelNavItemClass, "min-h-11", active

@@ -1,11 +1,23 @@
 import "server-only";
 
+import { captureException, flush } from "@sentry/nextjs";
 import { isIP } from "node:net";
 import { headers as requestHeaders } from "next/headers";
+import { after } from "next/server";
 import { z } from "zod";
+import { sentryDsn } from "@/config/sentry";
+import { backendFailureMessage } from "@/lib/sentry-options";
 
 const requestTimeoutMs = 8_000;
 const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+function reportBackendFailure(path: string, status?: number) {
+  if (!sentryDsn) return;
+  captureException(new Error(backendFailureMessage), {
+    tags: { "backend.area": path.startsWith("/auth/") ? "auth" : "api", "backend.status": status },
+  });
+  after(async () => { await flush(2000); });
+}
 
 const validOrigin = (value: string): URL => {
   const url = new URL(value);
@@ -92,14 +104,19 @@ export async function requestBackend(path: `/${string}`, options: BackendRequest
   if (options.idempotencyKey) headers.set("Idempotency-Key", options.idempotencyKey);
 
   const timeout = AbortSignal.timeout(options.timeoutMs ?? (options.stream ? 65_000 : requestTimeoutMs));
-  return fetch(url, {
+  const response = await fetch(url, {
     method: options.method,
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     cache: "no-store",
     redirect: "error",
     signal: options.signal ? AbortSignal.any([options.signal, timeout]) : timeout,
+  }).catch((error: unknown) => {
+    if (!options.signal?.aborted) reportBackendFailure(path);
+    throw error;
   });
+  if (response.status >= 500) reportBackendFailure(path, response.status);
+  return response;
 }
 
 export function requestAuthBackend(path: string, options: BackendRequest) {

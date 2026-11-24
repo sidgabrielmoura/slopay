@@ -110,7 +110,9 @@ export function DashboardPixNoticesProvider({ mode, accountId, children }: {
   accountId: string;
   children: ReactNode;
 }) {
+  const parent = useContext(Context);
   const store = useMemo(() => storeFor(mode, accountId), [mode, accountId]);
+  if (parent?.toasterId === store.toasterId) return children;
   const offset = { right: "1rem", bottom: "var(--pix-toast-bottom)" };
 
   return (

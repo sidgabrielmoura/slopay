@@ -21,6 +21,7 @@ const connectionLabels: Record<Connection, string> = {
   connecting: "Conectando atualizações", live: "Atualizações em tempo real", reconnecting: "Reconectando atualizações", paused: "Atualizações pausadas nesta aba",
 };
 type ActivityContext = {
+  accountId: string;
   summary?: PendingSummary; connection: Connection; report?: AdminActivity; loading: boolean; error: string | null;
   setPage: (page: number) => void; retry: () => void; busy: boolean; marking: boolean;
   markAll: () => void; openNotice: (notice: AdminNotice, origin: HTMLElement | null) => void;
@@ -36,6 +37,8 @@ export function useAdminActivity() {
 }
 
 export function AdminActivityProvider({ accountId, children }: { accountId: string; children: ReactNode }) {
+  const parent = useContext(Context);
+  if (parent?.accountId === accountId) return children;
   return <AdminPreferencesProvider key={accountId} accountId={accountId}>
     <AdminActivityFeed accountId={accountId}>{children}</AdminActivityFeed>
   </AdminPreferencesProvider>;
@@ -129,6 +132,7 @@ function AdminActivityFeed({ accountId, children }: { accountId: string; childre
   }, [accountId, client, toasterId, read.mutate]);
 
   return <Context.Provider value={{
+    accountId,
     summary: live && (!report.data || Date.parse(live.generatedAt) > Date.parse(report.data.generatedAt)) ? live.summary : report.data?.summary, connection, report: report.data, loading: report.isPending,
     error: report.isError ? report.error.message : null, setPage, busy: report.isPlaceholderData,
     retry: () => { void report.refetch(); }, marking: read.isPending, markAll: () => read.mutate({ all: true }),

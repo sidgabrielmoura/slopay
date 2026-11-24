@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { developmentFeaturesEnabled } from "@/config/development";
 import { isDevelopmentRoute } from "@/config/development-routes";
+import { sentryIngestOrigin } from "@/config/sentry";
 
 const legacyCookies = ["slopay_access_token", "slopay_refresh_token", "slopay_user"];
 
@@ -21,7 +22,7 @@ export function proxy(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
-    "connect-src 'self'",
+    ["connect-src 'self'", sentryIngestOrigin].filter(Boolean).join(" "),
     "object-src 'none'",
     "base-uri 'none'",
     "frame-ancestors 'none'",

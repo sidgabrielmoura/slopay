@@ -30,6 +30,8 @@ type SidebarItem = SidebarLink & {
 };
 export type PanelSidebarGroup = { label: string; items: readonly SidebarItem[] };
 
+const sidebarPositions = new Map<string, { collapsed: boolean; scrollTop: number }>();
+
 export function PanelSidebar({
   groups, homePath, homeLabel, subtitle, navigationLabel, footerLinks, showIntegrations = false,
 }: {
@@ -46,6 +48,7 @@ export function PanelSidebar({
   const [menuChoice, setMenuChoice] = useState<{ pathname: string | null; open: boolean }>();
   const navigationId = useId();
   const integrationsId = useId();
+  const navigation = useRef<HTMLElement>(null);
   const collapseTrigger = useRef<HTMLButtonElement>(null);
   const expandTrigger = useRef<HTMLButtonElement>(null);
   const restoreToggleFocus = useRef(false);
@@ -59,13 +62,22 @@ export function PanelSidebar({
   function toggle() {
     restoreToggleFocus.current = document.activeElement === collapseTrigger.current ||
       document.activeElement === expandTrigger.current;
-    setIsCollapsed((collapsed) => !collapsed);
+    const collapsed = !isCollapsed;
+    sidebarPositions.set(homePath, { collapsed, scrollTop: navigation.current?.scrollTop ?? 0 });
+    setIsCollapsed(collapsed);
   }
 
   function setIntegrationsOpen(open: boolean) {
     moveMenuFocus.current = true;
     setMenuChoice({ pathname, open });
   }
+
+  useLayoutEffect(() => {
+    const position = sidebarPositions.get(homePath);
+    if (!position || !navigation.current) return;
+    setIsCollapsed(position.collapsed);
+    navigation.current.scrollTop = position.scrollTop;
+  }, [homePath]);
 
   useLayoutEffect(() => {
     if (!restoreToggleFocus.current) return;
@@ -98,7 +110,7 @@ export function PanelSidebar({
         <div className="flex min-h-0 flex-1 flex-col" inert={integrationsOpen} aria-hidden={integrationsOpen || undefined}>
           {/* Brand Header */}
           <div className={cn(styles.header, "flex h-16 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border px-4")}>
-            <NextLink href={homePath} prefetch={false} aria-label={homeLabel}
+            <NextLink href={homePath} prefetch={false} scroll={false} aria-label={homeLabel}
               className="flex min-w-0 items-center gap-2.5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
               <div aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-primary/40 bg-primary/20 text-base font-bold text-primary">
                 G
@@ -124,7 +136,9 @@ export function PanelSidebar({
           </div>
 
           {/* Navigation Items */}
-          <nav id={navigationId} aria-label={navigationLabel} className="min-h-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-2 py-3">
+          <nav ref={navigation} id={navigationId} aria-label={navigationLabel}
+            className="min-h-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto px-2 py-3"
+            onScroll={(event) => sidebarPositions.set(homePath, { collapsed: isCollapsed, scrollTop: event.currentTarget.scrollTop })}>
             {groups.map((group) => (
               <div key={group.label} className="space-y-1">
                 <p aria-hidden={isCollapsed} className={cn(styles.groupTitle, "px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80")}>
@@ -161,6 +175,7 @@ export function PanelSidebar({
                           <NextLink
                             href={item.path}
                             prefetch={false}
+                            scroll={false}
                             aria-current={isActive ? "page" : undefined}
                             aria-label={item.title + (badgeCount > 0 ? `, ${badgeCount} pendentes` : "")}
                             className={itemClass}
@@ -197,7 +212,7 @@ export function PanelSidebar({
             {footerLinks?.length ? (
               <div aria-hidden={isCollapsed} inert={isCollapsed} className={cn(styles.footerLinks, styles.label, "flex h-11 items-center justify-between px-3 text-xs text-muted-foreground")}>
                 {footerLinks.map(({ path, title, icon: Icon }) => (
-                  <NextLink key={path} href={path} prefetch={false}
+                  <NextLink key={path} href={path} prefetch={false} scroll={false}
                     className="flex min-h-11 min-w-0 items-center gap-1.5 rounded-sm transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
                     <Icon aria-hidden="true" className="size-3.5 shrink-0" />
                     <span className="truncate">{title}</span>
