@@ -8,8 +8,9 @@ import { stepperSpring } from "@/components/ui/stepper-motion";
 import { LoadingConfirmation, OperationFailure } from "@/components/ui/loading-indicator";
 import { AUTH_PASSWORD_MAX_LENGTH, getAuthPasswordRequirements } from "@/features/auth/auth-password";
 import {
-  AuthActionButton, AuthField, AuthPasswordToggle, PasswordRequirements,
+  AuthActionButton, PasswordRequirements,
 } from "@/features/auth/components/auth-form-controls";
+import { AuthPasswordField } from "@/features/auth/components/auth-password-field";
 import { CodeSlots, useCodeVerification } from "@/features/auth/components/code-slots";
 import type { PasswordChangeChallenge, PasswordChangeGrant } from "@/features/auth/password-change-contract";
 import { withSessionLock } from "@/features/auth/session-refresh";
@@ -107,7 +108,6 @@ function NewPasswordForm({ onSaved, onExpired, challengeId, authorization }: {
 }) {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
-  const [visible, setVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [invalid, setInvalid] = useState<"password" | "confirmation" | null>(null);
   const [failure, setFailure] = useState("");
@@ -148,18 +148,14 @@ function NewPasswordForm({ onSaved, onExpired, challengeId, authorization }: {
   return (
     <form noValidate onSubmit={submit} aria-busy={saving} className="grid gap-4">
       <div className="grid gap-2">
-        <AuthField id="password-change-new" label="Nova senha" type={visible ? "text" : "password"}
+        <AuthPasswordField id="password-change-new" label="Nova senha"
           autoFocus required autoComplete="new-password" maxLength={AUTH_PASSWORD_MAX_LENGTH}
           aria-describedby="password-change-requirements" error={invalid === "password" ? passwordError : null}
           readOnly={saving} value={password}
-          onChange={(event) => { setInvalid(null); setPassword(event.currentTarget.value); }}
-          endControl={
-            <AuthPasswordToggle visible={visible} onToggle={() => setVisible(!visible)} disabled={saving}
-              controls="password-change-new password-change-confirm" />
-          } />
+          onChange={(event) => { setInvalid(null); setPassword(event.currentTarget.value); }} />
         <PasswordRequirements id="password-change-requirements" requirements={requirements} />
       </div>
-      <AuthField id="password-change-confirm" label="Confirmar nova senha" type={visible ? "text" : "password"}
+      <AuthPasswordField id="password-change-confirm" label="Confirmar nova senha"
         required autoComplete="new-password" maxLength={AUTH_PASSWORD_MAX_LENGTH}
         readOnly={saving} value={confirmation} error={invalid === "confirmation" ? confirmationError : null}
         onChange={(event) => { setInvalid(null); setConfirmation(event.currentTarget.value); }} />

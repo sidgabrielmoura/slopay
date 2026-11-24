@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
-import { Check, Eye, EyeOff } from "lucide-react";
+import { Check } from "lucide-react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { LoadingConfirmation, LoadingIndicator } from "@/components/ui/loading-indicator";
 import { BrazilianInput } from "@/components/ui/brazilian-input";
@@ -107,28 +107,6 @@ export function AuthActionLabels({ children, pending, pendingLabel, endIcon }: P
         {pendingLabel}
       </span>
     </span>
-  );
-}
-
-export function AuthPasswordToggle({ visible, onToggle, controls, disabled }: {
-  visible: boolean;
-  onToggle: () => void;
-  controls: string;
-  disabled?: boolean;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      onClick={onToggle}
-      disabled={disabled}
-      aria-label={visible ? "Ocultar senha" : "Exibir senha"}
-      aria-controls={controls}
-      className="absolute inset-y-0 right-0 size-11 text-muted-foreground focus-visible:ring-inset focus-visible:ring-offset-0"
-    >
-      {visible ? <EyeOff /> : <Eye />}
-    </Button>
   );
 }
 

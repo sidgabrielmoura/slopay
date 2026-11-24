@@ -4,7 +4,7 @@ import type { FormEvent } from "react";
 import { ApiError } from "@/lib/api-client";
 import { authApiService } from "@/services/auth-api.service";
 import { withSessionLock } from "../session-refresh";
-import { AuthField } from "./auth-form-controls";
+import { AuthPasswordField } from "./auth-password-field";
 import { CodeSlots, useCodeVerification } from "./code-slots";
 
 export function PasskeyReauthentication({ onSuccess }: { onSuccess: () => void }) {
@@ -30,7 +30,7 @@ export function PasskeyReauthentication({ onSuccess }: { onSuccess: () => void }
 
   return (
     <form method="post" onSubmit={submit} aria-busy={factor.busy} className="space-y-4">
-      <AuthField id="passkey-reauth-password" name="password" label="Senha atual" type="password"
+      <AuthPasswordField id="passkey-reauth-password" name="password" label="Senha atual"
         autoComplete="current-password" required maxLength={128} readOnly={factor.busy} autoFocus
         onBlur={(event) => {
           const form = event.currentTarget.form;

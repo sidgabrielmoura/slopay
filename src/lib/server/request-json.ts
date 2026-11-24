@@ -12,6 +12,12 @@ export async function readJson(request: Request, maxBytes: number): Promise<unkn
     throw new RequestBodyError(415, "Envie os dados em JSON.");
   }
 
+  return JSON.parse((await readBoundedBody(request, maxBytes)).toString("utf8"));
+}
+
+export async function readBoundedBody(request: Request, maxBytes: number) {
+  const declared = Number(request.headers.get("content-length"));
+  if (declared > maxBytes) throw new RequestBodyError(413, "Os dados da solicitação excedem o limite.");
   const reader = request.body?.getReader();
   if (!reader) throw new RequestBodyError(400, "Envie os dados da solicitação.");
   const chunks: Uint8Array[] = [];
@@ -26,5 +32,5 @@ export async function readJson(request: Request, maxBytes: number): Promise<unkn
     }
     chunks.push(value);
   }
-  return JSON.parse(Buffer.concat(chunks, bytes).toString("utf8"));
+  return Buffer.concat(chunks, bytes);
 }

@@ -8,14 +8,13 @@ import { OperationFailure } from "@/components/ui/loading-indicator";
 import { AUTH_PASSWORD_MAX_LENGTH, getAuthPasswordRequirements } from "@/features/auth/auth-password";
 import {
   AuthActionButton,
-  AuthField,
   AuthHeading,
   AuthLoadingStatus,
-  AuthPasswordToggle,
   AuthSuccessMark,
   PasswordRequirements,
 } from "@/features/auth/components/auth-form-controls";
 import { AuthFormMotion } from "@/features/auth/components/auth-motion";
+import { AuthPasswordField } from "@/features/auth/components/auth-password-field";
 import { AuthShell, recoverySteps } from "@/features/auth/components/auth-shell";
 import { KeyRound, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -27,7 +26,6 @@ function ResetPasswordContent() {
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [requestFailure, setRequestFailure] = useState("");
@@ -110,10 +108,9 @@ function ResetPasswordContent() {
 
       <form method="post" onSubmit={handleSubmit} aria-busy={isLoading} className="space-y-4">
         <div className="space-y-2">
-          <AuthField
+          <AuthPasswordField
             id="new-password"
             label="Nova senha"
-            type={showPassword ? "text" : "password"}
             required
             value={newPassword}
             autoComplete="new-password"
@@ -125,22 +122,13 @@ function ResetPasswordContent() {
               setNewPassword(event.currentTarget.value);
               if (passwordError) setPasswordError(null);
             }}
-            endControl={(
-              <AuthPasswordToggle
-                visible={showPassword}
-                onToggle={() => setShowPassword(!showPassword)}
-                controls="new-password confirm-password"
-                disabled={isLoading}
-              />
-            )}
           />
           <PasswordRequirements id="reset-password-help" requirements={requirements} />
         </div>
 
-        <AuthField
+        <AuthPasswordField
           id="confirm-password"
           label="Confirmar nova senha"
-          type={showPassword ? "text" : "password"}
           required
           value={confirmPassword}
           autoComplete="new-password"

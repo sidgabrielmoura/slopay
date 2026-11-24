@@ -14,7 +14,8 @@ import { SecurityCard, SecurityMethod } from "@/features/account/components/secu
 import { ApiError } from "@/lib/api-client";
 import { emailVerificationPath } from "@/lib/auth-navigation";
 import { finishSignIn } from "../finish-sign-in";
-import { AuthActionButton, AuthField, AuthHeading, AuthSuccessMark } from "./auth-form-controls";
+import { AuthActionButton, AuthHeading, AuthSuccessMark } from "./auth-form-controls";
+import { AuthPasswordField } from "./auth-password-field";
 import { AuthFormMotion } from "./auth-motion";
 import { CodeSlots, useCodeVerification } from "./code-slots";
 import { LogoutButton } from "./live-auth-forms";
@@ -240,10 +241,9 @@ export function LiveMfa({ userId, enabled, panelPath, needsEmailConfirmation = f
       ) : (
         <form ref={formRef} method="post" onSubmit={prepare}
           aria-busy={busy || currentFactor.busy || currentPasskey.busy} className="space-y-4">
-          <AuthField
+          <AuthPasswordField
             id="password"
             label="Senha atual"
-            type="password"
             autoComplete="current-password"
             required
             maxLength={128}

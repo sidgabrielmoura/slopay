@@ -9,12 +9,14 @@ import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { ApiError } from "@/lib/api-client";
 import { accountOpeningPath, onboardingDestination, safeReturnTo } from "@/lib/auth-navigation";
+import { cn } from "@/lib/utils";
 import { cleanDocument, isValidCPF } from "@/lib/validators";
 import { authApiService } from "@/services/auth-api.service";
 import { AUTH_PASSWORD_MAX_LENGTH, AUTH_PASSWORD_MIN_LENGTH, getAuthPasswordRequirements } from "../auth-password";
 import { finishSignIn } from "../finish-sign-in";
 import { rememberBrowserPasskey } from "../passkey-device";
 import { AuthActionButton, AuthField, AuthHeading, PasswordRequirements } from "./auth-form-controls";
+import { AuthPasswordField } from "./auth-password-field";
 import { AuthShell, loginSteps } from "./auth-shell";
 import { CodeSlots, useCodeVerification } from "./code-slots";
 import { PasskeyActions, usePasskeyConfirmation } from "./passkey-confirmation";
@@ -80,7 +82,7 @@ export function LiveLogin({ returnTo }: { returnTo?: string }) {
           <>
             <form method="post" onSubmit={submit} aria-busy={busy} className="space-y-4">
               <AuthField id="email" label="E-mail" type="email" autoComplete="username" maxLength={254} required />
-              <AuthField id="password" label="Senha" type="password" autoComplete="current-password" maxLength={128} required />
+              <AuthPasswordField id="password" label="Senha" autoComplete="current-password" maxLength={128} required />
               <ToastNotice message={error} persistent />
               <AuthActionButton pending={busy} pendingLabel="Validando…" className="w-full">Entrar</AuthActionButton>
             </form>
@@ -247,10 +249,9 @@ export function LiveRegistration({ invitation }: { invitation?: string } = {}) {
           <AuthField id="phone" label="Telefone" mask="PHONE" autoComplete="tel" required />
         </div>
         <div className="space-y-2">
-          <AuthField
+          <AuthPasswordField
             id="password"
             label="Senha"
-            type="password"
             autoComplete="new-password"
             required
             minLength={AUTH_PASSWORD_MIN_LENGTH}
@@ -274,7 +275,7 @@ export function LiveRegistration({ invitation }: { invitation?: string } = {}) {
   );
 }
 
-export function LogoutButton({ compact = false }: { compact?: boolean } = {}) {
+export function LogoutButton({ compact = false, showLabel = false }: { compact?: boolean; showLabel?: boolean } = {}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -297,9 +298,9 @@ export function LogoutButton({ compact = false }: { compact?: boolean } = {}) {
     <div className="space-y-2" aria-busy={busy}>
       {compact ? (
         <Button type="button" variant="ghost" size="icon" disabled={busy} aria-label={busy ? "Encerrando sessão" : "Sair"}
-          className="size-11 text-muted-foreground sm:w-auto sm:px-3" onClick={logout}>
+          className={cn("size-11 text-muted-foreground", showLabel ? "w-auto px-3" : "sm:w-auto sm:px-3")} onClick={logout}>
           {busy ? <LoadingIndicator /> : <LogOut aria-hidden="true" />}
-          <span className="hidden sm:inline">Sair</span>
+          <span className={showLabel ? undefined : "hidden sm:inline"}>Sair</span>
         </Button>
       ) : (
         <AuthActionButton type="button" variant="outline" pending={busy} pendingLabel="Encerrando…" onClick={logout}>

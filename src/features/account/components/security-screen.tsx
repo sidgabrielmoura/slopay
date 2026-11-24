@@ -20,7 +20,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AuthField, AuthPasswordToggle } from "@/features/auth/components/auth-form-controls";
+import { AuthField } from "@/features/auth/components/auth-form-controls";
+import { AuthPasswordField } from "@/features/auth/components/auth-password-field";
 import { CodeSlots, useCodeVerification } from "@/features/auth/components/code-slots";
 import { Copy, KeyRound, Lock, Smartphone } from "lucide-react";
 import { toast } from "sonner";
@@ -45,7 +46,6 @@ export function SecurityScreen() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassText, setShowPassText] = useState(false);
 
   const { data: securityEvents, isLoading: isLoadingEvents } = useQuery({
     queryKey: queryKeys.securityEvents(),
@@ -333,12 +333,11 @@ export function SecurityScreen() {
           </DialogHeader>
 
           <form className="grid gap-4" method="post" onSubmit={(event) => { event.preventDefault(); handleSavePassword(); }}>
-            <AuthField id="demo-current-password" label="Senha atual" type={showPassText ? "text" : "password"}
-              autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)}
-              endControl={<AuthPasswordToggle visible={showPassText} controls="demo-current-password" onToggle={() => setShowPassText(!showPassText)} />} />
-            <AuthField id="demo-new-password" label="Nova senha" type="password" autoComplete="new-password"
+            <AuthPasswordField id="demo-current-password" label="Senha atual"
+              autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+            <AuthPasswordField id="demo-new-password" label="Nova senha" autoComplete="new-password"
               value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
-            <AuthField id="demo-confirm-password" label="Confirme a nova senha" type="password" autoComplete="new-password"
+            <AuthPasswordField id="demo-confirm-password" label="Confirme a nova senha" autoComplete="new-password"
               value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
             <DialogFooter className="gap-2 sm:space-x-0">
               <Button type="button" variant="outline" className="h-11" onClick={() => setShowPasswordDialog(false)}>Cancelar</Button>

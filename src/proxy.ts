@@ -21,6 +21,7 @@ export function proxy(request: NextRequest) {
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
+    ...(pathname === "/capturar-documentos" ? ["media-src 'self' blob:"] : []),
     "font-src 'self'",
     ["connect-src 'self'", sentryIngestOrigin].filter(Boolean).join(" "),
     "object-src 'none'",

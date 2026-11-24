@@ -18,6 +18,8 @@ import {
   type OpeningApplication, type OpeningDraft, type SaveOpeningApplication,
 } from "../account-opening-application";
 import { AccountOpeningLayout } from "./account-opening-layout";
+import { AccountOpeningDocuments } from "./account-opening-documents";
+import { openingDocumentsComplete, type OpeningDocument } from "../opening-documents";
 import { AccountAddressFields, AccountIdentityFields, AccountReview, AccountTypeChoices } from "./account-opening-fields";
 
 const content = [
@@ -52,12 +54,23 @@ function DraftWizard({ snapshot, save, demo, onExit }: { snapshot: OpeningApplic
   const router = useRouter();
   const [draft, setDraft] = useState(snapshot.draft);
   const [version, setVersion] = useState(snapshot.version);
-  const [step, setStep] = useState(snapshot.state === "CHANGES_REQUESTED" ? 2 : snapshot.nextStep);
+  const documentsRequired = snapshot.identityDocumentsRequired === true;
+  const finalStep = documentsRequired ? 5 : 4;
+  const [documents, setDocuments] = useState(snapshot.documents ?? []);
+  const documentsReady = !documentsRequired || openingDocumentsComplete(documents);
+  const [step, setStep] = useState(snapshot.state === "CHANGES_REQUESTED"
+    ? (documentsRequired && !openingDocumentsComplete(snapshot.documents ?? []) ? 4 : 2)
+    : snapshot.nextStep);
+  const [uploading, setUploading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [invalid, setInvalid] = useState<keyof OpeningDraft>();
   const [busy, setBusy] = useState<"save" | "submit" | "exit" | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const saving = useRef(false);
+
+  function updateDocument(document: OpeningDocument) {
+    setDocuments((previous) => [...previous.filter((item) => item.side !== document.side), document]);
+  }
 
   function update<K extends keyof OpeningDraft>(field: K, value: OpeningDraft[K]) {
     setDraft((previous) => previous ? { ...previous, [field]: value } : previous);
@@ -77,6 +90,7 @@ function DraftWizard({ snapshot, save, demo, onExit }: { snapshot: OpeningApplic
           ...(intent === "submit" && { confirmed: true }),
         });
         setDraft(result.draft);
+        if (result.documents) setDocuments(result.documents);
         setVersion(result.version);
         setStep(result.nextStep);
         setInvalid(undefined);
@@ -121,7 +135,7 @@ function DraftWizard({ snapshot, save, demo, onExit }: { snapshot: OpeningApplic
 
   function next(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft || saving.current) return;
+    if (!draft || saving.current || uploading) return;
     const issue = validateOpeningStep(step, draft);
     if (issue) {
       setInvalid(issue.field);
@@ -129,20 +143,27 @@ function DraftWizard({ snapshot, save, demo, onExit }: { snapshot: OpeningApplic
       document.getElementById(issue.field)?.focus();
       return;
     }
-    if (step === 4 && !confirmed) {
+    if (step >= 4 && !documentsReady) {
+      toast.error("Envie a frente e o verso do mesmo documento para continuar.");
+      if (step !== 4) changeStep(4);
+      return;
+    }
+    if (step === finalStep && !confirmed) {
       toast.error("Confirme que os dados estão corretos para enviar.");
       document.getElementById("opening-confirmed")?.focus();
       return;
     }
-    if (step === 4) void persist(draft, 4, "submit");
+    if (step === finalStep) void persist(draft, finalStep, "submit");
     else void persist(draft, step + 1, "save");
   }
 
-  const progress = content[step - 1];
+  const progress = documentsRequired && step === 4
+    ? { title: "Envie seu documento", description: "A equipe do Slopay vai conferir o documento com os dados do cadastro." }
+    : content[step === finalStep ? 3 : step - 1];
   if (!progress) return null;
   const correcting = snapshot.state === "CHANGES_REQUESTED";
   const action = (
-    <Button type="button" variant="ghost" disabled={Boolean(busy)} className="min-h-11 text-muted-foreground"
+    <Button type="button" variant="ghost" disabled={Boolean(busy) || uploading} className="min-h-11 text-muted-foreground"
       onClick={() => void persist(draft, step, "exit")}>
       {busy === "exit" ? <LoadingIndicator /> : correcting ? <ArrowLeft aria-hidden="true" size={16} /> : <LogOut aria-hidden="true" size={16} />}
       <span>{correcting ? "Salvar e voltar" : draft ? "Salvar e sair" : "Sair"}</span>
@@ -150,7 +171,7 @@ function DraftWizard({ snapshot, save, demo, onExit }: { snapshot: OpeningApplic
   );
 
   return (
-    <AccountOpeningLayout step={step} action={demo ? undefined : action}>
+    <AccountOpeningLayout step={step} documents={documentsRequired} action={demo ? undefined : action}>
       <section className="space-y-6 sm:space-y-7">
         <Title {...progress} />
         {step === 1 ? (
@@ -164,18 +185,32 @@ function DraftWizard({ snapshot, save, demo, onExit }: { snapshot: OpeningApplic
               <legend className="sr-only">{progress.title}</legend>
               {step === 2 && <AccountIdentityFields owner={snapshot.owner} draft={draft} invalid={invalid} update={update} />}
               {step === 3 && <AccountAddressFields draft={draft} invalid={invalid} update={update} />}
-              {step === 4 && (
-                <AccountReview owner={snapshot.owner} draft={draft} confirmed={confirmed} onConfirm={setConfirmed} onEdit={changeStep} />
+              {documentsRequired && step === 4 && (
+                <AccountOpeningDocuments documents={documents} representative={draft.accountType === "PJ"}
+                  correctionReason={snapshot.state === "CHANGES_REQUESTED" ? snapshot.reason : undefined} disabled={Boolean(busy)}
+                  onSending={setUploading} onUpload={updateDocument} onDocuments={setDocuments} />
+              )}
+              {step === finalStep && (
+                <>
+                  {documentsRequired && <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2 text-sm">
+                    <span>Documento de identidade</span>
+                    <Button type="button" variant="ghost" className="min-h-11" onClick={() => changeStep(4)}>
+                      {documents.find((item) => item.side === "FRONT")?.kind ?? "Conferir documento"}
+                    </Button>
+                  </div>}
+                  <AccountReview owner={snapshot.owner} draft={draft} confirmed={confirmed} onConfirm={setConfirmed} onEdit={changeStep} />
+                </>
               )}
             </fieldset>
             {submitError && <OperationFailure message={submitError} />}
             <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5">
-              <Button type="button" variant="outline" disabled={Boolean(busy)} className="h-11 px-3.5"
+              <Button type="button" variant="outline" disabled={Boolean(busy) || uploading} className="h-11 px-3.5"
                 onClick={() => changeStep(step - 1)}><ArrowLeft size={16} aria-hidden="true" />Voltar</Button>
               <AuthActionButton className="min-w-0" pending={busy === "save" || busy === "submit"}
-                disabled={busy === "exit"} pendingLabel={step === 4 ? "Enviando solicitação…" : "Salvando…"}
+                disabled={busy === "exit" || uploading || (step === 4 && !documentsReady)}
+                pendingLabel={step === finalStep ? "Enviando solicitação…" : "Salvando…"}
                 endIcon={<ArrowRight size={16} aria-hidden="true" />}>
-                {step === 4 ? "Enviar solicitação" : "Continuar"}
+                {step === finalStep ? "Enviar solicitação" : "Continuar"}
               </AuthActionButton>
             </div>
           </form>
@@ -197,7 +232,8 @@ function AccountOpeningTracking({ snapshot, onEdit, demo }: {
     if (document.activeElement === document.body) contentRef.current?.focus({ preventScroll: true });
   }, []);
   return (
-    <AccountOpeningLayout step={5} action={demo ? undefined : <LogoutButton compact />}>
+    <AccountOpeningLayout step={snapshot.identityDocumentsRequired ? 6 : 5}
+      documents={snapshot.identityDocumentsRequired} action={demo ? undefined : <LogoutButton compact />}>
       <section ref={contentRef} tabIndex={-1} aria-live="polite" className="space-y-5 outline-none">
         {approved || rejected ? (
           <LoadingConfirmation key={state} size={56} animate outcome={approved ? "success" : "failure"} />
@@ -232,26 +268,32 @@ function AccountOpeningTracking({ snapshot, onEdit, demo }: {
             </div>
           )}
         </dl>
-        {corrections && <Button type="button" className="h-11 w-full" onClick={onEdit}>Atualizar dados</Button>}
+        {corrections && <Button type="button" className="h-11 w-full" onClick={onEdit}>
+          {snapshot.documents?.some((document) => document.replacementRequested) ? "Reenviar documento" : "Atualizar dados"}
+        </Button>}
         {approved && <Button asChild className="h-11 w-full"><Link href="/inicio">Continuar <ArrowRight size={16} aria-hidden="true" /></Link></Button>}
       </section>
     </AccountOpeningLayout>
   );
 }
 
+function requiresDocumentCorrection(snapshot?: OpeningApplication) {
+  return snapshot?.state === "CHANGES_REQUESTED" && snapshot.documents?.some((item) => item.replacementRequested) === true;
+}
+
 export function AccountOpeningScreen({ merchantId, initial, demo = false }: {
   merchantId: string; initial?: OpeningApplication; demo?: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState<boolean>();
   const client = useQueryClient();
   const key = ["account-opening-application", merchantId];
   const query = useQuery({
     queryKey: key, initialData: initial, enabled: !demo, retry: false,
     queryFn: ({ signal }) => openingApplication.get(signal), staleTime: 15_000,
-    refetchOnWindowFocus: ({ state }) => !editing && state.data?.state !== "DRAFT",
+    refetchOnWindowFocus: ({ state }) => !(editing ?? requiresDocumentCorrection(state.data)) && state.data?.state !== "DRAFT",
     refetchInterval: ({ state }) => {
       const status = state.data?.state;
-      return !editing && status && ["SUBMITTED", "UNDER_REVIEW", "RESUBMITTED", "CHANGES_REQUESTED", "REJECTED"].includes(status)
+      return !(editing ?? requiresDocumentCorrection(state.data)) && status && ["SUBMITTED", "UNDER_REVIEW", "RESUBMITTED", "CHANGES_REQUESTED", "REJECTED"].includes(status)
         ? 20_000 : false;
     },
   });
@@ -270,8 +312,9 @@ export function AccountOpeningScreen({ merchantId, initial, demo = false }: {
       if (!latest || latest.state === "DRAFT" || latest.state === "CHANGES_REQUESTED") throw error;
       return latest;
     });
+    if (input.action === "SUBMIT") setEditing(undefined);
+    else if (snapshot?.state === "CHANGES_REQUESTED") setEditing(true);
     client.setQueryData(key, result);
-    if (input.action === "SUBMIT") setEditing(false);
     return result;
   }
 
@@ -289,7 +332,7 @@ export function AccountOpeningScreen({ merchantId, initial, demo = false }: {
             ) : <AuthLoadingStatus>Consultando sua solicitação…</AuthLoadingStatus>}
           </div>
         </AccountOpeningLayout>
-      ) : snapshot.state === "DRAFT" || (snapshot.state === "CHANGES_REQUESTED" && editing) ? (
+      ) : snapshot.state === "DRAFT" || (snapshot.state === "CHANGES_REQUESTED" && (editing ?? requiresDocumentCorrection(snapshot))) ? (
         <DraftWizard key={snapshot.state} snapshot={snapshot} save={save} demo={demo} onExit={() => setEditing(false)} />
       ) : (
         <AccountOpeningTracking snapshot={{ ...snapshot, state: snapshot.state }} onEdit={() => setEditing(true)} demo={demo} />

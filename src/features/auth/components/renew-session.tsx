@@ -14,7 +14,8 @@ import { canUseWebAuthn, hasPlatformPasskeySupport, isIphoneOrIpad, passkeyFailu
   authenticateWithPasskey, type PasskeyMethod } from "../passkey-device";
 import { refreshSessionIfActive, sessionCanResume, sessionEnded, sessionErrorCode, withSessionLock } from "../session-refresh";
 import { redirectExpiredSession } from "../session-expiry";
-import { AuthActionButton, AuthField, AuthHeading, AuthLoadingStatus } from "./auth-form-controls";
+import { AuthActionButton, AuthHeading, AuthLoadingStatus } from "./auth-form-controls";
+import { AuthPasswordField } from "./auth-password-field";
 import { CodeSlots, useCodeVerification } from "./code-slots";
 
 type Method = "passkey" | "password";
@@ -217,7 +218,7 @@ export function RenewSession({ returnTo }: { returnTo: string }) {
                 onError={(failure) => fail(failure, "Não foi possível confirmar o código.")} />
             ) : (
               <form onSubmit={submitPassword} className="grid gap-3" aria-busy={busy}>
-                <AuthField id="unlock-password" name="password" label="Senha" type="password"
+                <AuthPasswordField id="unlock-password" name="password" label="Senha"
                   autoComplete="current-password" required maxLength={128} />
                 <AuthActionButton pending={busy} pendingLabel="Validando…">Continuar</AuthActionButton>
                 {canUsePasskey && (

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { openingDraftSchema } from "@/features/account-validation/account-opening-application";
+import { openingDocumentSchema } from "@/features/account-validation/opening-documents";
 import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
 import { integrationProofSchema, type IntegrationProof } from "@/features/integrations/integration-proof";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
@@ -52,13 +53,21 @@ export const accountOpeningsSchema = z.object({
   items: z.array(application).max(8),
 });
 const reviewAction = z.enum(["START_REVIEW", "REQUEST_CHANGES", "REJECT", "REOPEN"]);
-const historyAction = z.enum(["REGISTERED", "EMAIL_VERIFIED", "MFA_ENABLED", "SUBMIT", "RESUBMIT", "APPROVE", "LINKED", ...reviewAction.options]);
+const historyAction = z.enum([
+  "REGISTERED", "EMAIL_VERIFIED", "MFA_ENABLED", "SUBMIT", "RESUBMIT", "APPROVE", "LINKED",
+  "DOCUMENT_UPLOADED", "DOCUMENT_VIEWED", "DOCUMENT_VERIFIED", "DOCUMENT_REPLACEMENT_REQUESTED",
+  ...reviewAction.options,
+]);
 export const openingHistoryLabels: Record<z.infer<typeof historyAction>, string> = {
   REGISTERED: "Titular cadastrado",
   EMAIL_VERIFIED: "E-mail confirmado",
   MFA_ENABLED: "Autenticador cadastrado",
   SUBMIT: "Solicitação enviada",
   START_REVIEW: "Análise atribuída",
+  DOCUMENT_UPLOADED: "Documento enviado",
+  DOCUMENT_VIEWED: "Documento visualizado",
+  DOCUMENT_VERIFIED: "Documento verificado",
+  DOCUMENT_REPLACEMENT_REQUESTED: "Reenvio de documento solicitado",
   REQUEST_CHANGES: "Ajustes solicitados",
   RESUBMIT: "Cadastro reenviado",
   REJECT: "Cadastro recusado",
@@ -75,6 +84,8 @@ export const accountOpeningDetailSchema = z.object({
     analystId: z.uuid().nullable(), version, reason: nullableText,
     reviewedAt: instant.nullable(), linkedAt: instant.nullable(), webhookPath: webhookPath.nullable(),
     submittedAt: instant.nullish(), submittedData: openingDraftSchema.nullish(),
+    identityDocumentsRequired: z.boolean().optional(),
+    documents: z.array(openingDocumentSchema).max(2).optional(),
     sandboxEnabled: z.boolean(),
   }),
   history: z.object({

@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
 import { isValidCNPJ } from "@/lib/validators";
+import { openingDocumentSchema } from "./opening-documents";
 
 export const accountOpeningSteps = ["Tipo de conta", "Identificação", "Endereço", "Revisão"] as const;
+export const identityOpeningSteps = ["Tipo de conta", "Identificação", "Endereço", "Documentos", "Revisão"] as const;
 export const companyTypes = [
   { value: "MEI", label: "Microempreendedor individual" },
   { value: "LIMITED", label: "Sociedade limitada" },
@@ -35,13 +37,15 @@ export const openingDraftSchema = z.strictObject({
 export type OpeningDraft = z.infer<typeof openingDraftSchema>;
 
 const version = z.int().min(0).max(2_000_000_000);
-const stepNumber = z.int().min(1).max(accountOpeningSteps.length);
+const stepNumber = z.int().min(1).max(identityOpeningSteps.length);
 const endpoint = "/api/account-opening/application";
 const unavailable = "Não foi possível consultar sua solicitação.";
 export const accountOpeningApplicationSchema = z.object({
   owner: z.object({ name: z.string(), cpf: z.string().optional(), email: z.email(), phone: z.string().optional() }),
   state: z.enum(["DRAFT", "SUBMITTED", "UNDER_REVIEW", "CHANGES_REQUESTED", "RESUBMITTED", "REJECTED", "APPROVED"]),
   draft: openingDraftSchema.nullable(),
+  identityDocumentsRequired: z.boolean().optional(),
+  documents: z.array(openingDocumentSchema).max(2).optional(),
   nextStep: stepNumber,
   version,
   submittedAt: z.iso.datetime().nullable(),

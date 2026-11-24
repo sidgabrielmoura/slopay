@@ -36,6 +36,14 @@ export default function nextConfig(phase: string): NextConfig {
               : []),
           ],
         },
+        {
+          source: "/capturar-documentos",
+          headers: [
+            { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+            { key: "Cache-Control", value: "private, no-store" },
+            { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          ],
+        },
       ];
     },
   };

@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import { UseFormReturn, useWatch } from "react-hook-form";
 import {
   FullOnboardingFormData,
   stepAccessSchema,
   validateStepWithSchema,
 } from "../../schemas/onboarding.schema";
-import { AuthField, AuthPasswordToggle, PasswordRequirements } from "@/features/auth/components/auth-form-controls";
+import { AuthField, PasswordRequirements } from "@/features/auth/components/auth-form-controls";
+import { AuthPasswordField } from "@/features/auth/components/auth-password-field";
 import authStyles from "@/features/auth/components/auth-shell.module.css";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ArrowLeft } from "lucide-react";
@@ -31,9 +32,6 @@ export function StepAccess({ form, onNext, onPrev }: StepAccessProps) {
     clearErrors,
     formState: { errors },
   } = form;
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const password = useWatch({ control, name: "password" }) ?? "";
   const confirmPassword = useWatch({ control, name: "confirmPassword" }) ?? "";
@@ -142,10 +140,9 @@ export function StepAccess({ form, onNext, onPrev }: StepAccessProps) {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <AuthField
+          <AuthPasswordField
             id="password"
             label="Senha de acesso"
-            type={showPassword ? "text" : "password"}
             autoComplete="new-password"
             {...register("password", {
               onChange: () => {
@@ -155,18 +152,10 @@ export function StepAccess({ form, onNext, onPrev }: StepAccessProps) {
             error={errors.password?.message}
             aria-describedby="onboarding-password-help"
             required
-            endControl={(
-              <AuthPasswordToggle
-                visible={showPassword}
-                onToggle={() => setShowPassword(!showPassword)}
-                controls="password"
-              />
-            )}
           />
-          <AuthField
+          <AuthPasswordField
             id="confirmPassword"
             label="Confirmar senha"
-            type={showConfirmPassword ? "text" : "password"}
             autoComplete="new-password"
             {...register("confirmPassword", {
               onChange: () => {
@@ -175,13 +164,6 @@ export function StepAccess({ form, onNext, onPrev }: StepAccessProps) {
             })}
             error={errors.confirmPassword?.message}
             required
-            endControl={(
-              <AuthPasswordToggle
-                visible={showConfirmPassword}
-                onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
-                controls="confirmPassword"
-              />
-            )}
           />
         </div>
 

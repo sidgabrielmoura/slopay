@@ -70,7 +70,7 @@ export function AccountIdentityFields({ owner, draft, invalid, update }: FieldPr
         {owner.cpf && <div><dt className="text-xs text-muted-foreground">CPF</dt>
           <dd className="mt-0.5 font-medium tabular-nums">{formatCPF(owner.cpf)}</dd></div>}
         <div className="min-w-0 sm:col-span-2">
-          <dt className="text-xs text-muted-foreground">E-mail confirmado</dt>
+          <dt className="text-xs text-muted-foreground">E-mail do cadastro</dt>
           <dd className="mt-0.5 wrap-anywhere font-medium">{owner.email}</dd>
         </div>
       </dl>

@@ -102,7 +102,7 @@ export function RegistrationEmailStep({ userId, initialEmail, continueTo, allowC
   function failure(cause: unknown, fallback: string) {
     setError(cause instanceof Error ? cause.message : fallback);
     if (cause instanceof ApiError &&
-        ["REGISTRATION_EMAIL_CHANGED", "REGISTRATION_EMAIL_NOT_PENDING"].includes(cause.code ?? "")) {
+      ["REGISTRATION_EMAIL_CHANGED", "REGISTRATION_EMAIL_NOT_PENDING"].includes(cause.code ?? "")) {
       router.refresh();
     }
   }
@@ -175,8 +175,6 @@ export function RegistrationEmailStep({ userId, initialEmail, continueTo, allowC
                   aria-invalid={invalidEmail || undefined} error={invalidEmail ? error : null}
                   onChange={() => { setInvalidEmail(false); setError(null); }} />
                 <AuthActionButton className="w-full" pending={pending === "correct"} pendingLabel="Salvando…">Salvar e-mail</AuthActionButton>
-                <Button type="button" variant="ghost" className="h-11 px-0 text-muted-foreground"
-                  disabled={pending === "correct"} onClick={() => edit(false)}><ArrowLeft aria-hidden="true" />Voltar</Button>
               </form>
             </>
           ) : challenge ? (
@@ -203,7 +201,15 @@ export function RegistrationEmailStep({ userId, initialEmail, continueTo, allowC
         </section>
       </AuthFormMotion>
       <ToastNotice message={error} persistent />
-      <div className="mt-6"><LogoutButton compact /></div>
+      <div className="mt-4 flex items-center justify-end gap-2 border-t border-border pt-2">
+        {correcting && (
+          <Button type="button" variant="ghost" className="mr-auto h-11 px-3 text-muted-foreground"
+            disabled={pending === "correct"} onClick={() => edit(false)}>
+            <ArrowLeft aria-hidden="true" />Voltar
+          </Button>
+        )}
+        <LogoutButton compact showLabel />
+      </div>
     </>
   );
 }

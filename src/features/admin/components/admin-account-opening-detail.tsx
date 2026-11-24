@@ -30,6 +30,9 @@ import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 
 type Application = OpeningDetail["application"];
 type Action = OpeningReview["action"] | "APPROVE";
+import { openingDocumentsComplete } from "@/features/account-validation/opening-documents";
+import { OpeningDocumentReview } from "./opening-document-review";
+
 const actionStates: OpeningStatus[] = ["READY", "UNDER_REVIEW", "RESUBMITTED"];
 const nextStep: Record<OpeningStatus, string> = {
   AWAITING_EMAIL: "O titular precisa confirmar o endereço de e-mail.",
@@ -132,6 +135,11 @@ export function AdminAccountOpeningDetail({ user, ownerId }: { user: AdminIdenti
                 <ApplicationActions application={application} analysisAssignedToAdmin={analysisAssignedToAdmin} open={open} />
               </CardContent>
             </Card>
+            {application.identityDocumentsRequired && application.submittedAt && (
+              <OpeningDocumentReview key={application.id + application.version} ownerId={application.id}
+                version={application.version} documents={application.documents ?? []}
+                canReview={analysisAssignedToAdmin} onChange={update} />
+            )}
             <div className="grid min-w-0 items-start gap-5 xl:grid-cols-2">
               <div className="grid min-w-0 gap-5">
                 <Card>
@@ -244,7 +252,9 @@ function ApplicationActions({ application, analysisAssignedToAdmin, open }: {
           </Button>
         )}
         {analysisAssignedToAdmin && application.submittedAt && (
-          <Button type="button" className="h-11" onClick={(event) => open("APPROVE", event.currentTarget)}>
+          <Button type="button" className="h-11"
+            disabled={application.identityDocumentsRequired && !openingDocumentsComplete(application.documents ?? [], true)}
+            onClick={(event) => open("APPROVE", event.currentTarget)}>
             Aprovar cadastro
           </Button>
         )}

@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useGatewayService } from "@/providers/demo-provider";
 import { sessionService } from "@/services/session.service";
-import { AuthActionButton, AuthField, AuthHeading, AuthPasswordToggle } from "./auth-form-controls";
+import { AuthActionButton, AuthField, AuthHeading } from "./auth-form-controls";
+import { AuthPasswordField } from "./auth-password-field";
 import { AuthShell, loginSteps } from "./auth-shell";
 import { CodeSlots, useCodeVerification } from "./code-slots";
 
@@ -60,7 +61,6 @@ const TESTIMONIALS: TestimonialSlide[] = [
 export function LoginScreen() {
   const router = useRouter();
   const service = useGatewayService();
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
 
@@ -292,22 +292,13 @@ export function LoginScreen() {
               error={errors.email?.message}
               disabled={isLoading}
             />
-            <AuthField
+            <AuthPasswordField
               id="password"
               label="Senha"
-              type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               {...register("password")}
               error={errors.password?.message}
               disabled={isLoading}
-              endControl={(
-                <AuthPasswordToggle
-                  visible={showPassword}
-                  onToggle={() => setShowPassword(!showPassword)}
-                  controls="password"
-                  disabled={isLoading}
-                />
-              )}
             />
 
             <div className="flex flex-wrap items-center justify-between gap-x-3 text-sm">

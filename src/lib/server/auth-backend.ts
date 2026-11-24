@@ -71,6 +71,7 @@ export type AuthTokens = z.infer<typeof authTokensSchema>;
 type BackendRequest = {
   method: "GET" | "POST" | "PATCH";
   body?: unknown;
+  rawBody?: Uint8Array<ArrayBuffer>;
   accessToken?: string;
   idempotencyKey?: string;
   searchParams?: URLSearchParams;
@@ -99,7 +100,8 @@ export async function requestBackend(path: `/${string}`, options: BackendRequest
     if (clientIp && isIP(clientIp)) headers.set("X-Forwarded-For", clientIp);
   }
 
-  if (options.body !== undefined) headers.set("Content-Type", "application/json");
+  if (options.rawBody) headers.set("Content-Type", "application/octet-stream");
+  else if (options.body !== undefined) headers.set("Content-Type", "application/json");
   if (options.accessToken) headers.set("Authorization", `Bearer ${options.accessToken}`);
   if (options.idempotencyKey) headers.set("Idempotency-Key", options.idempotencyKey);
 
@@ -107,7 +109,7 @@ export async function requestBackend(path: `/${string}`, options: BackendRequest
   const response = await fetch(url, {
     method: options.method,
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body: options.rawBody ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
     cache: "no-store",
     redirect: "error",
     signal: options.signal ? AbortSignal.any([options.signal, timeout]) : timeout,
