@@ -13,6 +13,7 @@ import { authApiService, type SessionStatus } from "@/services/auth-api.service"
 import { canUseWebAuthn, hasPlatformPasskeySupport, isIphoneOrIpad, passkeyFailureMessage,
   authenticateWithPasskey, type PasskeyMethod } from "../passkey-device";
 import { refreshSessionIfActive, sessionCanResume, sessionEnded, sessionErrorCode, withSessionLock } from "../session-refresh";
+import { redirectExpiredSession } from "../session-expiry";
 import { AuthActionButton, AuthField, AuthHeading, AuthLoadingStatus } from "./auth-form-controls";
 import { CodeSlots, useCodeVerification } from "./code-slots";
 
@@ -59,7 +60,10 @@ export function RenewSession({ returnTo }: { returnTo: string }) {
         }
       } catch (failure) {
         if (!mounted) return;
-        if (sessionEnded(failure)) window.location.replace(login);
+        if (sessionEnded(failure)) {
+          setOpen(false);
+          redirectExpiredSession(returnTo);
+        }
         else if (sessionCanResume(failure)) retry = window.setTimeout(check, 800);
         else setError(failure instanceof ApiError ? failure.message : "Não foi possível consultar a sessão.");
       } finally {
@@ -68,17 +72,23 @@ export function RenewSession({ returnTo }: { returnTo: string }) {
     }
     void check();
     return () => { mounted = false; window.clearTimeout(retry); };
-  }, [attempt, login, returnTo]);
+  }, [attempt, returnTo]);
 
   useEffect(() => {
     if (!status) return;
     const expires = Date.parse(status.absoluteExpiresAt);
-    const timer = window.setTimeout(() => window.location.replace(login), Math.max(0, expires - Date.now()));
+    const timer = window.setTimeout(() => {
+      setOpen(false);
+      redirectExpiredSession(returnTo);
+    }, Math.max(0, expires - Date.now()));
     return () => window.clearTimeout(timer);
-  }, [login, status]);
+  }, [returnTo, status]);
 
   function fail(failure: unknown, fallback: string) {
-    if (sessionEnded(failure)) window.location.replace(login);
+    if (sessionEnded(failure)) {
+      setOpen(false);
+      redirectExpiredSession(returnTo);
+    }
     else if (sessionCanResume(failure)) setAttempt((value) => value + 1);
     else setError(failure instanceof ApiError ? failure.message : fallback);
   }

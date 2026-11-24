@@ -1,5 +1,6 @@
 import { AuthShell } from "@/features/auth/components/auth-shell";
 import { RegisterPasskey } from "@/features/auth/components/register-passkey";
+import { SessionMonitor } from "@/features/auth/components/session-monitor";
 import { authEntry, safeReturnTo } from "@/lib/auth-navigation";
 import { requireSession } from "@/lib/server/session";
 
@@ -16,6 +17,7 @@ export default async function AtivarBiometriaPage({ searchParams }: {
 
   return (
     <AuthShell>
+      <SessionMonitor />
       <RegisterPasskey userId={user.id} returnTo={destination} renew={renew} />
     </AuthShell>
   );

@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-export function SecurityLayout({ children }: { children: ReactNode }) {
+export function SecurityLayout({ children, title = "Segurança" }: { children: ReactNode; title?: string }) {
   return (
     <div className="grid min-w-0 gap-5">
       <header className="space-y-1">
-        <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Segurança</h1>
+        <h1 className="text-balance text-2xl font-semibold sm:text-3xl">{title}</h1>
         <p className="text-pretty text-sm text-muted-foreground">Gerencie a autenticação e o acesso à sua conta.</p>
       </header>
       {children}
@@ -33,8 +33,8 @@ export function SecurityMethod({ icon: Icon, title, description, status, action 
   action?: ReactNode;
 }) {
   return (
-    <div className="@container py-4 first:pt-1 last:pb-0">
-      <div className="flex flex-col items-start gap-3 @lg:flex-row @lg:items-center @lg:justify-between">
+    <div className="@container py-5 first:pt-3 last:pb-0">
+      <div className="flex flex-col items-start gap-3 @2xl:flex-row @2xl:items-center @2xl:justify-between @2xl:gap-6">
         <div className="flex min-w-0 items-start gap-3 @lg:items-center">
           <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-foreground">
             <Icon aria-hidden="true" className="size-5" />
@@ -47,7 +47,7 @@ export function SecurityMethod({ icon: Icon, title, description, status, action 
             {description && <p className="text-pretty text-sm text-muted-foreground">{description}</p>}
           </div>
         </div>
-        {action && <div className="min-w-0 pl-13 @lg:shrink-0 @lg:pl-0 [&_a]:whitespace-normal [&_button]:whitespace-normal">{action}</div>}
+        {action && <div className="w-full min-w-0 pl-13 @2xl:w-auto @2xl:shrink-0 @2xl:pl-0 [&_a]:whitespace-normal [&_button]:whitespace-normal">{action}</div>}
       </div>
     </div>
   );

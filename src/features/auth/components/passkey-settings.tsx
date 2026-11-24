@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { SecurityMethod } from "@/features/account/components/security-layout";
 import { authEntry } from "@/lib/auth-navigation";
@@ -66,19 +67,24 @@ export function PasskeySettings({ userId, returnTo }: { userId: string; returnTo
       icon={device?.apple ? ScanFace : Fingerprint}
       title={title}
       description={status?.hasPasskey && !confirmed
-        ? "Teste a chave cadastrada para verificar se ela funciona neste aparelho."
-        : "Confirme o acesso e retome sua sessão com uma chave de acesso do aparelho."}
-      status={loading ? <Skeleton aria-hidden="true" className="h-5 w-24 motion-reduce:animate-none" /> : (
-        <Badge variant={status?.hasPasskey || confirmed ? "success" : "secondary"} aria-live="polite">{label}</Badge>
+        ? "Verifique se a chave funciona neste aparelho."
+        : "Confirme o acesso com a chave deste aparelho."}
+      status={(
+        <div role="status">
+          <span className="sr-only">{loading ? "Consultando chave de acesso" : label}</span>
+          <SkeletonReveal flow revealed={!loading} skeleton={<Skeleton className="h-5.5 w-24 rounded-full animate-none" />}>
+            <Badge aria-hidden="true" variant={confirmed ? "success" : "secondary"}>{label}</Badge>
+          </SkeletonReveal>
+        </div>
       )}
       action={available && (
         <div className="flex flex-wrap gap-2">
           {status?.hasPasskey && (
-            <AuthActionButton type="button" variant="outline" pending={testing} pendingLabel="Testando…" onClick={testKey}>
+            <AuthActionButton type="button" pending={testing} pendingLabel="Testando…" onClick={testKey}>
               Testar neste aparelho
             </AuthActionButton>
           )}
-          <Button asChild variant="outline" className="h-11">
+          <Button asChild variant={status?.hasPasskey ? "ghost" : "default"} className="h-11">
             <Link href={enrollment} prefetch={false}>
               {status?.hasPasskey ? "Recadastrar biometria"
                 : device?.apple ? "Cadastrar Face ID ou Touch ID" : "Cadastrar biometria"}

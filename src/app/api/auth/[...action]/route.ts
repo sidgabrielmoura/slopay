@@ -20,7 +20,9 @@ import {
   challengeCookie,
   clearSession,
   refreshCookie,
+  rememberSession,
   saveSession,
+  sessionMarkerCookie,
   setAuthCookie,
 } from "@/lib/server/session";
 import { readJson, RequestBodyError } from "@/lib/server/request-json";
@@ -64,8 +66,17 @@ const actions: Record<string, Action> = {
   "passkeys/login": { mode: "challenge", body: z.object({ credential: passkeyAssertionSchema }), bodyLimit: 32_768 },
   "passkeys/security/options": {
     mode: "data",
-    body: z.object({ action: z.enum(["replace-authenticator", "test-passkey"]) }),
+    body: z.object({ action: z.enum(["replace-authenticator", "test-passkey", "reauthenticate"]) }),
     response: passkeyOptionsSchema,
+    sessionRequired: true,
+  },
+  reauth: {
+    mode: "rotate",
+    body: z.union([
+      z.strictObject({ password, credential: passkeyAssertionSchema }),
+      z.strictObject({ password, twoFactorCode: z.string().regex(/^\d{6}$/) }),
+    ]),
+    bodyLimit: 32_768,
     sessionRequired: true,
   },
   register: {
@@ -187,7 +198,10 @@ export async function POST(
   const accessToken = request.cookies.get(accessCookie)?.value;
   const refreshToken = request.cookies.get(refreshCookie)?.value;
   if (action.sessionRequired && !accessToken) {
-    return json({ message: "Sessão expirada. Entre novamente." }, 401);
+    return json({
+      message: "Sessão indisponível.",
+      code: refreshToken ? "TOKEN_EXPIRED" : "SESSION_EXPIRED",
+    }, 401);
   }
 
   let body: unknown;
@@ -241,7 +255,7 @@ export async function POST(
         code: details.data?.code,
       }, backend.status);
       if (action.mode === "refresh" && backend.status === 401 && details.data?.code !== "SESSION_IDLE") {
-        clearSession(response);
+        clearSession(response, false);
       }
       return response;
     }
@@ -266,19 +280,22 @@ export async function POST(
     }
 
     if (action.mode === "refresh" || action.mode === "unlock" || action.mode === "rotate") {
-      const tokens = authTokensSchema.safeParse(payload);
-      if (!tokens.success) return unavailable();
+      const tokens = path === "reauth"
+        ? z.object({ success: z.literal(true), tokens: authTokensSchema }).safeParse(payload).data?.tokens
+        : authTokensSchema.safeParse(payload).data;
+      if (!tokens) return unavailable();
       const response = json({ success: true });
-      saveSession(response, tokens.data);
+      saveSession(response, tokens);
       return response;
     }
 
     if (action.mode === "data") {
       const parsed = action.response?.safeParse(payload);
       if (!parsed?.success) return unavailable();
-      return path === "session/status"
-        ? json({ ...(parsed.data as object), accessExpiresAt: accessExpiry(accessToken) })
-        : json(parsed.data);
+      if (path !== "session/status") return json(parsed.data);
+      const response = json({ ...(parsed.data as object), accessExpiresAt: accessExpiry(accessToken) });
+      if (!request.cookies.has(sessionMarkerCookie)) rememberSession(response);
+      return response;
     }
 
     if (action.mode === "setup") {

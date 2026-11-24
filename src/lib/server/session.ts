@@ -13,6 +13,7 @@ const prefix = secure ? "__Host-" : "";
 export const accessCookie = prefix + "slopay_access";
 export const refreshCookie = prefix + "slopay_refresh";
 export const challengeCookie = prefix + "slopay_challenge";
+export const sessionMarkerCookie = prefix + "slopay_session_seen";
 
 export function setAuthCookie(response: NextResponse, name: string, value: string, maxAge: number) {
   response.cookies.set(name, value, {
@@ -31,12 +32,18 @@ export function saveSession(response: NextResponse, tokens: AuthTokens) {
     : 8 * 60 * 60;
   setAuthCookie(response, refreshCookie, tokens.refreshToken, remaining);
   setAuthCookie(response, challengeCookie, "", 0);
+  rememberSession(response, remaining);
 }
 
-export function clearSession(response: NextResponse) {
+export function rememberSession(response: NextResponse, remaining = 8 * 60 * 60) {
+  setAuthCookie(response, sessionMarkerCookie, "1", remaining + 24 * 60 * 60);
+}
+
+export function clearSession(response: NextResponse, endedByUser = true) {
   setAuthCookie(response, accessCookie, "", 0);
   setAuthCookie(response, refreshCookie, "", 0);
   setAuthCookie(response, challengeCookie, "", 0);
+  if (endedByUser) setAuthCookie(response, sessionMarkerCookie, "", 0);
 }
 
 const loadSession = cache(async () => {
@@ -44,15 +51,15 @@ const loadSession = cache(async () => {
   const accessToken = jar.get(accessCookie)?.value;
   const canRefresh = Boolean(jar.get(refreshCookie)?.value);
 
-  if (!accessToken) return { state: canRefresh ? "expired" : "absent" } as const;
+  if (!accessToken) return { state: canRefresh ? "renew" : jar.has(sessionMarkerCookie) ? "expired" : "absent" } as const;
   try {
     const response = await requestAuthBackend("me", { method: "GET", accessToken });
     if (response.status === 401) {
       const error = await response.json().catch(() => null);
       const canRenewAccess = ["TOKEN_EXPIRED", "INVALID_SESSION", "SESSION_IDLE"].includes(error?.code);
-      return { state: canRefresh && canRenewAccess ? "expired" : "absent" } as const;
+      return { state: canRefresh && canRenewAccess ? "renew" : "expired" } as const;
     }
-    if (response.status === 403) return { state: "absent" } as const;
+    if (response.status === 403) return { state: "expired" } as const;
     if (!response.ok) return { state: "unavailable" } as const;
 
     const profile = sessionUserSchema.safeParse((await response.json()).user);
@@ -69,7 +76,8 @@ export async function requireSession(
   { operations = false, admin = false } = {},
 ) {
   const result = await loadSession();
-  if (result.state === "expired") redirect(authEntry("/renovar", returnTo));
+  if (result.state === "renew") redirect(authEntry("/renovar", returnTo));
+  if (result.state === "expired") redirect(authEntry("/renovar", returnTo) + "&estado=expirada");
   if (result.state === "absent") redirect(authEntry("/entrar", returnTo));
   if (result.state !== "ready") redirect("/servico-indisponivel");
 

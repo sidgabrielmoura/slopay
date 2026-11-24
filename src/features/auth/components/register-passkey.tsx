@@ -17,6 +17,8 @@ import { authApiService } from "@/services/auth-api.service";
 import type { PasskeyPair } from "../passkey-contract";
 import { canUseWebAuthn, isIphoneOrIpad, passkeyFailureMessage, rememberBrowserPasskey, authenticateWithPasskey } from "../passkey-device";
 import { AuthActionButton, AuthHeading } from "./auth-form-controls";
+import { AuthFormMotion } from "./auth-motion";
+import { PasskeyReauthentication } from "./passkey-reauthentication";
 
 type Prepared<T> = { options: T; fetchedAt: number };
 
@@ -34,7 +36,7 @@ export function RegisterPasskey({ userId, returnTo, renew = false }: { userId: s
   const [checking, setChecking] = useState(!renew);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [requiresLogin, setRequiresLogin] = useState(false);
+  const [confirmation, setConfirmation] = useState<"factor" | "login" | null>(null);
   const credentials = useQuery({
     queryKey: ["passkeys-for-replacement", userId],
     queryFn: authApiService.passkeyCredentials,
@@ -62,7 +64,14 @@ export function RegisterPasskey({ userId, returnTo, renew = false }: { userId: s
   }, [renew]);
 
   function reportError(failure: unknown, fallback: string) {
-    setRequiresLogin(failure instanceof ApiError && (failure.status === 403 || failure.code === "SESSION_EXPIRED"));
+    if (failure instanceof ApiError && failure.code === "REAUTHENTICATION_REQUIRED") {
+      setConfirmation("factor");
+      setError("");
+      return;
+    }
+    if (failure instanceof ApiError && (failure.status === 403 || failure.code === "SESSION_EXPIRED")) {
+      setConfirmation("login");
+    }
     setError(failure instanceof ApiError ? failure.message : fallback);
   }
 
@@ -114,56 +123,67 @@ export function RegisterPasskey({ userId, returnTo, renew = false }: { userId: s
 
   const entry = authEntry("/ativar-biometria", returnTo) + (renew ? "&modo=recadastrar" : "");
   const Icon = device?.apple ? ScanFace : Fingerprint;
-  const title = done ? "Chave de acesso recadastrada" : pair ? "Confirme a nova chave" : renew ? "Recadastrar biometria"
+  const title = confirmation === "factor" ? "Confirme sua identidade"
+    : done ? "Chave de acesso recadastrada" : pair ? "Confirme a nova chave" : renew ? "Recadastrar biometria"
     : device?.apple ? "Ativar Face ID ou Touch ID" : "Ativar biometria";
-  const description = done ? "A chave nova está ativa neste aparelho e substituiu a chave selecionada."
+  const description = confirmation === "factor" ? "Use sua senha e um segundo fator para continuar com o cadastro."
+    : done ? "A chave nova está ativa neste aparelho e substituiu a chave selecionada."
     : pair ? "Use a chave que acabou de cadastrar. A chave anterior continua ativa até essa confirmação."
     : renew ? "Cadastre uma chave neste aparelho. Você vai testá-la antes de substituir a anterior."
       : "Use a verificação deste aparelho para retomar sua sessão no Slopay.";
 
   return (
-    <section className="flex flex-col gap-6" aria-busy={busy || stageLoading}>
-      <div className="flex flex-col items-start gap-4">
-        {done ? <LoadingConfirmation size={48} animate /> : (
-          <span className="grid size-12 place-items-center rounded-xl border border-border bg-accent text-accent-foreground">
-            <Icon aria-hidden="true" className="size-6" />
-          </span>
-        )}
-        <div className="flex flex-col gap-2">
-          <AuthHeading className="text-balance">{title}</AuthHeading>
-          <p className="text-pretty text-sm text-muted-foreground">{description}</p>
+    <AuthFormMotion step={confirmation === "factor" ? -1 : done ? 2 : pair ? 1 : 0} animateOnMount={false}>
+      <section className="flex flex-col gap-6" aria-busy={busy || stageLoading}>
+        <div className="flex flex-col items-start gap-4">
+          {done ? <LoadingConfirmation size={48} animate /> : (
+            <span className="grid size-12 place-items-center rounded-xl border border-border bg-accent text-accent-foreground">
+              <Icon aria-hidden="true" className="size-6" />
+            </span>
+          )}
+          <div className="flex flex-col gap-2">
+            <AuthHeading className="text-balance">{title}</AuthHeading>
+            <p className="text-pretty text-sm text-muted-foreground">{description}</p>
+          </div>
         </div>
-      </div>
-      {!pair && renew && keys.length > 1 && (
-        <GlideSelect size="lg" className="w-full" menuWidth={310} disabled={busy}
-          ariaLabel="Qual chave você quer substituir?" placeholder="Selecione a chave anterior"
-          value={selection} onChange={setSelection}
-          options={keys.map((key, index) => ({
-            value: key.id,
-            label: `Chave ${index + 1} · ${formatDateTime(key.createdAt, "medium")}`,
-            tag: key.lastUsedAt ? `Uso ${formatDateTime(key.lastUsedAt, "date-only")}` : "Sem uso registrado",
-          }))} />
-      )}
-      <div className="grid gap-2">
-        {requiresLogin ? (
-          <Button asChild className="h-11 w-full">
-            <Link href={authEntry("/entrar", entry)} prefetch={false}>Entrar novamente</Link>
-          </Button>
-        ) : !done && (
-          renew && credentials.isError ? <Button type="button" variant="outline" className="h-11"
-            onClick={() => void credentials.refetch()}>Tentar consultar de novo</Button>
-            : device?.available === false ? <p className="text-sm text-muted-foreground">Este navegador está sem acesso às chaves de segurança.</p>
-            : <AuthActionButton type="button" className="w-full" pending={busy || stageLoading}
-              pendingLabel={stageLoading ? "Preparando…" : "Aguardando confirmação…"}
-              disabled={!pair && enrollmentBlocked} onClick={pair ? confirmReplacement : register}>
-              {pair ? "Testar e substituir chave" : "Cadastrar neste aparelho"}
-            </AuthActionButton>
+        {!confirmation && !pair && renew && keys.length > 1 && (
+          <GlideSelect size="lg" className="w-full" menuWidth={310} disabled={busy}
+            ariaLabel="Qual chave você quer substituir?" placeholder="Selecione a chave anterior"
+            value={selection} onChange={setSelection}
+            options={keys.map((key, index) => ({
+              value: key.id,
+              label: `Chave ${index + 1} · ${formatDateTime(key.createdAt, "medium")}`,
+              tag: key.lastUsedAt ? `Uso ${formatDateTime(key.lastUsedAt, "date-only")}` : "Sem uso registrado",
+            }))} />
         )}
-        <Button asChild variant={done ? "default" : "ghost"} className="h-11">
-          <Link href={returnTo} prefetch={false}>{done ? "Voltar à segurança" : "Agora não"}</Link>
-        </Button>
-      </div>
-      <ToastNotice message={error || credentials.error?.message} persistent />
-    </section>
+        {confirmation === "factor" && (
+          <PasskeyReauthentication onSuccess={() => {
+            setPreparedEnrollment(undefined);
+            setPreparedReplacement(undefined);
+            setConfirmation(null);
+          }} />
+        )}
+        <div className="grid gap-2">
+          {confirmation ? (
+            <Button asChild variant={confirmation === "login" ? "default" : "ghost"} className="h-11 w-full">
+              <Link href={authEntry("/entrar", entry)} prefetch={false}>Entrar novamente</Link>
+            </Button>
+          ) : !done && (
+            renew && credentials.isError ? <Button type="button" variant="outline" className="h-11"
+              onClick={() => void credentials.refetch()}>Tentar consultar de novo</Button>
+              : device?.available === false ? <p className="text-sm text-muted-foreground">Este navegador está sem acesso às chaves de segurança.</p>
+              : <AuthActionButton type="button" className="w-full" pending={busy || stageLoading}
+                pendingLabel={stageLoading ? "Preparando…" : "Aguardando confirmação…"}
+                disabled={!pair && enrollmentBlocked} onClick={pair ? confirmReplacement : register}>
+                {pair ? "Testar e substituir chave" : "Cadastrar neste aparelho"}
+              </AuthActionButton>
+          )}
+          <Button asChild variant={done ? "default" : "ghost"} className="h-11">
+            <Link href={returnTo} prefetch={false}>{done || confirmation ? "Voltar à segurança" : "Agora não"}</Link>
+          </Button>
+        </div>
+        <ToastNotice message={error || credentials.error?.message} persistent />
+      </section>
+    </AuthFormMotion>
   );
 }

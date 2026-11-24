@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Copy, Smartphone } from "lucide-react";
@@ -20,7 +19,6 @@ import { AuthFormMotion } from "./auth-motion";
 import { CodeSlots, useCodeVerification } from "./code-slots";
 import { LogoutButton } from "./live-auth-forms";
 import { PasskeyActions, usePasskeyConfirmation } from "./passkey-confirmation";
-import { PasskeySettings } from "./passkey-settings";
 import { authApiService } from "@/services/auth-api.service";
 
 export function LiveMfa({ userId, enabled, panelPath, needsEmailConfirmation = false, showLogout = true, animateSteps = false, panel }: {
@@ -178,9 +176,9 @@ export function LiveMfa({ userId, enabled, panelPath, needsEmailConfirmation = f
     );
   }
 
-  if (enabled && !replacing) {
+  if (enabled && !replacing && panel) {
     const replace = (
-      <Button type="button" variant="outline" className="h-11" onClick={() => setReplacing(true)}
+      <Button type="button" variant="outline" className="h-11 border-border" onClick={() => setReplacing(true)}
         ref={(button) => {
           if (button && restoreFocus.current) {
             button.focus();
@@ -190,47 +188,19 @@ export function LiveMfa({ userId, enabled, panelPath, needsEmailConfirmation = f
         Trocar autenticador
       </Button>
     );
-    if (panel) {
-      return (
-        <SecurityCard title="Métodos de acesso">
-          <div className="divide-y divide-border">
-            <SecurityMethod
-              icon={Smartphone}
-              title="Aplicativo autenticador"
-              description="Gera os códigos de verificação em dois fatores."
-              status={<Badge variant="success">Ativo</Badge>}
-              action={replace}
-            />
-            {panel.biometrics}
-          </div>
-        </SecurityCard>
-      );
-    }
-    return renderStep(-1,
-      <section className="space-y-5" aria-labelledby="security-heading">
-        <AuthHeading id="security-heading">
-          Segurança da conta
-        </AuthHeading>
-        <div className="space-y-3 rounded-md border border-border bg-card p-4">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <h2 className="text-sm font-medium">Autenticação em dois fatores</h2>
-            <Badge variant="success">Ativa</Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Confirme o acesso com a biometria cadastrada ou com o aplicativo autenticador.
-          </p>
-          {replace}
+    return (
+      <SecurityCard title="Métodos de acesso">
+        <div className="divide-y divide-border">
+          {panel.biometrics}
+          <SecurityMethod
+            icon={Smartphone}
+            title="Aplicativo autenticador"
+            description="Use os códigos do aplicativo como alternativa à biometria."
+            status={<Badge variant="success">Ativo</Badge>}
+            action={replace}
+          />
         </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <PasskeySettings userId={userId} returnTo="/conta/seguranca" />
-        </div>
-        <div className="flex flex-wrap items-start gap-2">
-          <Button asChild variant="ghost">
-            <Link href={panelPath} prefetch={false}>Voltar ao painel</Link>
-          </Button>
-          {showLogout && <LogoutButton />}
-        </div>
-      </section>,
+      </SecurityCard>
     );
   }
 

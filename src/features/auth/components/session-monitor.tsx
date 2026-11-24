@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { authEntry } from "@/lib/auth-navigation";
 import { authApiService, type SessionStatus } from "@/services/auth-api.service";
+import { redirectExpiredSession } from "../session-expiry";
 import { refreshMargin, sessionCanResume, sessionEnded, sessionErrorCode, withSessionLock } from "../session-refresh";
 
 const activityInterval = 60_000;
@@ -20,7 +21,9 @@ export function SessionMonitor() {
     function leave(page: "/renovar" | "/entrar") {
       if (stopped) return;
       stopped = true;
-      window.location.replace(authEntry(page, window.location.pathname + window.location.search));
+      const returnTo = window.location.pathname + window.location.search;
+      if (page === "/entrar") redirectExpiredSession(returnTo);
+      else window.location.replace(authEntry(page, returnTo));
     }
 
     function schedule(delay: number) {
@@ -47,6 +50,7 @@ export function SessionMonitor() {
 
     async function sync() {
       if (stopped || refreshing) return;
+      if (status && Date.now() >= Date.parse(status.absoluteExpiresAt)) return leave("/entrar");
       refreshing = true;
       window.clearTimeout(timeout);
       try {

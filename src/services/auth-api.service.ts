@@ -35,7 +35,12 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 
   const result = await response.json().catch(() => null);
   if (!response.ok || !result) {
-    throw new ApiError(result?.message || "Não foi possível concluir a solicitação.", response.status, result?.code);
+    const code = result?.code;
+    if (response.status === 401 && !["session/status", "refresh"].includes(path) &&
+        ["SESSION_EXPIRED", "SESSION_REVOKED", "TOKEN_EXPIRED", "INVALID_SESSION", "SESSION_IDLE"].includes(code)) {
+      window.dispatchEvent(new Event("slopay:session-check"));
+    }
+    throw new ApiError(result?.message || "Não foi possível concluir a solicitação.", response.status, code);
   }
   return result;
 }
@@ -100,6 +105,12 @@ export const authApiService = {
   },
   passkeyTestOptions() {
     return post<PasskeyOptions>("passkeys/security/options", { action: "test-passkey" });
+  },
+  passkeyReauthenticationOptions() {
+    return post<PasskeyOptions>("passkeys/security/options", { action: "reauthenticate" });
+  },
+  reauthenticate(password: string, factor: { twoFactorCode: string } | { credential: AuthenticationResponseJSON }) {
+    return post<Success>("reauth", { password, ...factor });
   },
   testPasskey(credential: AuthenticationResponseJSON) {
     return post<Success>("passkeys/test", { credential });
