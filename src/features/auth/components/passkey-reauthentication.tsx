@@ -2,6 +2,7 @@
 
 import { useRef, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { ToastNotice } from "@/components/ui/toast-notice";
 import { ApiError } from "@/lib/api-client";
 import { authApiService } from "@/services/auth-api.service";
 import { withSessionLock } from "../session-refresh";
@@ -13,6 +14,7 @@ export function PasskeyReauthentication({ onSuccess }: { onSuccess: () => void }
   const formRef = useRef<HTMLFormElement>(null);
   const passkey = usePasskeyConfirmation({
     scope: "passkey-enrollment-reauth",
+    fallbackToCodeOnUnavailable: true,
     loadOptions: authApiService.passkeyReauthenticationOptions,
     verify: (credential) => {
       const form = formRef.current;
@@ -64,9 +66,10 @@ export function PasskeyReauthentication({ onSuccess }: { onSuccess: () => void }
         }} />
       ) : (
         <>
-          <CodeSlots id={codeId} label="Código do autenticador" format="totp" {...factor.field}
+          <CodeSlots id={codeId} label="Código do autenticador" format="totp" autoFocus={passkey.codeSelected} {...factor.field}
             onComplete={(code, form) => checkCode(form, code)}
             onRetry={(code, form) => checkCode(form, code)} />
+          <ToastNotice message={passkey.error} variant="info" />
           {passkey.available && <Button type="button" variant="link" className="h-11 px-0" disabled={busy}
             onClick={() => { factor.reset(); passkey.choosePasskey(); }}>Usar chave de acesso</Button>}
         </>

@@ -13,12 +13,13 @@ import { AuthActionButton, AuthLoadingStatus } from "./auth-form-controls";
 type Challenge = { options: PublicKeyCredentialRequestOptionsJSON; issuedAt: number };
 type PromptSession = { scope: string; abort: AbortController; challenge?: Challenge; pending: boolean };
 
-export function usePasskeyConfirmation<Result>({ scope, loadOptions, verify, onSuccess, onError }: {
+export function usePasskeyConfirmation<Result>({ scope, loadOptions, verify, onSuccess, onError, fallbackToCodeOnUnavailable }: {
   scope: string | null;
   loadOptions: () => Promise<PasskeyOptions>;
   verify: (credential: AuthenticationResponseJSON) => Promise<Result>;
   onSuccess: (result: Result) => void | Promise<void>;
   onError?: (error: unknown) => void;
+  fallbackToCodeOnUnavailable?: boolean;
 }) {
   const session = useRef<PromptSession>(null);
   const [available, setAvailable] = useState<{ scope: string; supported: boolean; local: boolean; apple: boolean }>();
@@ -87,7 +88,13 @@ export function usePasskeyConfirmation<Result>({ scope, loadOptions, verify, onS
       if (state.abort.signal.aborted) return;
       state.challenge = undefined;
       onError?.(failure);
-      setError(passkeyFailureMessage(failure, method));
+      if (fallbackToCodeOnUnavailable && failure instanceof Error &&
+          ["NotAllowedError", "NotFoundError", "NotSupportedError"].includes(failure.name)) {
+        setChoice("code");
+        setError("A chave de acesso não foi confirmada. Continue com o código do autenticador.");
+      } else {
+        setError(passkeyFailureMessage(failure, method));
+      }
     } finally {
       if (!confirmed && !state.abort.signal.aborted) {
         state.pending = false;
@@ -100,6 +107,7 @@ export function usePasskeyConfirmation<Result>({ scope, loadOptions, verify, onS
     busy,
     checking,
     available: current?.supported === true,
+    codeSelected: choice === "code",
     showPasskey: Boolean(scope && choice !== "code" && (checking || (current?.supported && (current.local || choice === "passkey")))),
     apple: current?.apple === true,
     error,
