@@ -5,7 +5,7 @@ import { DemoProvider } from "@/providers/demo-provider";
 import { AdminBottomNav } from "./admin-bottom-nav";
 import { AdminDemoSidebar } from "./admin-demo-sidebar";
 import { AdminTopbar } from "./admin-topbar";
-import { AdminSectionNavigation } from "./admin-section-navigation";
+import { AdminDemoViewNavigation } from "./admin-demo-view-navigation";
 
 export function AdminDemoShell({ children, user }: {
   children: ReactNode;
@@ -19,7 +19,7 @@ export function AdminDemoShell({ children, user }: {
         <div className="flex min-w-0 flex-1 flex-col pb-16 lg:pb-0">
           <AdminTopbar user={user} />
           <main className="mx-auto w-full max-w-[1500px] flex-1 space-y-6 p-4 lg:p-8">
-            <AdminSectionNavigation demo />
+            <AdminDemoViewNavigation />
             {children}
           </main>
         </div>

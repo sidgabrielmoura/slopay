@@ -4,13 +4,17 @@ import { useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { KeyRound, Plus, Search, Settings2, Wallet } from "lucide-react";
+import { ArrowDownUp, Ellipsis, KeyRound, Percent, Plus, RefreshCw, Search, Settings2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { PanelAmount } from "@/components/layout/panel-privacy";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Empty } from "@/components/ui/empty";
 import { GlideSelect } from "@/components/ui/glide-select";
 import { Input } from "@/components/ui/input";
@@ -38,7 +42,102 @@ function Balance({ value }: { value: string | null }) {
     : <PanelAmount cents={BigInt(value)} />;
 }
 
-type WalletAction = { type: "register" } | { type: "configure" | "rotate"; wallet: LiveWalletPosition };
+type WalletChange = { type: "configure" | "rotate"; wallet: LiveWalletPosition };
+type WalletAction = { type: "register" } | WalletChange;
+
+function WalletPositionRow({ item, writable, canRotate, refreshingId, refreshBalance, openAction }: {
+  item: LiveWalletPosition;
+  writable: boolean;
+  canRotate: boolean;
+  refreshingId?: string;
+  refreshBalance: (id: string) => void;
+  openAction: (action: WalletChange, trigger: HTMLButtonElement) => void;
+}) {
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+  const nextDialog = useRef<WalletChange["type"] | null>(null);
+  const withdrawalStatus = item.withdrawalStatus && ruleStatusLabels[item.withdrawalStatus];
+  const balances = [
+    { label: "Contabilizado", value: item.bookedCents },
+    { label: "Reservado", value: item.reservedCents },
+    { label: "Saldo Asaas", value: item.providerCents },
+    { label: "Diferença", value: item.differenceCents },
+  ];
+
+  return (
+    <li className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 p-4 sm:px-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] xl:gap-x-5">
+      <div className="col-start-1 row-start-1 grid min-w-0 gap-1">
+        <h3 className="text-balance wrap-anywhere text-base font-semibold">{item.name}</h3>
+        <p className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+          <span className="tabular-nums">Carteira final {item.walletId.slice(-8)}</span>
+          {item.verifiedAt && <span>Verificada em <time dateTime={item.verifiedAt}>{formatDateTime(item.verifiedAt, "date-only")}</time></span>}
+        </p>
+        {(withdrawalStatus || item.receives) && <div className="flex min-w-0 flex-wrap gap-1.5 pt-1">
+          {withdrawalStatus && <Badge variant={withdrawalStatus.variant} className="whitespace-normal">{withdrawalStatus.label}</Badge>}
+          {item.receives && <Badge variant="secondary">Recebimentos</Badge>}
+        </div>}
+      </div>
+      <div className="col-span-2 col-start-1 row-start-2 grid min-w-0 gap-1.5 xl:col-span-1 xl:col-start-2 xl:row-start-1">
+        <dl className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+          {balances.map(({ label, value }) => <div key={label} className="min-w-0">
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="wrap-anywhere font-medium tabular-nums"><Balance value={value} /></dd>
+          </div>)}
+        </dl>
+        <p role="status" className="text-xs text-muted-foreground empty:hidden">
+          {refreshingId === item.id ? "Consultando saldo…" : item.checkedAt && <>
+            Consultado em <time className="tabular-nums" dateTime={item.checkedAt}>{formatDateTime(item.checkedAt)}</time>
+          </>}
+        </p>
+      </div>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button ref={menuTrigger} type="button" variant="ghost" size="icon"
+            className="col-start-2 row-start-1 size-11 text-muted-foreground data-[state=open]:bg-accent xl:col-start-3"
+            aria-label={`Ações da carteira ${item.name}`}>
+            <Ellipsis aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" collisionPadding={12}
+          className="max-h-(--radix-dropdown-menu-content-available-height) w-56 max-w-(--radix-dropdown-menu-content-available-width) overflow-y-auto overscroll-contain"
+          onCloseAutoFocus={event => {
+            const type = nextDialog.current;
+            nextDialog.current = null;
+            if (!type || !menuTrigger.current) return;
+            event.preventDefault();
+            openAction({ type, wallet: item }, menuTrigger.current);
+          }}>
+          <DropdownMenuGroup>
+            <DropdownMenuItem className="min-h-11" disabled={!writable || refreshingId !== undefined}
+              onSelect={() => refreshBalance(item.id)}>
+              <RefreshCw aria-hidden="true" />Consultar saldo
+            </DropdownMenuItem>
+            <DropdownMenuItem className="min-h-11" disabled={!writable}
+              onSelect={() => { nextDialog.current = "configure"; }}>
+              <Settings2 aria-hidden="true" />Configurar
+            </DropdownMenuItem>
+            {canRotate && <DropdownMenuItem className="min-h-11" disabled={!writable}
+              onSelect={() => { nextDialog.current = "rotate"; }}>
+              <KeyRound aria-hidden="true" />Trocar chave
+            </DropdownMenuItem>}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem asChild className="min-h-11">
+              <Link href={pixTransactionsPath + "?" + new URLSearchParams({ accountId: item.id })} prefetch={false}>
+                <ArrowDownUp aria-hidden="true" />Ver movimentações
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="min-h-11">
+              <Link href={adminPixFeesPath + "/" + item.id} prefetch={false}>
+                <Percent aria-hidden="true" />Ver tarifas
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </li>
+  );
+}
 
 export function AdminLiveBalancePositions({ adminId }: { adminId: string }) {
   const query = approvalRulesQueryFrom(useSearchParams());
@@ -63,7 +162,7 @@ export function AdminLiveBalancePositions({ adminId }: { adminId: string }) {
   const writable = !result.isError && !result.isPlaceholderData;
   const refresh = useMutation({
     mutationFn: liveWalletPositions.refresh,
-    onSuccess: () => { void client.invalidateQueries({ queryKey: key }); },
+    onSuccess: () => client.invalidateQueries({ queryKey: key }),
     onError: error => toast.error(error.message),
   });
 
@@ -132,42 +231,9 @@ export function AdminLiveBalancePositions({ adminId }: { adminId: string }) {
             {data.items.length ? (
               <ul className="min-w-0 divide-y divide-border" aria-label="Carteiras operacionais">
                 {data.items.map(item => (
-                  <li key={item.id} className="grid min-w-0 gap-4 p-4 sm:px-5 xl:grid-cols-[minmax(12rem,1fr)_minmax(0,2fr)]">
-                    <div className="grid min-w-0 content-start gap-1.5">
-                      <h3 className="text-balance wrap-anywhere text-sm font-semibold">{item.name}</h3>
-                      <p className="text-xs tabular-nums text-muted-foreground">Carteira final {item.walletId.slice(-8)}</p>
-                      {item.verifiedAt && <p className="text-xs text-muted-foreground">Verificada em {formatDateTime(item.verifiedAt, "date-only")}</p>}
-                      {item.withdrawalStatus && <div className="flex min-w-0 flex-wrap gap-1.5">
-                        <Badge variant={ruleStatusLabels[item.withdrawalStatus].variant} className="whitespace-normal">
-                          {ruleStatusLabels[item.withdrawalStatus].label}
-                        </Badge>
-                        {item.receives && <Badge variant="secondary">Recebimentos</Badge>}
-                      </div>}
-                    </div>
-                    <div className="grid min-w-0 gap-3">
-                      <dl className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                        {[
-                          ["Contabilizado", item.bookedCents], ["Reservado", item.reservedCents],
-                          ["Saldo Asaas", item.providerCents], ["Diferença", item.differenceCents],
-                        ].map(([label, value]) => <div key={label} className="min-w-0">
-                          <dt className="text-xs text-muted-foreground">{label}</dt>
-                          <dd className="wrap-anywhere font-medium tabular-nums"><Balance value={value} /></dd>
-                        </div>)}
-                      </dl>
-                      {item.checkedAt && <p className="text-xs text-muted-foreground">Consultado em <time className="tabular-nums" dateTime={item.checkedAt}>{formatDateTime(item.checkedAt)}</time></p>}
-                      <div className="flex min-w-0 flex-wrap gap-2">
-                        <Button type="button" variant="outline" className="min-h-11" disabled={!writable || refresh.isPending} onClick={() => refresh.mutate(item.id)}>
-                          {refresh.isPending && refresh.variables === item.id ? "Consultando saldo…" : "Consultar saldo"}
-                        </Button>
-                        <Button type="button" variant="outline" className="min-h-11" disabled={!writable}
-                          onClick={event => open({ type: "configure", wallet: item }, event.currentTarget)}><Settings2 aria-hidden="true" />Configurar</Button>
-                        {data.canRotate && <Button type="button" variant="ghost" className="min-h-11" disabled={!writable}
-                          onClick={event => open({ type: "rotate", wallet: item }, event.currentTarget)}><KeyRound aria-hidden="true" />Trocar chave</Button>}
-                        <Button asChild variant="ghost" className="min-h-11"><Link href={pixTransactionsPath + "?" + new URLSearchParams({ accountId: item.id })} prefetch={false}>Ver movimentações</Link></Button>
-                        <Button asChild variant="ghost" className="min-h-11"><Link href={adminPixFeesPath + "/" + item.id} prefetch={false}>Ver tarifas</Link></Button>
-                      </div>
-                    </div>
-                  </li>
+                  <WalletPositionRow key={item.id} item={item} writable={writable} canRotate={data.canRotate}
+                    refreshingId={refresh.isPending ? refresh.variables : undefined}
+                    refreshBalance={refresh.mutate} openAction={open} />
                 ))}
               </ul>
             ) : <Empty icon={<Wallet aria-hidden="true" />} className="min-h-44 animate-none rounded-none border-0"

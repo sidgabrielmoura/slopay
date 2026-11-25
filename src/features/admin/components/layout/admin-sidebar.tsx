@@ -1,34 +1,79 @@
 "use client";
 
-import { AlertOctagon, ArrowDownUp, Building2, Coins, ExternalLink, LayoutDashboard, Shield, ShieldCheck, SlidersHorizontal, Webhook } from "lucide-react";
+import {
+  AlertOctagon, ArrowDownUp, Building2, ExternalLink, FileCheck2, FileSpreadsheet,
+  History, Layers, LayoutDashboard, Shield, ShieldAlert, Sliders, SlidersHorizontal,
+  UserCog, Users2, WalletCards, Webhook,
+} from "lucide-react";
 import { PanelSidebar, type PanelSidebarGroup } from "@/components/layout/panel-sidebar";
-import { adminSections, type AdminSectionId } from "../../admin-navigation";
 
 type AdminNavigationOptions = {
   pendingSummary?: { pendingApplicationsCount?: number; pendingFinancialApprovalsCount?: number; totalUrgentTasks?: number };
   live?: boolean;
 };
 
-const icons = {
-  overview: LayoutDashboard, pending: AlertOctagon, clients: Building2, pix: ArrowDownUp,
-  treasury: Coins, webhooks: Webhook, governance: ShieldCheck, settings: SlidersHorizontal,
-};
-
 export function adminNavigationGroups({ pendingSummary }: AdminNavigationOptions): PanelSidebarGroup[] {
-  const badges: Partial<Record<AdminSectionId, { count?: number; tone: "destructive" | "primary" }>> = {
-    pending: { count: pendingSummary?.totalUrgentTasks, tone: "destructive" },
-    clients: { count: pendingSummary?.pendingApplicationsCount, tone: "primary" },
-    pix: { count: pendingSummary?.pendingFinancialApprovalsCount, tone: "destructive" },
-  };
-  const items = adminSections.map(section => ({
-    title: section.title, path: section.path, icon: icons[section.id], exact: section.id === "overview",
-    aliases: section.pages?.flatMap(page => [page.path, ...(page.aliases ?? [])]).filter(path => path !== section.path),
-    badgeCount: badges[section.id]?.count, badgeTone: badges[section.id]?.tone,
-  }));
-
   return [
-    { label: "Operação", items: items.slice(0, 6) },
-    { label: "Administração", items: items.slice(6) },
+    {
+      label: "Visão geral",
+      items: [
+        { title: "Dashboard global", path: "/admin", icon: LayoutDashboard, exact: true },
+        {
+          title: "Fila de pendências", path: "/admin/pendencias", icon: AlertOctagon,
+          badgeCount: pendingSummary?.totalUrgentTasks, badgeTone: "destructive",
+        },
+      ],
+    },
+    {
+      label: "Credenciamento & Contas",
+      items: [
+        {
+          title: "Abertura de contas", path: "/admin/abertura-de-contas", icon: FileCheck2,
+          badgeCount: pendingSummary?.pendingApplicationsCount, badgeTone: "primary",
+        },
+        { title: "Empresas", path: "/admin/empresas", icon: Building2 },
+        { title: "Usuários credenciados", path: "/admin/usuarios", icon: Users2 },
+      ],
+    },
+    {
+      label: "Operações globais",
+      items: [
+        {
+          title: "Movimentações", path: "/admin/operacoes", icon: ArrowDownUp,
+          aliases: ["/admin/cobrancas", "/admin/extrato"],
+        },
+        { title: "Lotes de saída", path: "/admin/lotes", icon: Layers },
+        {
+          title: "Aprovações de saque", path: "/admin/aprovacoes-financeiras", icon: ShieldAlert,
+          badgeCount: pendingSummary?.pendingFinancialApprovalsCount, badgeTone: "destructive",
+        },
+      ],
+    },
+    {
+      label: "Tesouraria & Conciliação",
+      items: [
+        {
+          title: "Carteiras", path: "/admin/saldos", icon: WalletCards,
+          aliases: ["/admin/contas", "/admin/contas-bolsao", "/admin/regras-de-aprovacao"],
+        },
+        { title: "Relatórios e fechamentos", path: "/admin/relatorios", icon: FileSpreadsheet },
+      ],
+    },
+    {
+      label: "Políticas & Integrações",
+      items: [
+        { title: "Taxas e limites", path: "/admin/taxas-e-limites", icon: Sliders },
+        { title: "Webhooks globais", path: "/admin/webhooks", icon: Webhook },
+      ],
+    },
+    {
+      label: "Governança & Segurança",
+      items: [
+        { title: "Equipe administrativa", path: "/admin/equipe", icon: UserCog },
+        { title: "Trilha de auditoria", path: "/admin/auditoria", icon: History },
+        { title: "Preferências", path: "/admin/preferencias", icon: SlidersHorizontal },
+      ],
+    },
   ];
 }
 

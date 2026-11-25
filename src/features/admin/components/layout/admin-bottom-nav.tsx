@@ -9,6 +9,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { cn } from "@/lib/utils";
 import { adminNavigationFooter, adminNavigationGroups } from "./admin-sidebar";
 
+const shortcutLabels = new Map([
+  ["/admin", "Dashboard"],
+  ["/admin/pendencias", "Pendências"],
+  ["/admin/abertura-de-contas", "Abertura"],
+  ["/admin/operacoes", "Pix"],
+]);
 const shortcutClass = "flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md text-[10px] font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
 
 export function AdminBottomNav({ live = false }: { live?: boolean }) {
@@ -17,8 +23,9 @@ export function AdminBottomNav({ live = false }: { live?: boolean }) {
   const groups = adminNavigationGroups({});
   const footer = adminNavigationFooter(live);
   const items = groups.flatMap(group => group.items);
-  const shortcuts = items.slice(0, 4);
-  const moreActive = menuOpen || [...items.slice(4), ...footer].some(item => isPanelSidebarItemActive(pathname, item));
+  const shortcuts = items.filter(item => shortcutLabels.has(item.path));
+  const moreActive = menuOpen || [...items, ...footer].some(item =>
+    !shortcutLabels.has(item.path) && isPanelSidebarItemActive(pathname, item));
 
   return (
     <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -30,7 +37,7 @@ export function AdminBottomNav({ live = false }: { live?: boolean }) {
             <Link key={path} href={path} prefetch={false} aria-current={active ? "page" : undefined}
               className={cn(shortcutClass, active ? "text-primary" : "text-muted-foreground hover:text-foreground")}>
               <Icon aria-hidden="true" className="size-4" />
-              <span className="max-w-full truncate">{title}</span>
+              <span className="max-w-full truncate">{shortcutLabels.get(path) ?? title}</span>
             </Link>
           );
         })}
