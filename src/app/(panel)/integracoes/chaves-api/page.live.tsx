@@ -6,6 +6,7 @@ import { IntegrationHeading } from "@/features/integrations/components/integrati
 import { LiveIntegrationPage } from "@/features/integrations/components/live-integration-page";
 import { SandboxIntegrationKeysScreen } from "@/features/integrations/components/sandbox-integration-keys-screen";
 import { apiKeysPath } from "@/features/integrations/navigation";
+import { publicIntegrationApiOrigin } from "@/lib/server/auth-backend";
 import { loadIntegrationKeys } from "@/lib/server/sandbox-integration-keys";
 import { canActInSupport } from "@/lib/support-scope";
 
@@ -22,7 +23,7 @@ async function LiveKeys({ canManage }: { canManage: boolean }) {
   const result = await loadIntegrationKeys(development ? "sandbox" : "live");
   if (result.state === "ready") {
     return <SandboxIntegrationKeysScreen key={result.company.id} companyName={result.company.legalName}
-      initialKeys={result.keys} development={development} canManage={canManage} />;
+      initialKeys={result.keys} development={development} apiOrigin={publicIntegrationApiOrigin()} canManage={canManage} />;
   }
   return (
     <div className="grid gap-5">
@@ -30,10 +31,10 @@ async function LiveKeys({ canManage }: { canManage: boolean }) {
       <Card>
         <Empty className="rounded-none border-0" icon={<KeyRound aria-hidden="true" />}
           title={result.state === "unlinked" ? (development ? "Conta Sandbox aguardando vínculo" : "Cadastro aguardando aprovação")
-            : result.state === "disabled" && development ? "Sandbox desativado" : "Chaves de API indisponíveis"}
+            : result.state === "disabled" ? (development ? "Sandbox desativado" : "API de produção desativada") : "Chaves de API indisponíveis"}
           description={result.state === "unlinked" ? (development ? "A equipe do Slopay vincula a conta antes que o titular possa emitir chaves." : "O titular pode emitir chaves após a aprovação do cadastro.")
             : result.state === "unavailable" ? "Atualize a página em alguns instantes."
-              : !development ? "A emissão de chaves estará disponível quando a integração estiver ativa." : undefined} />
+              : "A emissão de chaves fica disponível quando a integração for habilitada neste ambiente."} />
       </Card>
     </div>
   );

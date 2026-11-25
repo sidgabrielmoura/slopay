@@ -86,10 +86,21 @@ type BackendRequest = {
   merchantSupport?: boolean;
 };
 
-export async function requestBackend(path: `/${string}`, options: BackendRequest) {
-  const configured = process.env.SLOPAY_BACKEND_URL ||
+function configuredBackendOrigin() {
+  return process.env.SLOPAY_BACKEND_URL ||
     (process.env.NODE_ENV !== "production" ? "http://127.0.0.1:3333" : "");
-  const url = validOrigin(configured);
+}
+
+export function publicIntegrationApiOrigin(): string | null {
+  try {
+    return validOrigin(process.env.SLOPAY_PUBLIC_API_URL || configuredBackendOrigin()).origin;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestBackend(path: `/${string}`, options: BackendRequest) {
+  const url = validOrigin(configuredBackendOrigin());
   url.pathname = path;
   if (options.searchParams) url.search = options.searchParams.toString();
   const headers = new Headers({

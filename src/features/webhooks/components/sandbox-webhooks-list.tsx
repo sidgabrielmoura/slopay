@@ -106,7 +106,8 @@ export function SandboxWebhooksList({ accountId, canManage = true }: { accountId
                             {canManage && webhook.verifiedAt && <DropdownMenuItem onSelect={() => action(webhook, webhook.enabled ? "pause" : "enable")}>
                               {webhook.enabled ? "Pausar" : "Habilitar"}
                             </DropdownMenuItem>}
-                            {canManage && webhook.interruptedAt && <DropdownMenuItem onSelect={() => action(webhook, "resume")}>Reativar fila</DropdownMenuItem>}
+                            {canManage && webhook.verifiedAt && webhook.enabled && webhook.interruptedAt &&
+                              <DropdownMenuItem onSelect={() => action(webhook, "resume")}>Reativar fila</DropdownMenuItem>}
                             {canManage && <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem className="text-destructive" onSelect={() => action(webhook, "delete")}>Excluir webhook</DropdownMenuItem>

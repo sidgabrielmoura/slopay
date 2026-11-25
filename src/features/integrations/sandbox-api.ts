@@ -13,7 +13,10 @@ export const apiSecuritySchema = z.object({
   limits: z.object({ windowSeconds: z.number().int(), requestsPerKey: z.number().int(), requestsPerCompany: z.number().int() }),
   withdrawalsEnabled: z.boolean(),
 });
-export const requestLogFilterSchema = z.strictObject({ before: z.uuid().optional() });
+export const integrationLogPageQuery = z.string().regex(/^[1-9]\d{0,5}$/).optional();
+export const integrationLogPagination = z.object({ page: z.int().positive(), pageSize: z.int().positive(), total: z.int().nonnegative() });
+export const requestLogFilterSchema = z.strictObject({ before: z.uuid().optional(), page: integrationLogPageQuery })
+  .refine(({ before, page }) => !before || !page);
 export const requestLogsSchema = z.object({
   items: z.array(z.object({
     id: z.uuid(), method: z.enum(["GET", "POST"]), route: z.string(), status: z.number().int(),
@@ -21,6 +24,7 @@ export const requestLogsSchema = z.object({
     keyLabel: z.string().nullable(),
   })),
   nextCursor: z.uuid().nullable(),
+  pagination: integrationLogPagination.optional(),
 });
 export type ApiAccessDraft = z.infer<typeof apiAccessDraftSchema>;
 
@@ -37,9 +41,7 @@ export function integrationApiGateway(development: boolean) {
   options: (draft: ApiAccessDraft) => requestPixGateway(`${base}/api-security/passkey-options`, passkeyOptionsSchema, unavailable, sandboxApiPost(draft)),
   update: (draft: ApiAccessDraft, proof: IntegrationProof) =>
     requestPixGateway(`${base}/api-security`, apiSecuritySchema, unavailable, sandboxApiPost({ ...draft, proof })),
-  requestLogs: (before?: string, signal?: AbortSignal) => {
-    const query = before ? `?${new URLSearchParams({ before })}` : "";
-    return requestPixGateway(`${base}/request-logs${query}`, requestLogsSchema, unavailable, { signal });
-  },
+  requestLogs: (page: number, signal?: AbortSignal) =>
+    requestPixGateway(`${base}/request-logs?${new URLSearchParams({ page: String(page) })}`, requestLogsSchema, unavailable, { signal }),
   };
 }

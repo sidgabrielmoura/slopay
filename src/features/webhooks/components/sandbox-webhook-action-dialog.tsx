@@ -92,7 +92,7 @@ export function SandboxWebhookActionDialog({ accountId, review, onClose, onCompl
               ? "Copie o segredo de assinatura e guarde-o no servidor que recebe os eventos."
               : result ? review.name
                 : action.kind === "resume" ? "A fila vai tentar entregar primeiro o evento que a interrompeu."
-                  : action.kind === "rotate-secret" ? "As entregas ficam pausadas enquanto você configura o novo segredo no destino."
+                  : action.kind === "rotate-secret" ? "A fila é preservada. Configure o novo segredo, verifique o destino e habilite as entregas."
                     : "Confira a operação e confirme sua identidade."}
           </DialogDescription>
         </DialogHeader>

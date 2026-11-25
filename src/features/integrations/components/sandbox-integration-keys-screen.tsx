@@ -24,7 +24,7 @@ import {
   issuedKeySchema, keyDraftSchema, sandboxKeyPermissions, sandboxKeySchema,
   type IssuedKey, type KeyChange, type KeyDraft, type KeyProof, type SandboxKey,
 } from "../sandbox-keys";
-import { integrationSecurityPath } from "../navigation";
+import { integrationLogsPath, integrationSecurityPath } from "../navigation";
 import { webhooksPath } from "@/features/webhooks/webhooks";
 import { IntegrationHeading } from "./integration-heading";
 
@@ -63,14 +63,16 @@ async function copySecret(value: string) {
 }
 
 export function SandboxIntegrationKeysScreen({
-  initialKeys, companyName, development, canManage = true,
+  initialKeys, companyName, development, apiOrigin, canManage = true,
 }: {
   initialKeys: SandboxKey[];
   companyName: string;
   development: boolean;
+  apiOrigin: string | null;
   canManage?: boolean;
 }) {
   const router = useRouter();
+  const apiPath = development ? "/v1/sandbox/pix" : "/v1/pix";
   const [keys, setKeys] = useState(initialKeys);
   const [modal, setModal] = useState<Modal | null>(null);
   const button = useRef<HTMLElement | null>(null);
@@ -232,21 +234,30 @@ export function SandboxIntegrationKeysScreen({
         )}
       </Card>
 
-      {!development && (
+      {apiOrigin && (
         <Card className="min-w-0 gap-3 p-4 sm:p-5" aria-labelledby="integration-quick-start">
-          <h2 id="integration-quick-start" className="text-lg font-semibold">Conectar uma aplicação</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 id="integration-quick-start" className="text-balance text-lg font-semibold">Conectar uma aplicação</h2>
+          <dl className="grid gap-1 rounded-lg border bg-background p-3">
+            <dt className="text-xs text-muted-foreground">Endereço da API</dt>
+            <dd className="select-all wrap-anywhere font-mono text-sm">{apiOrigin}</dd>
+          </dl>
+          <p className="text-pretty text-sm text-muted-foreground">
             Envie a chave no cabeçalho <code className="text-foreground">X-API-Key</code> a partir do servidor da sua aplicação.
             Para criar uma cobrança ou solicitar um saque, envie também <code className="text-foreground">Idempotency-Key</code> e o valor em centavos.
           </p>
+          <p className="text-pretty text-sm text-muted-foreground">Para conferir a chave, consulte a lista com o escopo de leitura de cobranças.</p>
+          <pre className="select-all whitespace-pre-wrap wrap-anywhere rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed">
+            <code>{`curl -i "${apiOrigin}${apiPath}/charges" -H "X-API-Key: $SLOPAY_API_KEY"`}</code>
+          </pre>
           <dl className="grid gap-2 text-sm">
-            <div className="grid gap-1 sm:grid-cols-[15rem_1fr]"><dt className="font-mono text-xs">POST /v1/pix/charges</dt><dd>Cria uma cobrança Pix.</dd></div>
-            <div className="grid gap-1 sm:grid-cols-[15rem_1fr]"><dt className="font-mono text-xs">GET /v1/pix/charges</dt><dd>Consulta as cobranças da conta.</dd></div>
-            <div className="grid gap-1 sm:grid-cols-[15rem_1fr]"><dt className="font-mono text-xs">POST /v1/pix/withdrawals</dt><dd>Solicita um saque para aprovação do titular.</dd></div>
+            <div className="grid gap-1 sm:grid-cols-[minmax(0,20rem)_1fr]"><dt className="wrap-anywhere font-mono text-xs">{`POST ${apiPath}/charges`}</dt><dd>Cria uma cobrança Pix.</dd></div>
+            <div className="grid gap-1 sm:grid-cols-[minmax(0,20rem)_1fr]"><dt className="wrap-anywhere font-mono text-xs">{`GET ${apiPath}/charges/{id}/qr-code`}</dt><dd>Consulta o QR Code da cobrança.</dd></div>
+            <div className="grid gap-1 sm:grid-cols-[minmax(0,20rem)_1fr]"><dt className="wrap-anywhere font-mono text-xs">{`POST ${apiPath}/withdrawals`}</dt><dd>Solicita um saque para aprovação do titular.</dd></div>
           </dl>
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
             <Link href={integrationSecurityPath} className="font-medium text-primary hover:underline">Redes permitidas</Link>
             <Link href={webhooksPath} className="font-medium text-primary hover:underline">Configurar webhooks</Link>
+            <Link href={integrationLogsPath + "?aba=requisicoes"} className="font-medium text-primary hover:underline">Ver requisições</Link>
           </div>
         </Card>
       )}

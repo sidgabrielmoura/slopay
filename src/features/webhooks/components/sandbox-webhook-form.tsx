@@ -73,6 +73,7 @@ function Editor({ accountId, webhook, development }: { accountId: string; webhoo
   const query = useQueryClient();
   const [review, setReview] = useState<WebhookReview | null>(null);
   const control = useRef<HTMLElement | null>(null);
+  const signingHeading = useRef<HTMLHeadingElement>(null);
   const verification = useMutation({
     mutationFn: () => sandboxWebhookGateway.verify(webhook!.id, webhook!.version),
     onSuccess: (verified) => {
@@ -82,6 +83,10 @@ function Editor({ accountId, webhook, development }: { accountId: string; webhoo
     },
   });
 
+  function restoreFocus() {
+    (control.current?.isConnected ? control.current : signingHeading.current)?.focus();
+  }
+
   return (
     <>
       {webhook && (!webhook.verifiedAt || verification.isSuccess) && (
@@ -89,7 +94,8 @@ function Editor({ accountId, webhook, development }: { accountId: string; webhoo
           {verification.isSuccess && webhook.verifiedAt ? <div className="flex flex-wrap items-center gap-3">
             <LoadingConfirmation size={38} animate />
             <div><h2 className="text-base font-semibold">Destino verificado</h2>
-              <p className="text-sm text-muted-foreground">Os próximos eventos selecionados entram na fila.</p></div>
+              <p className="text-sm text-muted-foreground">{webhook.enabled ? "O destino pode receber os eventos selecionados."
+                : "Habilite as entregas para enviar os eventos da fila."}</p></div>
           </div> : (
             <>
               <div className="grid gap-1">
@@ -110,6 +116,21 @@ function Editor({ accountId, webhook, development }: { accountId: string; webhoo
         </Card>
       )}
 
+      {webhook?.verifiedAt && (!webhook.enabled || webhook.interruptedAt) && (
+        <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <div className="grid min-w-0 gap-1">
+            <h2 className="text-balance text-base font-semibold">{webhook.enabled ? "Fila interrompida" : "Entregas pausadas"}</h2>
+            <p className="text-pretty text-sm text-muted-foreground">{webhook.enabled
+              ? "Depois de ajustar o destino, retome pelo evento que parou a fila."
+              : "Habilite o destino para continuar enviando os eventos registrados."}</p>
+          </div>
+          <Button type="button" variant="outline" className="h-11" onClick={(event) => {
+            control.current = event.currentTarget;
+            setReview({ action: { kind: webhook.enabled ? "resume" : "enable", id: webhook.id, version: webhook.version }, name: webhook.name });
+          }}>{webhook.enabled ? "Reativar fila" : "Habilitar entregas"}</Button>
+        </Card>
+      )}
+
       <SettingsForm key={webhook ? webhook.id + "-" + webhook.version : "new"} webhook={webhook} development={development} onReview={(next, source) => {
         control.current = source;
         setReview(next);
@@ -118,7 +139,7 @@ function Editor({ accountId, webhook, development }: { accountId: string; webhoo
       {webhook && (
         <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div className="grid min-w-0 gap-1">
-            <h2 className="text-base font-semibold">Assinatura das entregas</h2>
+            <h2 ref={signingHeading} tabIndex={-1} className="text-balance text-base font-semibold">Assinatura das entregas</h2>
             <p className="text-pretty text-sm text-muted-foreground">Use o segredo do destino para validar cada evento recebido.</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -132,10 +153,10 @@ function Editor({ accountId, webhook, development }: { accountId: string; webhoo
       )}
 
       {review && <SandboxWebhookActionDialog accountId={accountId} review={review}
-        onClose={() => setReview(null)} restoreFocus={() => control.current?.focus()}
+        onClose={() => setReview(null)} restoreFocus={restoreFocus}
         onComplete={(result) => {
           if (!webhook) router.replace(`${webhooksPath}/${result.webhook.id}`);
-          else control.current?.focus();
+          else restoreFocus();
         }} />}
     </>
   );

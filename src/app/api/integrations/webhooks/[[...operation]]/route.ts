@@ -52,7 +52,7 @@ export async function POST(request: NextRequest, { params }: Context) {
   });
   const webhook = webhookIdSchema.safeParse(parts[0]);
   if (parts.length === 2 && parts[1] === "verify" && webhook.success) return forwardIntegrationRequest(request, {
-    path: `${path}/${webhook.data}/verify`, input: webhookVerificationSchema, output: sandboxWebhookSchema, unavailable,
+    path: `${path}/${webhook.data}/verify`, input: webhookVerificationSchema, output: sandboxWebhookSchema, timeoutMs: 12_000, unavailable,
   });
   return integrationResponse({ message: "Rota indisponível." }, 404);
 }

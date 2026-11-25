@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RotateCcw, Webhook } from "lucide-react";
+import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IntegrationHeading } from "@/features/integrations/components/integration-heading";
 import { SandboxRequestHistory } from "@/features/integrations/components/sandbox-request-history";
+import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
 import { sandboxWebhookGateway, sandboxWebhooksKey } from "../sandbox-webhook-gateway";
 import { webhookAttemptLabels, webhookAttemptMessage, webhookDeliveryLabels as labels } from "../webhook-delivery-display";
@@ -52,18 +54,22 @@ export function SandboxWebhookLogs({ accountId, initialTab, webhookId }: {
 
 function DeliveryHistory({ accountId, webhookId }: { accountId: string; webhookId?: string }) {
   const [state, setState] = useState<SandboxWebhookDelivery["state"] | "all">("all");
-  const [pages, setPages] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
   const [selection, setSelection] = useState<string | null>(null);
   const [review, setReview] = useState<WebhookReview | null>(null);
   const origin = useRef<HTMLElement | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const filter = { webhookId, state: state === "all" ? undefined : state, before: pages.at(-1) };
+  const filter = { webhookId, state: state === "all" ? undefined : state, page };
   const deliveries = useQuery({
     queryKey: [...sandboxWebhooksKey(accountId), "logs", filter],
     queryFn: ({ signal }) => sandboxWebhookGateway.logs(filter, signal),
-    retry: false, refetchInterval: 10_000,
+    retry: false,
+    refetchInterval: (query) => query.state.data?.items.some(item => item.sending ||
+      (item.state === "PENDING" && item.deliveryEnabled !== false && item.nextAttemptAt &&
+        Date.parse(item.nextAttemptAt) <= Date.now() + 30_000)) ? 15_000 : false,
   });
-  const more = deliveries.data?.nextCursor;
+  const pagination = deliveries.data?.pagination;
+  const disabled = deliveries.error instanceof ApiError && deliveries.error.status === 404;
 
   function restoreFocus() {
     (origin.current?.isConnected ? origin.current : heading.current)?.focus();
@@ -74,20 +80,24 @@ function DeliveryHistory({ accountId, webhookId }: { accountId: string; webhookI
       <Card className="min-w-0">
         <CardHeader className="flex flex-wrap items-center justify-between gap-3 border-b p-4 sm:p-5">
           <h2 ref={heading} tabIndex={-1} className="text-lg font-semibold">Histórico de entregas</h2>
-          <GlideSelect ariaLabel="Filtrar entregas por status" size="lg" options={filters} value={state}
-            onChange={(value) => {
-              const selected = webhookDeliveryState.safeParse(value);
-              setState(selected.success ? selected.data : "all");
-              setPages([]);
-            }} className="w-full sm:w-52" />
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <GlideSelect ariaLabel="Filtrar entregas por status" size="lg" options={filters} value={state}
+              onChange={(value) => {
+                const selected = webhookDeliveryState.safeParse(value);
+                setState(selected.success ? selected.data : "all");
+                setPage(1);
+              }} className="w-full sm:w-52" />
+            <Button type="button" variant="outline" disabled={deliveries.isFetching || disabled}
+              onClick={() => void deliveries.refetch()}><RotateCcw aria-hidden="true" /> Atualizar</Button>
+          </div>
         </CardHeader>
         {deliveries.isPending ? (
           <div className="grid gap-3 p-5" aria-busy="true" aria-label="Carregando entregas">
             <Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" />
           </div>
         ) : deliveries.isError ? (
-          <Empty title="Histórico indisponível" icon={<Webhook aria-hidden="true" />} className="rounded-none border-0"
-            action={<Button type="button" variant="outline" onClick={() => void deliveries.refetch()}>Tentar novamente</Button>} />
+          <Empty title={disabled ? "Webhooks desativados" : "Histórico indisponível"} icon={<Webhook aria-hidden="true" />} className="rounded-none border-0"
+            description={disabled ? "As entregas aparecem quando a integração estiver habilitada." : "Atualize para tentar carregar esta página."} />
         ) : deliveries.data.items.length === 0 ? (
           <Empty title="Nenhuma entrega neste filtro" icon={<Webhook aria-hidden="true" />} className="rounded-none border-0" />
         ) : (
@@ -123,12 +133,7 @@ function DeliveryHistory({ accountId, webhookId }: { accountId: string; webhookI
             ))}
           </ul>
         )}
-        {(pages.length > 0 || more) && <div className="flex flex-wrap justify-end gap-2 border-t p-4">
-          <Button type="button" variant="outline" disabled={!pages.length}
-            onClick={() => setPages((current) => current.slice(0, -1))}>Anteriores</Button>
-          <Button type="button" variant="outline" disabled={!more}
-            onClick={() => { if (more) setPages((current) => [...current, more]); }}>Próximas</Button>
-        </div>}
+        {pagination && <TablePagination {...pagination} busy={deliveries.isFetching} onPageChange={setPage} label="Paginação das entregas" />}
       </Card>
       <DeliveryDetail accountId={accountId} id={selection} close={() => setSelection(null)} restoreFocus={restoreFocus} />
       {review && <SandboxWebhookActionDialog accountId={accountId} review={review}

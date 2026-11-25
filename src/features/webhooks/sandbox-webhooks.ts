@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { integrationProofSchema } from "@/features/integrations/integration-proof";
+import { integrationLogPageQuery, integrationLogPagination } from "@/features/integrations/sandbox-api";
 
 export const sandboxWebhookEvents = ["PIX_CHARGE_CREATED", "PIX_RECEIVED", "PIX_REFUNDED", "APPROVAL_REQUIRED", "PIX_SENT", "WITHDRAWAL_FAILED"] as const;
 const eventType = z.enum(sandboxWebhookEvents);
@@ -48,7 +49,8 @@ export const webhookLogFilterSchema = z.strictObject({
   webhookId: webhookIdSchema.optional(),
   state: webhookDeliveryState.optional(),
   before: webhookIdSchema.optional(),
-});
+  page: integrationLogPageQuery,
+}).refine(({ before, page }) => !before || !page);
 
 export const webhookAttemptSchema = z.object({
   number: z.number().int().positive(),
@@ -70,12 +72,14 @@ const webhookDeliverySchema = z.object({
   event: z.object({ id: webhookIdSchema, type: eventType, createdAt: z.iso.datetime() }),
   endpoint: z.object({ ...target, name: z.string() }),
   sending: z.boolean(),
+  deliveryEnabled: z.boolean().optional(),
   canRetry: z.boolean(),
 });
 
 export const webhookDeliveryPageSchema = z.object({
   items: z.array(webhookDeliverySchema.extend({ lastAttempt: webhookAttemptSchema.nullable() })),
   nextCursor: webhookIdSchema.nullable(),
+  pagination: integrationLogPagination.optional(),
 });
 export const webhookDeliveryDetailSchema = webhookDeliverySchema.extend({ attempts: z.array(webhookAttemptSchema) });
 

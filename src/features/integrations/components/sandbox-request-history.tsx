@@ -4,24 +4,26 @@ import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileText, RotateCw } from "lucide-react";
+import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/dates";
+import { ApiError } from "@/lib/api-client";
 import { integrationApiGateway } from "../sandbox-api";
 
 export function SandboxRequestHistory({ accountId }: { accountId: string }) {
-  const [cursors, setCursors] = useState<string[]>([]);
-  const before = cursors.at(-1);
+  const [page, setPage] = useState(1);
   const development = useDevelopmentFeatures();
   const logs = useQuery({
-    queryKey: ["integration-request-logs", accountId, development, before],
-    queryFn: ({ signal }) => integrationApiGateway(development).requestLogs(before, signal),
+    queryKey: ["integration-request-logs", accountId, development, page],
+    queryFn: ({ signal }) => integrationApiGateway(development).requestLogs(page, signal),
     retry: false,
   });
-  const next = logs.data?.nextCursor;
+  const pagination = logs.data?.pagination;
+  const disabled = logs.error instanceof ApiError && logs.error.status === 404;
 
   return (
     <Card className="min-w-0 gap-0 py-0">
@@ -40,8 +42,9 @@ export function SandboxRequestHistory({ accountId }: { accountId: string }) {
         </div>
       ) : logs.isError || !logs.data.items.length ? (
         <Empty icon={<FileText aria-hidden="true" />} className="rounded-none border-0"
-          title={logs.isError ? "Histórico indisponível" : "Nenhuma requisição registrada"}
-          description={logs.isError ? "Atualize para tentar carregar esta página." : "As chamadas autenticadas da API aparecerão aqui."} />
+          title={disabled ? "API desativada" : logs.isError ? "Histórico indisponível" : "Nenhuma requisição registrada"}
+          description={disabled ? "O histórico aparece quando a API estiver habilitada neste ambiente."
+            : logs.isError ? "Atualize para tentar carregar esta página." : "As chamadas autenticadas da API aparecerão aqui."} />
       ) : (
         <ul className="divide-y" aria-label="Requisições da API">
           {logs.data.items.map((item) => (
@@ -65,10 +68,7 @@ export function SandboxRequestHistory({ accountId }: { accountId: string }) {
           ))}
         </ul>
       )}
-      {(before || next) && <div className="flex justify-end gap-2 border-t p-4" aria-label="Paginação das requisições">
-        <Button type="button" variant="outline" disabled={!before || logs.isFetching} onClick={() => setCursors((pages) => pages.slice(0, -1))}>Anterior</Button>
-        <Button type="button" variant="outline" disabled={!next || logs.isFetching} onClick={() => { if (next) setCursors((pages) => [...pages, next]); }}>Próxima</Button>
-      </div>}
+      {pagination && <TablePagination {...pagination} busy={logs.isFetching} onPageChange={setPage} label="Paginação das requisições" />}
     </Card>
   );
 }

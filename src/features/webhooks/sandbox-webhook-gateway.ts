@@ -30,9 +30,9 @@ export const sandboxWebhookGateway = {
     requestPixGateway(`${endpoint}/actions`, webhookActionResultSchema, unavailable, post({ action, proof })),
   verify: (id: string, version: number) =>
     requestPixGateway(`${endpoint}/${id}/verify`, sandboxWebhookSchema, unavailable, post({ version })),
-  logs: (filter: { webhookId?: string; state?: SandboxWebhookDelivery["state"]; before?: string }, signal?: AbortSignal) => {
+  logs: (filter: { webhookId?: string; state?: SandboxWebhookDelivery["state"]; page: number }, signal?: AbortSignal) => {
     const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(filter)) if (value) params.set(key, value);
+    for (const [key, value] of Object.entries(filter)) if (value) params.set(key, String(value));
     return requestPixGateway(`${endpoint}/logs?${params}`, webhookDeliveryPageSchema, unavailable, { signal });
   },
   delivery: (id: string, signal?: AbortSignal) =>

@@ -52,9 +52,10 @@ export function SandboxIntegrationSecurity({ accountId, canManage = true }: { ac
         <Card>
           <Empty icon={<ShieldCheck aria-hidden="true" />} className="rounded-none border-0"
             title={security.data ? (development ? "Conta Sandbox aguardando vínculo" : "Cadastro aguardando aprovação") : "Segurança da integração indisponível"}
-            description={security.data || (security.error instanceof ApiError && security.error.status === 404)
-              ? (development ? "A equipe do Slopay habilita o acesso da empresa ao Sandbox." : "A integração fica disponível após a habilitação da conta.")
-              : "Tente carregar as configurações novamente."}
+            description={security.data
+              ? (development ? "A equipe do Slopay precisa vincular a conta." : "O acesso é liberado após a conclusão da abertura da conta.")
+              : security.error instanceof ApiError && security.error.status === 404
+                ? "A área de segurança aparece quando a API estiver habilitada neste ambiente." : "Tente carregar as configurações novamente."}
             action={security.isError && <Button variant="outline" onClick={() => void security.refetch()}>Tentar novamente</Button>} />
         </Card>
       ) : (
@@ -107,7 +108,7 @@ export function SandboxIntegrationSecurity({ accountId, canManage = true }: { ac
             <CardHeader>
               <CardTitle>Saques pela API</CardTitle>
               <CardDescription>{data.withdrawalsEnabled ? "Solicitações de saque habilitadas."
-                : "A validação de saques aguarda habilitação pela equipe do Slopay."}</CardDescription>
+                : "Consulte a equipe do Slopay sobre os limites e as carteiras habilitadas para a conta."}</CardDescription>
             </CardHeader>
             <CardContent><Button asChild variant="outline"><Link href="/aprovacoes">Ver aprovações</Link></Button></CardContent>
           </Card>
