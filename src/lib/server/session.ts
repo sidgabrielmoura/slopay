@@ -4,6 +4,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import type { NextResponse } from "next/server";
+import { adminPageAllowed } from "@/features/admin/admin-access";
 import { authEntry, onboardingDestination } from "@/lib/auth-navigation";
 import { requestAuthBackend, sessionUserSchema, type AuthTokens } from "./auth-backend";
 import { isSupportPanelPath, supportPanelSessionSchema, supportScopeCookie } from "@/lib/support-scope";
@@ -86,6 +87,7 @@ export async function loadPanelUser(merchantSupport = false) {
     : null;
 }
 
+
 export async function requireSession(
   returnTo: string,
   { operations = false, admin = false } = {},
@@ -98,7 +100,7 @@ export async function requireSession(
   if (result.state !== "ready") redirect("/servico-indisponivel");
 
   const user = result.user;
-  if (admin && user.role !== "ADMIN") notFound();
+  if (admin && (user.role !== "ADMIN" || !adminPageAllowed(user.adminAccess, returnTo))) notFound();
   if (user.isTwoFactorEnabled && !user.mfaVerified) redirect(authEntry("/entrar", returnTo));
 
   if (operations || admin) {

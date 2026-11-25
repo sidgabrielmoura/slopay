@@ -26,7 +26,7 @@ const receiptRow = cn(receiptGrid, "gap-y-3 py-4");
 const operationCell = "col-span-2 flex min-w-0 items-center gap-3 lg:col-span-1";
 const actionCell = "col-span-2 min-w-0 lg:col-span-1 lg:justify-self-end";
 
-export function ReceiptsScreen({ merchantId }: { merchantId: string }) {
+export function ReceiptsScreen({ merchantId, share = true }: { merchantId: string; share?: boolean }) {
   const [page, setPage] = useState(1);
   const query = useQuery({
     queryKey: ["pix-statement", merchantId, "receipts", page],
@@ -47,7 +47,7 @@ export function ReceiptsScreen({ merchantId }: { merchantId: string }) {
             <span>Operação</span>
             <span>Efetivado em</span>
             <span className="text-right">Valor</span>
-            <span className="text-right">Ações</span>
+            {share && <span className="text-right">Ações</span>}
           </div>
         )}
         <SkeletonReveal
@@ -59,7 +59,7 @@ export function ReceiptsScreen({ merchantId }: { merchantId: string }) {
           {!pending && (data ? (
             rows.length > 0 ? (
               <ul className="divide-y divide-border">
-                {rows.map((operation) => <ReceiptRow key={operation.reference} operation={operation} />)}
+                {rows.map((operation) => <ReceiptRow key={operation.reference} operation={operation} share={share} />)}
               </ul>
             ) : (
               <Empty icon={<ReceiptText aria-hidden="true" />} title="Nenhum comprovante disponível"
@@ -85,7 +85,7 @@ export function ReceiptsScreen({ merchantId }: { merchantId: string }) {
   );
 }
 
-function ReceiptRow({ operation }: { operation: LiveTransaction }) {
+function ReceiptRow({ operation, share }: { operation: LiveTransaction; share: boolean }) {
   const incoming = operation.direction === "IN";
   const Icon = incoming ? ArrowDownLeft : ArrowUpRight;
   const date = operation.settledAt ?? operation.settledDate;
@@ -118,7 +118,7 @@ function ReceiptRow({ operation }: { operation: LiveTransaction }) {
           <PanelAmount cents={operation.amountInCents} />
         </span>
       </div>
-      <div className={actionCell}><ShareReceiptButton reference={operation.reference} /></div>
+      {share && <div className={actionCell}><ShareReceiptButton reference={operation.reference} /></div>}
     </li>
   );
 }

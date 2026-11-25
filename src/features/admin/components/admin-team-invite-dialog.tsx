@@ -9,6 +9,8 @@ import { ToastNotice } from "@/components/ui/toast-notice";
 import { IntegrationConfirmationDialog } from "@/features/integrations/components/integration-confirmation-dialog";
 import { ApiError } from "@/lib/api-client";
 import { adminTeam, adminTeamInviteSchema } from "../admin-team";
+import { adminAccessLevelLabels, type AdminAccessDraft } from "../admin-access";
+import { AdminTeamAccessFields } from "./admin-team-access-fields";
 
 type InviteReview = {
   result: Awaited<ReturnType<typeof adminTeam.inviteOptions>>;
@@ -22,6 +24,7 @@ export function AdminTeamInviteDialog({ onClose, onInvited, restoreFocus }: {
   const fieldId = useId();
   const [open, setOpen] = useState(true);
   const [email, setEmail] = useState("");
+  const [access, setAccess] = useState<AdminAccessDraft>({ accessLevel: "VIEWER", grants: [] });
   const [failure, setFailure] = useState("");
   const [invalidEmail, setInvalidEmail] = useState(false);
   const [preparing, setPreparing] = useState(false);
@@ -30,7 +33,7 @@ export function AdminTeamInviteDialog({ onClose, onInvited, restoreFocus }: {
   const submitting = useRef(false);
 
   async function loadReview(address: string) {
-    const result = await adminTeam.inviteOptions(address);
+    const result = await adminTeam.inviteOptions(address, access);
     const review = { result, issuedAt: Date.now(), offeredForPasskey: false };
     currentReview.current = review;
     return review;
@@ -47,7 +50,7 @@ export function AdminTeamInviteDialog({ onClose, onInvited, restoreFocus }: {
     setFailure("");
     const form = event.currentTarget;
     const address = String(new FormData(form).get("email") ?? "").trim();
-    const parsed = adminTeamInviteSchema.safeParse({ email: address });
+    const parsed = adminTeamInviteSchema.safeParse({ email: address, ...access });
     if (!parsed.success) {
       setInvalidEmail(true);
       setFailure("Confira o e-mail informado.");
@@ -90,7 +93,7 @@ export function AdminTeamInviteDialog({ onClose, onInvited, restoreFocus }: {
           try {
             const review = "credential" in proof ? currentReview.current : recentReview() ?? await loadReview(email);
             if (!review) throw new Error("Prepare novamente a confirmação do convite.");
-            return await adminTeam.invite(email, review.result.confirmation, proof);
+            return await adminTeam.invite(email, review.result.confirmation, proof, access);
           } catch (error) {
             if (error instanceof ApiError && !["INTEGRATION_CODE_REJECTED", "INTEGRATION_PASSKEY_REJECTED"].includes(error.code ?? "")) {
               setFailure(error.message);
@@ -107,6 +110,7 @@ export function AdminTeamInviteDialog({ onClose, onInvited, restoreFocus }: {
         <div className="min-w-0 rounded-lg border border-border bg-muted/40 p-4">
           <p className="text-xs text-muted-foreground">E-mail do novo superadmin</p>
           <p className="mt-1 wrap-anywhere text-sm font-semibold">{email}</p>
+          <p className="mt-2 text-sm">{adminAccessLevelLabels[access.accessLevel]}{access.grants.length > 0 && ` · ${access.grants.length} permissões extras`}</p>
         </div>
         {failure && <OperationFailure message={failure} />}
       </IntegrationConfirmationDialog>
@@ -137,6 +141,7 @@ export function AdminTeamInviteDialog({ onClose, onInvited, restoreFocus }: {
               maxLength={254} required readOnly={preparing} aria-invalid={invalidEmail || undefined}
               onChange={() => { setInvalidEmail(false); setFailure(""); }} />
           </div>
+          <AdminTeamAccessFields draft={access} onChange={setAccess} disabled={preparing} />
           <ToastNotice message={failure} />
           <DialogFooter>
             <Button type="button" variant="ghost" className="h-11" disabled={preparing} onClick={() => setOpen(false)}>Cancelar</Button>

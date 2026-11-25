@@ -67,8 +67,8 @@ function metricsForPeriod(data: DashboardOverview, period: OverviewPeriod, readO
   };
 }
 
-export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive = true, readOnly = false }: {
-  data: DashboardOverview | null; merchantId: string; owner?: boolean; canReceive?: boolean; readOnly?: boolean;
+export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive = true, readOnly = false, canOperate = true }: {
+  data: DashboardOverview | null; merchantId: string; owner?: boolean; canReceive?: boolean; readOnly?: boolean; canOperate?: boolean;
 }) {
   const router = useRouter();
   const [period, setPeriod] = useState<OverviewPeriod>("today");
@@ -121,8 +121,8 @@ export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive 
       metrics={metrics}
       readOnly={readOnly}
       accountNotice={owner && !readOnly ? <OwnerAccountOpeningNotice merchantId={merchantId} /> : null}
-      showWithdrawalLinks={owner && !readOnly}
-      receiveAction={canReceive && !readOnly && (
+      showWithdrawalLinks={owner && !readOnly && canOperate}
+      receiveAction={canReceive && !readOnly && canOperate && (
         <DashboardPixReceive
           key={`receive-${merchantId}`}
           gateway={owner ? asaasPixReceive : operatorPixReceive}
@@ -135,7 +135,7 @@ export function LiveOverviewScreen({ data, merchantId, owner = true, canReceive 
           }}
         />
       )}
-      withdrawAction={owner && !readOnly && (
+      withdrawAction={owner && !readOnly && canOperate && (
         <DashboardPixWithdraw
           key={`withdraw-${merchantId}`}
           accountId={merchantId}

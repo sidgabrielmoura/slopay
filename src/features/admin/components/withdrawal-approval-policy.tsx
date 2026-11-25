@@ -21,7 +21,6 @@ export function WithdrawalApprovalPolicy({ channels }: { channels?: ApprovalRule
         <div className="min-w-0 space-y-1 px-4 py-4 sm:px-5">
           <dt className="text-sm font-semibold">Saques via API</dt>
           <dd className="text-pretty text-sm text-muted-foreground">O saque fica em espera até o titular aprovar ou recusar.</dd>
-          {channels?.api === false && <dd><Badge variant="warning">Saques via API indisponíveis</Badge></dd>}
         </div>
         <div className="min-w-0 space-y-1 px-4 py-4 sm:px-5">
           <dt className="text-sm font-semibold">Saques e lotes no painel</dt>

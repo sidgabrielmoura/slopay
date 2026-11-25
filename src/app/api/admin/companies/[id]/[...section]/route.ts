@@ -7,6 +7,7 @@ import { supportProofSchema, supportRequestSchema, supportStartedSchema } from "
 import { companyAuditSchema, companyChangeSchema, companyOperationsSchema, companyPage, companyProofSchema, companyUpdatedSchema } from "@/features/admin/admin-companies";
 import { forwardIntegrationRequest, integrationResponse } from "@/lib/server/integration-request";
 import { forwardPixPricing } from "@/lib/server/pix-pricing-request";
+import { clientUserClosedSchema, clientUserDeletedSchema, clientUserDeletionOptions, clientUserDeletionRequest, clientUserDeletionSchema } from "@/features/admin/admin-client-users";
 
 type Context = { params: Promise<{ id: string; section: string[] }> };
 
@@ -33,6 +34,15 @@ export async function POST(request: NextRequest, { params }: Context) {
   const path = await params;
   const id = z.uuid().safeParse(path.id);
   const action = path.section.join("/");
+  if (id.success && /^(?:close|delete)(?:\/options)?$/.test(action)) {
+    const options = action.endsWith("/options");
+    return forwardIntegrationRequest(request, {
+      path: `/admin/companies/${id.data}/${action}`,
+      input: options ? clientUserDeletionSchema : clientUserDeletionRequest,
+      output: options ? clientUserDeletionOptions : action === "close" ? clientUserClosedSchema : clientUserDeletedSchema,
+      unavailable: "Não foi possível concluir a operação da empresa.",
+    });
+  }
   if (id.success && (action === "pix-pricing" || action === "pix-pricing/options")) {
     return forwardPixPricing(request, id.data, action.endsWith("/options"));
   }

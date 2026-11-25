@@ -52,7 +52,7 @@ export const accountOpeningsSchema = z.object({
   pagination: adminPaginationSchema,
   items: z.array(application).max(8),
 });
-const reviewAction = z.enum(["START_REVIEW", "REQUEST_CHANGES", "REJECT", "REOPEN"]);
+const reviewAction = z.enum(["START_REVIEW", "REQUEST_CHANGES", "FOR_DECISION", "REJECT", "REOPEN"]);
 const historyAction = z.enum([
   "REGISTERED", "EMAIL_VERIFIED", "MFA_ENABLED", "SUBMIT", "RESUBMIT", "APPROVE", "LINKED",
   "DOCUMENT_UPLOADED", "DOCUMENT_VIEWED", "DOCUMENT_VERIFIED", "DOCUMENT_REPLACEMENT_REQUESTED",
@@ -69,6 +69,7 @@ export const openingHistoryLabels: Record<z.infer<typeof historyAction>, string>
   DOCUMENT_VERIFIED: "Documento verificado",
   DOCUMENT_REPLACEMENT_REQUESTED: "Reenvio de documento solicitado",
   REQUEST_CHANGES: "Ajustes solicitados",
+  FOR_DECISION: "Encaminhado para decisão",
   RESUBMIT: "Cadastro reenviado",
   REJECT: "Cadastro recusado",
   REOPEN: "Análise reaberta",
@@ -82,6 +83,7 @@ export const accountOpeningDetailSchema = z.object({
     ownerPhone: z.string(), cpfSuffix: z.string().max(2), ownerStatus: z.enum(["ACTIVE", "PENDING_VERIFICATION", "LOCKED", "SUSPENDED"]),
     emailVerified: z.boolean(), emailVerifiedAt: instant.nullable(), mfaEnabled: z.boolean(),
     analystId: z.uuid().nullable(), version, reason: nullableText,
+    decisionReady: z.boolean().default(false),
     reviewedAt: instant.nullable(), linkedAt: instant.nullable(), webhookPath: webhookPath.nullable(),
     submittedAt: instant.nullish(), submittedData: openingDraftSchema.nullish(),
     identityDocumentsRequired: z.boolean().optional(),
@@ -98,6 +100,7 @@ export const openingReviewSchema = z.strictObject({
   version, action: reviewAction,
   reason: z.string().trim().min(1).max(600).regex(/^(?:[^\p{Cc}\p{Cf}]|[\r\n])*$/u).optional(),
 });
+export const openingReviewConfirmedSchema = openingReviewSchema.extend({ proof: integrationProofSchema.optional() });
 export const openingApprovalOptionsSchema = z.strictObject({ version });
 export const openingApprovalSchema = openingApprovalOptionsSchema.extend({ proof: integrationProofSchema });
 export const openingUpdatedSchema = z.object({ updated: z.literal(true) });
@@ -131,8 +134,10 @@ export const accountOpenings = {
     requestPixGateway(endpoint + openingParams(query), accountOpeningsSchema, openingsUnavailable, { signal }),
   detail: (id: string, page: number, signal: AbortSignal) =>
     requestPixGateway(endpoint + "/" + id + "?page=" + page, accountOpeningDetailSchema, openingsUnavailable, { signal }),
-  review: (id: string, input: OpeningReview) =>
+  review: (id: string, input: OpeningReview & { proof?: IntegrationProof }) =>
     requestPixGateway(endpoint + "/" + id + "/review", openingUpdatedSchema, "Não foi possível registrar a decisão.", post(input)),
+  reviewOptions: (id: string, input: OpeningReview) =>
+    requestPixGateway(endpoint + "/" + id + "/review/options", passkeyOptionsSchema, "Não foi possível preparar a confirmação.", post(input)),
   approvalOptions: (id: string, version: number) =>
     requestPixGateway(endpoint + "/" + id + "/approve/options", passkeyOptionsSchema, "Não foi possível preparar a confirmação.", post({ version })),
   approve: (id: string, version: number, proof: IntegrationProof) =>

@@ -4,7 +4,7 @@ import { useDevelopmentFeatures } from "@/providers/app-providers";
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpRight, Pencil, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,8 @@ import { CompanyAudit, CompanyOperations } from "./admin-company-activity";
 import { AdminCompanyEdit } from "./admin-company-edit";
 import { CompanyAccessDialog } from "./company-change-dialog";
 import { CompanySupportAction } from "./company-support-action";
+import { AdminClientUserDeleteDialog } from "./admin-client-user-delete-dialog";
+import { useAdminAccess } from "./admin-access-provider";
 import { AdminPixPricingCard } from "./admin-pix-pricing-card";
 import { CompanyAccessBadge, CompanyField, CompanyReadError, CompanyRowsSkeleton } from "./company-display";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
@@ -37,6 +39,7 @@ export function AdminCompanyScreen({ user, companyId, editing }: {
   const detailHref = detailPath + suffix;
   const listHref = companiesPath + suffix;
   const refresh = useQueryClient();
+  const { can } = useAdminAccess();
   const result = useQuery({
     queryKey: ["admin-company", user.id, companyId],
     queryFn: ({ signal }) => adminCompanies.detail(companyId, signal),
@@ -65,7 +68,8 @@ export function AdminCompanyScreen({ user, companyId, editing }: {
               <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Editar cadastro</h1>
               <p className="wrap-anywhere text-pretty text-sm text-muted-foreground">{company.tradeName ?? company.legalName} · {company.cnpj ? formatCNPJ(company.cnpj) : "Pessoa física"}</p>
             </header>
-            {company.canManage ? <AdminCompanyEdit company={company} detailHref={detailHref} onChange={refreshCompany} /> : (
+            {company.canManage && can("admin.companies.edit") && !company.owner.operationalClosedAt
+              ? <AdminCompanyEdit company={company} detailHref={detailHref} onChange={refreshCompany} /> : (
               <Card className="grid justify-items-start gap-3 p-5">
                 <p className="text-pretty text-sm text-muted-foreground">A edição está indisponível.</p>
                 <Button asChild variant="outline" className="h-11"><Link href={detailHref}>Consultar cadastro</Link></Button>
@@ -99,10 +103,16 @@ function CompanyDetails({ company, adminId, editHref, onChange }: {
   company: CompanyDetail; adminId: string; editHref: string; onChange: () => void;
 }) {
   const development = useDevelopmentFeatures();
+  const router = useRouter();
+  const { can } = useAdminAccess();
   const [accessDialog, setAccessDialog] = useState(false);
+  const [termination, setTermination] = useState<"close" | "delete">();
+  const deleted = useRef(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const changeAccess = company.canManage && !company.owner.operationalClosedAt &&
+  const canEdit = company.canManage && can("admin.companies.edit") && !company.owner.operationalClosedAt;
+  const canAudit = can("admin.audit.read");
+  const changeAccess = company.canManage && can("admin.companies.access") && !company.owner.operationalClosedAt &&
     (company.owner.status === "ACTIVE" || company.owner.status === "SUSPENDED");
   const hasContact = company.contactName || company.contactRole || company.contactEmail || company.contactPhone;
   const openingHref = openingsPath + "/" + company.ownerId;
@@ -118,10 +128,10 @@ function CompanyDetails({ company, adminId, editHref, onChange }: {
           </div>
           <p className="text-sm tabular-nums text-muted-foreground">{company.cnpj ? formatCNPJ(company.cnpj) : "Pessoa física"}</p>
         </div>
-        {(company.canManage || company.canSupport) && (
+        {(canEdit || changeAccess || company.canSupport) && (
           <div className="flex flex-wrap gap-2">
             {company.canSupport && <CompanySupportAction companyId={company.id} companyName={company.tradeName ?? company.legalName} />}
-            {company.canManage && <Button asChild className="h-11">
+            {canEdit && <Button asChild className="h-11">
               <Link href={editHref} prefetch={false}><Pencil aria-hidden="true" />Editar cadastro</Link>
             </Button>}
             {changeAccess && (
@@ -189,17 +199,40 @@ function CompanyDetails({ company, adminId, editHref, onChange }: {
         )}
       </div>
 
-      {!company.owner.operationalClosedAt && <AdminPixPricingCard adminId={adminId} companyId={company.id} />}
+      {!company.owner.operationalClosedAt && can("admin.pricing.company") && <AdminPixPricingCard adminId={adminId} companyId={company.id} />}
       {development ? <Tabs defaultValue="account" className="grid min-w-0 gap-3">
         <TabsList aria-label="Dados operacionais da empresa" className="grid h-auto w-full grid-cols-[1fr_1.35fr_1fr] gap-1 sm:w-fit sm:grid-cols-3">
           <TabsTrigger value="account" className="min-h-11 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">Vínculo</TabsTrigger>
           <TabsTrigger value="operations" className="min-h-11 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">Movimentações</TabsTrigger>
-          <TabsTrigger value="audit" className="min-h-11 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">Auditoria</TabsTrigger>
+          {canAudit && <TabsTrigger value="audit" className="min-h-11 min-w-0 px-2 text-xs sm:px-4 sm:text-sm">Auditoria</TabsTrigger>}
         </TabsList>
         <TabsContent value="account" className="mt-0 min-w-0"><CompanyConnection company={company} openingHref={openingHref} /></TabsContent>
         <TabsContent value="operations" className="mt-0 min-w-0"><CompanyOperations adminId={adminId} companyId={company.id} /></TabsContent>
-        <TabsContent value="audit" className="mt-0 min-w-0"><CompanyAudit adminId={adminId} companyId={company.id} /></TabsContent>
-      </Tabs> : <CompanyAudit adminId={adminId} companyId={company.id} />}
+        {canAudit && <TabsContent value="audit" className="mt-0 min-w-0"><CompanyAudit adminId={adminId} companyId={company.id} /></TabsContent>}
+      </Tabs> : canAudit && <CompanyAudit adminId={adminId} companyId={company.id} />}
+      {company.terminationVersion != null && <Card className="grid min-w-0 gap-3 p-5">
+        <h2 className="text-balance text-lg font-semibold">Encerramento da empresa</h2>
+        <p className="text-pretty text-sm text-muted-foreground">O encerramento bloqueia novas operações. A exclusão exige um cadastro sem vínculos ou movimentações.</p>
+        <div className="flex flex-wrap gap-2">
+          {!company.owner.operationalClosedAt && <Button type="button" variant="outline" className="h-11" onClick={event => {
+            trigger.current = event.currentTarget;
+            setTermination("close");
+          }}>Encerrar empresa</Button>}
+          <Button type="button" variant="ghost" className="h-11 text-destructive" onClick={event => {
+            trigger.current = event.currentTarget;
+            setTermination("delete");
+          }}>Excluir empresa</Button>
+        </div>
+      </Card>}
+      {termination && company.terminationVersion != null && <AdminClientUserDeleteDialog
+        target={{ id: company.id, name: company.tradeName ?? company.legalName, email: company.owner.email, version: company.terminationVersion, operation: termination, company: true }}
+        onChanged={onChange} onDeleted={() => { if (termination === "delete") deleted.current = true; }}
+        onClose={() => {
+          setTermination(undefined);
+          onChange();
+          if (deleted.current) router.replace(companiesPath);
+          else (trigger.current?.isConnected ? trigger.current : heading.current)?.focus();
+        }} />}
       {accessDialog && <CompanyAccessDialog company={company} onChange={onChange}
         onClose={() => setAccessDialog(false)} restoreFocus={() => (trigger.current ?? heading.current)?.focus()} />}
     </div>

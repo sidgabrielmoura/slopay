@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
+import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
 import {
-  livePoolConfirmationSchema, livePoolKeyDraft, livePoolKeyProof, liveRoutingDraft, liveRoutingProof, liveWalletControlDraft, liveWalletControlProof, liveWalletPositionsQuery, liveWalletPositionsSchema, walletControlsSchema,
+  livePoolConfirmationSchema, livePoolKeyDraft, livePoolKeyProof, liveRoutingDraft, liveRoutingProof, liveWalletCloseDraft, liveWalletCloseProof, liveWalletClosed, liveWalletControlDraft, liveWalletControlProof, liveWalletPositionsQuery, liveWalletPositionsSchema, walletControlsSchema,
 } from "@/features/admin/admin-live-pool-accounts";
 import { poolEligibleList, poolOwnersList, poolOwnersQuery, poolUpdated } from "@/features/admin/admin-pool-accounts";
 import { forwardIntegrationRequest, integrationResponse } from "@/lib/server/integration-request";
@@ -44,6 +45,12 @@ export async function POST(request: NextRequest, context: Context) {
   if (operation.length === 3 && section === "positions" && operation[2] === "refresh" && z.uuidv4().safeParse(action).success)
     return forwardIntegrationRequest(request, { path: `${base}/positions/${action.toLowerCase()}/refresh`, input: z.strictObject({}), output: poolUpdated, unavailable });
   const rotationOptions = operation.length === 3 && operation[2] === "options";
+  if (action === "close" && z.uuidv4().safeParse(section).success && (operation.length === 2 || rotationOptions))
+    return forwardIntegrationRequest(request, {
+      path: `${base}/${section.toLowerCase()}/close${rotationOptions ? "/options" : ""}`,
+      input: rotationOptions ? liveWalletCloseDraft : liveWalletCloseProof,
+      output: rotationOptions ? passkeyOptionsSchema : liveWalletClosed, unavailable: "Não foi possível encerrar esta carteira.",
+    });
   if (action === "key" && z.uuidv4().safeParse(section).success && (operation.length === 2 || rotationOptions))
     return forwardIntegrationRequest(request, { path: `${base}/${section.toLowerCase()}/key${rotationOptions ? "/options" : ""}`,
       input: rotationOptions ? livePoolKeyDraft : livePoolKeyProof,

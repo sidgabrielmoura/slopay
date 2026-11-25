@@ -4,6 +4,7 @@ import { MerchantPanel, PanelHeading } from "@/components/layout/merchant-panel"
 import { FinancialControlScreen } from "@/features/expenses/components/financial-control-screen";
 import { financialControlPath } from "@/features/expenses/expenses";
 import { requireSession } from "@/lib/server/session";
+import { canActInSupport } from "@/lib/support-scope";
 
 export const metadata: Metadata = { title: "Controle financeiro" };
 
@@ -13,7 +14,7 @@ export default async function FinancialControlPage() {
   return (
     <MerchantPanel user={user}>
       {user.role === "MERCHANT" ? (
-        <FinancialControlScreen merchantId={user.id} />
+        <FinancialControlScreen merchantId={user.id} canCategorize={canActInSupport(user.support, "profile")} />
       ) : (
         <PanelHeading title="Controle financeiro" description="A consulta de saídas está disponível para o perfil de lojista." />
       )}

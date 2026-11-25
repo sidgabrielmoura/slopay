@@ -7,10 +7,19 @@ export const supportApiRequestHeader = "x-slopay-api-request";
 export const supportContextChanged = "SUPPORT_CONTEXT_CHANGED";
 export const supportSessionUnavailable = "SUPPORT_SESSION_UNAVAILABLE";
 export const supportActivitySchema = z.object({ activeForMs: z.int().min(0).max(120_000) });
-export const supportPanelSessionSchema = supportActivitySchema.extend({ id: z.uuidv4(), companyId: z.uuid() });
+export const supportPanelSessionSchema = supportActivitySchema.extend({
+  id: z.uuidv4(),
+  companyId: z.uuid(),
+  permissions: z.array(z.string()).optional(),
+});
 export type PanelSupportSession = z.infer<typeof supportPanelSessionSchema>;
 
 export const supportOwnerConfirmationMessage = "O titular precisa confirmar esta mudança com os próprios fatores.";
+
+export function canActInSupport(session: PanelSupportSession | undefined,
+  action: "payments" | "integrations" | "team" | "profile" | "export") {
+  return !session || session.permissions?.includes("admin.support." + action) === true;
+}
 
 export function isSupportPanelPath(path: string) {
   return /^\/(inicio|pix|movimentacoes|aprovacoes|integracoes|conta|indicadores|preferencias|mais|ajuda|controle-financeiro|comprovantes)(?:[/?]|$)/.test(path);

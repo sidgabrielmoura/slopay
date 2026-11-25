@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminAccess } from "./admin-access-provider";
+
 import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpRight, RotateCw } from "lucide-react";
@@ -23,6 +25,7 @@ import { OperationalStatusBadge } from "./admin-operational-accounts-screen";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 
 export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdentity; accountId: string }) {
+  const { can } = useAdminAccess();
   const development = useDevelopmentFeatures();
   const back = adminPixFeesPath + pixFeesParams(pixFeesQueryFrom(useSearchParams()));
   const client = useQueryClient();
@@ -67,11 +70,11 @@ export function AdminPixFeeAccountScreen({ user, accountId }: { user: AdminIdent
                   </div>
                   <p className="text-sm text-muted-foreground tabular-nums">{wallet.cnpj ? formatCNPJ(wallet.cnpj) + " · " : ""}Carteira final {wallet.walletSuffix}</p>
                 </div>
-                <Button type="button" className="h-11" disabled={!wallet.canRefresh || refresh.isPending}
+                {can("admin.fees.refresh") && <Button type="button" className="h-11" disabled={!wallet.canRefresh || refresh.isPending}
                   aria-busy={refresh.isPending} onClick={() => refresh.mutate()}>
                   {refresh.isPending ? <LoadingIndicator /> : <RotateCw aria-hidden="true" />}
                   {refresh.isPending ? "Consultando tarifas…" : wallet.checkedAt ? "Atualizar tarifas" : "Consultar tarifas"}
-                </Button>
+                </Button>}
               </header>
               <Card className="grid min-w-0 gap-4 p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">

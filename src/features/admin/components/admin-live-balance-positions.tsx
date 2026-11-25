@@ -4,7 +4,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { ArrowDownUp, Ellipsis, KeyRound, Percent, Plus, RefreshCw, Search, Settings2, Wallet } from "lucide-react";
+import { ArrowDownUp, Ellipsis, KeyRound, LockKeyhole, Percent, Plus, RefreshCw, Search, Settings2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { PanelAmount } from "@/components/layout/panel-privacy";
 import { TablePagination } from "@/components/shared/table-pagination";
@@ -32,6 +32,8 @@ import { adminPixFeesPath } from "../admin-pix-fees";
 import { CompanyReadError, CompanyRowsSkeleton } from "./company-display";
 import { LiveWalletDialog } from "./admin-live-pool-accounts";
 import { LiveWalletControlsDialog } from "./live-wallet-controls-dialog";
+import { AdminWalletCloseDialog } from "./admin-wallet-close-dialog";
+import { useAdminAccess } from "./admin-access-provider";
 
 const statuses = ruleStatusFilter.options.map(value => ({
   value, label: value === "ALL" ? "Todas as situações" : ruleStatusLabels[value].label,
@@ -42,7 +44,7 @@ function Balance({ value }: { value: string | null }) {
     : <PanelAmount cents={BigInt(value)} />;
 }
 
-type WalletChange = { type: "configure" | "rotate"; wallet: LiveWalletPosition };
+type WalletChange = { type: "configure" | "rotate" | "close"; wallet: LiveWalletPosition };
 type WalletAction = { type: "register" } | WalletChange;
 
 function WalletPositionRow({ item, writable, canRotate, refreshingId, refreshBalance, openAction }: {
@@ -54,6 +56,11 @@ function WalletPositionRow({ item, writable, canRotate, refreshingId, refreshBal
   openAction: (action: WalletChange, trigger: HTMLButtonElement) => void;
 }) {
   const menuTrigger = useRef<HTMLButtonElement>(null);
+  const { can } = useAdminAccess();
+  const canRefresh = !item.closedAt && can("admin.wallets.refresh");
+  const canConfigure = !item.closedAt && can("admin.wallets.configure");
+  const canRotateKey = !item.closedAt && canRotate && can("admin.wallets.rotate");
+  const canClose = !item.closedAt && can("admin.wallets.close");
   const nextDialog = useRef<WalletChange["type"] | null>(null);
   const withdrawalStatus = item.withdrawalStatus && ruleStatusLabels[item.withdrawalStatus];
   const balances = [
@@ -71,9 +78,11 @@ function WalletPositionRow({ item, writable, canRotate, refreshingId, refreshBal
           <span className="tabular-nums">Carteira final {item.walletId.slice(-8)}</span>
           {item.verifiedAt && <span>Verificada em <time dateTime={item.verifiedAt}>{formatDateTime(item.verifiedAt, "date-only")}</time></span>}
         </p>
-        {(withdrawalStatus || item.receives) && <div className="flex min-w-0 flex-wrap gap-1.5 pt-1">
-          {withdrawalStatus && <Badge variant={withdrawalStatus.variant} className="whitespace-normal">{withdrawalStatus.label}</Badge>}
-          {item.receives && <Badge variant="secondary">Recebimentos</Badge>}
+        {(item.closedAt || withdrawalStatus || item.receives) && <div className="flex min-w-0 flex-wrap gap-1.5 pt-1">
+          {item.closedAt ? <Badge variant="secondary">Encerrada</Badge> : <>
+            {withdrawalStatus && <Badge variant={withdrawalStatus.variant} className="whitespace-normal">{withdrawalStatus.label}</Badge>}
+            {item.receives && <Badge variant="secondary">Recebimentos</Badge>}
+          </>}
         </div>}
       </div>
       <div className="col-span-2 col-start-1 row-start-2 grid min-w-0 gap-1.5 xl:col-span-1 xl:col-start-2 xl:row-start-1">
@@ -106,32 +115,38 @@ function WalletPositionRow({ item, writable, canRotate, refreshingId, refreshBal
             event.preventDefault();
             openAction({ type, wallet: item }, menuTrigger.current);
           }}>
+          {(canRefresh || canConfigure || canRotateKey || canClose) && <>
           <DropdownMenuGroup>
-            <DropdownMenuItem className="min-h-11" disabled={!writable || refreshingId !== undefined}
+            {canRefresh && <DropdownMenuItem className="min-h-11" disabled={!writable || refreshingId !== undefined}
               onSelect={() => refreshBalance(item.id)}>
               <RefreshCw aria-hidden="true" />Consultar saldo
-            </DropdownMenuItem>
-            <DropdownMenuItem className="min-h-11" disabled={!writable}
+            </DropdownMenuItem>}
+            {canConfigure && <DropdownMenuItem className="min-h-11" disabled={!writable}
               onSelect={() => { nextDialog.current = "configure"; }}>
               <Settings2 aria-hidden="true" />Configurar
-            </DropdownMenuItem>
-            {canRotate && <DropdownMenuItem className="min-h-11" disabled={!writable}
+            </DropdownMenuItem>}
+            {canRotateKey && <DropdownMenuItem className="min-h-11" disabled={!writable}
               onSelect={() => { nextDialog.current = "rotate"; }}>
               <KeyRound aria-hidden="true" />Trocar chave
             </DropdownMenuItem>}
+            {canClose && <DropdownMenuItem className="min-h-11 text-destructive" disabled={!writable}
+              onSelect={() => { nextDialog.current = "close"; }}>
+              <LockKeyhole aria-hidden="true" />Encerrar carteira
+            </DropdownMenuItem>}
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
+          </>}
           <DropdownMenuGroup>
-            <DropdownMenuItem asChild className="min-h-11">
+            {can("admin.movements.read") && <DropdownMenuItem asChild className="min-h-11">
               <Link href={pixTransactionsPath + "?" + new URLSearchParams({ accountId: item.id })} prefetch={false}>
                 <ArrowDownUp aria-hidden="true" />Ver movimentações
               </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild className="min-h-11">
+            </DropdownMenuItem>}
+            {can("admin.fees.read") && <DropdownMenuItem asChild className="min-h-11">
               <Link href={adminPixFeesPath + "/" + item.id} prefetch={false}>
                 <Percent aria-hidden="true" />Ver tarifas
               </Link>
-            </DropdownMenuItem>
+            </DropdownMenuItem>}
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -140,6 +155,7 @@ function WalletPositionRow({ item, writable, canRotate, refreshingId, refreshBal
 }
 
 export function AdminLiveBalancePositions({ adminId }: { adminId: string }) {
+  const { can } = useAdminAccess();
   const query = approvalRulesQueryFrom(useSearchParams());
   const client = useQueryClient();
   const heading = useRef<HTMLHeadingElement>(null);
@@ -203,7 +219,7 @@ export function AdminLiveBalancePositions({ adminId }: { adminId: string }) {
           <h2 id="admin-wallet-positions" ref={heading} tabIndex={-1} className="text-balance text-lg font-semibold outline-none">Saldos e configuração</h2>
           <p className="text-pretty text-sm text-muted-foreground">A diferença compara o saldo contabilizado com a última consulta ao Asaas.</p>
         </div>
-        {data?.available && <Button type="button" className="min-h-11" disabled={!writable}
+        {data?.available && can("admin.wallets.register") && <Button type="button" className="min-h-11" disabled={!writable}
           onClick={event => open({ type: "register" }, event.currentTarget)}><Plus aria-hidden="true" />Cadastrar carteira</Button>}
       </header>
       <form role="search" aria-label="Filtrar carteiras" onSubmit={submit}
@@ -247,6 +263,8 @@ export function AdminLiveBalancePositions({ adminId }: { adminId: string }) {
       </SkeletonReveal>
       {action?.type === "configure" && <LiveWalletControlsDialog poolId={action.wallet.id} name={action.wallet.name} adminId={adminId}
         onClose={() => setAction(null)} restoreFocus={restoreFocus} onChange={changed} />}
+      {action?.type === "close" && <AdminWalletCloseDialog wallet={action.wallet}
+        onClose={() => setAction(null)} restoreFocus={restoreFocus} onSuccess={changed} />}
       {(action?.type === "register" || action?.type === "rotate") && (
         <LiveWalletDialog wallet={action.type === "rotate" ? action.wallet : null}
           onClose={() => setAction(null)} restoreFocus={restoreFocus} onCreated={changed} />

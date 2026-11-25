@@ -8,6 +8,7 @@ import {
   withdrawalApprovalIdSchema, withdrawalApprovalReviewParam, withdrawalApprovalsPath,
 } from "@/features/approvals/sandbox-withdrawal-approvals";
 import { requireSession } from "@/lib/server/session";
+import { canActInSupport } from "@/lib/support-scope";
 
 export const metadata: Metadata = { title: "Aprovações" };
 
@@ -49,7 +50,8 @@ export default async function ApprovalsPage({ searchParams }: {
 
   return (
     <MerchantPanel user={user}>
-      {user.role === "MERCHANT" ? <LiveWithdrawalApprovals accountId={user.id} rule={rule} /> : (
+      {user.role === "MERCHANT" ? <LiveWithdrawalApprovals accountId={user.id} rule={rule}
+        canDecide={canActInSupport(user.support, "payments")} /> : (
         <div className="grid gap-5">
           <header className="grid gap-1">
             <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Aprovações</h1>

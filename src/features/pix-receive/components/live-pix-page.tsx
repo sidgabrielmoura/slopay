@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { MerchantPanel, PanelHeading } from "@/components/layout/merchant-panel";
 import { loadDashboardOverview } from "@/lib/server/dashboard";
 import { requireSession } from "@/lib/server/session";
+import { canActInSupport } from "@/lib/support-scope";
 import { LivePixOperations, type PixPageView } from "./live-pix-operations";
 
 const pages = {
@@ -13,7 +14,8 @@ export async function LivePixPage({ view }: { view: PixPageView }) {
   const page = pages[view];
   const user = await requireSession(page.path, { operations: true });
   if (user.role === "ADMIN") redirect("/admin");
-  const canUsePix = user.role === "MERCHANT" || (user.role === "OPERATOR" && view === "receive" && Boolean(user.merchantId));
+  const canUsePix = (user.role === "MERCHANT" || (user.role === "OPERATOR" && view === "receive" && Boolean(user.merchantId))) &&
+    canActInSupport(user.support, "payments");
   const overview = canUsePix ? await loadDashboardOverview() : null;
   return (
     <MerchantPanel user={user}>

@@ -13,3 +13,10 @@ export function GET(request: NextRequest) {
     searchParams: globalStatementParams(query.data),
   });
 }
+
+export function POST(request: NextRequest) {
+  return forwardIntegrationRequest(request, {
+    path: "/admin/global-statement/export", input: globalStatementQuery, output: globalStatementReport,
+    unavailable: "Não foi possível exportar o extrato.",
+  });
+}

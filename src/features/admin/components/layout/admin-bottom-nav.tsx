@@ -8,6 +8,7 @@ import { isPanelSidebarItemActive } from "@/components/layout/panel-sidebar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { adminNavigationFooter, adminNavigationGroups } from "./admin-sidebar";
+import { useAdminAccess } from "../admin-access-provider";
 
 const shortcutLabels = new Map([
   ["/admin", "Dashboard"],
@@ -20,7 +21,8 @@ const shortcutClass = "flex h-full min-w-0 flex-1 flex-col items-center justify-
 export function AdminBottomNav({ live = false }: { live?: boolean }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-  const groups = adminNavigationGroups({});
+  const { access } = useAdminAccess();
+  const groups = adminNavigationGroups({}, live ? access ?? { level: "VIEWER", permissions: ["admin.dashboard.read"] } : undefined);
   const footer = adminNavigationFooter(live);
   const items = groups.flatMap(group => group.items);
   const shortcuts = items.filter(item => shortcutLabels.has(item.path));

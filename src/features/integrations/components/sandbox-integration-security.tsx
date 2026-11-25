@@ -17,7 +17,7 @@ import { apiAccessDraftSchema, integrationApiGateway, type ApiAccessDraft } from
 import { IntegrationConfirmationDialog } from "./integration-confirmation-dialog";
 import { IntegrationHeading } from "./integration-heading";
 
-export function SandboxIntegrationSecurity({ accountId }: { accountId: string }) {
+export function SandboxIntegrationSecurity({ accountId, canManage = true }: { accountId: string; canManage?: boolean }) {
   const development = useDevelopmentFeatures();
   const queryClient = useQueryClient();
   const gateway = integrationApiGateway(development);
@@ -75,10 +75,10 @@ export function SandboxIntegrationSecurity({ accountId }: { accountId: string })
                   {access.networks.map((value) => <li key={value} className="wrap-anywhere px-3 py-2.5 font-mono">{value}</li>)}
                 </ul>
               ) : <p className="text-sm text-muted-foreground">Uma chave válida pode ser usada de qualquer rede.</p>}
-              <Button type="button" ref={editor} variant="outline" className="justify-self-start" onClick={() => {
+              {canManage && <Button type="button" ref={editor} variant="outline" className="justify-self-start" onClick={() => {
                 setEditing(editing ? null : { version: access.version, text: access.networks.join("\n") });
-              }}>{editing ? "Cancelar edição" : "Editar redes"}</Button>
-              {editing && (
+              }}>{editing ? "Cancelar edição" : "Editar redes"}</Button>}
+              {canManage && editing && (
                 <form className="grid gap-3 border-t pt-4" onSubmit={reviewChange}>
                   <label htmlFor="integration-networks" className="text-sm font-medium">Endereços IPv4, IPv6 ou CIDR</label>
                   <Textarea id="integration-networks" aria-describedby="integration-networks-help" rows={5} spellCheck={false}
@@ -114,7 +114,7 @@ export function SandboxIntegrationSecurity({ accountId }: { accountId: string })
           </div>
         </div>
       )}
-      {review && <IntegrationConfirmationDialog scope={JSON.stringify(review)} title="Confirmar redes permitidas"
+      {canManage && review && <IntegrationConfirmationDialog scope={JSON.stringify(review)} title="Confirmar redes permitidas"
         description="Revise a lista que será aplicada às chaves da empresa." completed="Redes atualizadas"
         options={() => gateway.options(review)} apply={(proof) => gateway.update(review, proof)}
         onSuccess={(result) => { queryClient.setQueryData(key, result); setEditing(null); }}

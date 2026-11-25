@@ -17,6 +17,11 @@ export const livePoolDraftSchema = z.strictObject({
 export const livePoolConfirmationSchema = passkeyOptionsSchema.extend({ confirmation });
 export const livePoolKeyDraft = livePoolDraftSchema.pick({ apiKey: true });
 export const livePoolKeyProof = livePoolKeyDraft.extend({ confirmation, proof: integrationProofSchema });
+export const liveWalletCloseDraft = z.strictObject({
+  reason: z.string().trim().min(1).max(600).regex(/^(?:[^\p{Cc}\p{Cf}]|[\r\n])*$/u),
+});
+export const liveWalletCloseProof = liveWalletCloseDraft.extend({ proof: integrationProofSchema });
+export const liveWalletClosed = z.object({ closed: z.literal(true) });
 export const livePoolRegisterSchema = livePoolDraftSchema.extend({ confirmation, proof: integrationProofSchema });
 export const livePoolCreatedSchema = z.object({ account });
 export const livePoolListSchema = z.object({ available: z.boolean(), canRotate: z.boolean().default(false),
@@ -31,6 +36,7 @@ export const liveWalletPositionsSchema = z.object({
   pagination: adminPaginationSchema,
   items: z.array(account.extend({
     verifiedAt: account.shape.verifiedAt.optional(),
+    closedAt: z.iso.datetime({ offset: true }).nullish(),
     receives: z.boolean().default(false), withdraws: z.boolean().default(false),
     withdrawalStatus: ruleStatusFilter.exclude(["ALL"]).optional(),
     bookedCents: balanceInCents, reservedCents: balanceInCents, providerCents: balanceInCents.nullable(),
@@ -81,6 +87,10 @@ export const liveWalletPositions = {
       liveWalletPositionsSchema, "Não foi possível consultar as carteiras.", { signal }),
   refresh: (id: string) =>
     requestPixGateway(endpoint + "/positions/" + id + "/refresh", poolUpdated, "Não foi possível consultar o saldo do provedor.", post({})),
+  closeOptions: (id: string, reason: string) =>
+    requestPixGateway(endpoint + `/${id}/close/options`, passkeyOptionsSchema, "Não foi possível preparar o encerramento.", post({ reason })),
+  close: (id: string, reason: string, proof: IntegrationProof) =>
+    requestPixGateway(endpoint + `/${id}/close`, liveWalletClosed, "Não foi possível confirmar o encerramento.", post({ reason, proof }, 18_000)),
 };
 
 const liveOptions = (section: "controls" | "routing", draft: object) =>

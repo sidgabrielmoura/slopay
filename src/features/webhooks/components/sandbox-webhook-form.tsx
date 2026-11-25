@@ -18,12 +18,14 @@ import { webhookLogsPath } from "@/features/integrations/navigation";
 import type { WebhookEventType } from "@/types/domain";
 import { sandboxWebhookGateway, sandboxWebhookKey, sandboxWebhooksKey } from "../sandbox-webhook-gateway";
 import { sandboxWebhookEvents, webhookSettingsSchema, type SandboxWebhook } from "../sandbox-webhooks";
-import { webhookDeliveryOptions, webhooksPath } from "../webhooks";
+import { webhookDeliveryOptions, webhookEvents, webhooksPath } from "../webhooks";
 import { SandboxWebhookActionDialog, type WebhookReview } from "./sandbox-webhook-action-dialog";
 import { SandboxWebhookBadge, SandboxWebhookFallback } from "./sandbox-webhook-state";
 import { WebhookEventsField } from "./webhook-events-field";
 
-export function SandboxWebhookForm({ accountId, webhookId }: { accountId: string; webhookId?: string }) {
+export function SandboxWebhookForm({ accountId, webhookId, canManage = true }: {
+  accountId: string; webhookId?: string; canManage?: boolean;
+}) {
   const development = useDevelopmentFeatures();
   const list = useQuery({
     queryKey: sandboxWebhookKey(accountId),
@@ -44,11 +46,21 @@ export function SandboxWebhookForm({ accountId, webhookId }: { accountId: string
         <ArrowLeft aria-hidden="true" data-icon="inline-start" /> Webhooks
       </Link></Button>
       <IntegrationHeading
-        title={webhookId ? "Configurar webhook" : "Novo webhook"}
-        description={webhookId ? "Ajuste o destino HTTPS e os eventos que ele recebe." : "Escolha o destino HTTPS e os eventos que ele deve receber."}
+        title={webhookId ? canManage ? "Configurar webhook" : "Webhook" : "Novo webhook"}
+        description={webhookId ? canManage ? "Ajuste o destino HTTPS e os eventos que ele recebe." : "Consulte o destino HTTPS e os eventos que ele recebe."
+          : "Escolha o destino HTTPS e os eventos que ele deve receber."}
         action={detail.data && <SandboxWebhookBadge webhook={detail.data} />}
       />
-      {ready ? <Editor accountId={accountId} webhook={detail.data} development={development} /> : (
+      {!canManage && detail.data ? (
+        <Card className="grid min-w-0 gap-3 p-5">
+          <h2 className="text-lg font-semibold">{detail.data.name}</h2>
+          <p className="wrap-anywhere text-sm text-muted-foreground">{detail.data.endpointUrl}</p>
+          <p className="text-pretty text-sm">{detail.data.eventTypes.map(event => webhookEvents[event].label).join(" · ")}</p>
+          <Button asChild variant="outline" className="h-11 w-fit">
+            <Link href={`${webhookLogsPath}&destino=${detail.data.id}`}>Ver entregas</Link>
+          </Button>
+        </Card>
+      ) : ready ? <Editor accountId={accountId} webhook={detail.data} development={development} /> : (
         <SandboxWebhookFallback development={development} pending={reading.isPending} error={reading.error} unlinked={list.data?.connected === false}
           retry={() => void reading.refetch()} />
       )}

@@ -139,7 +139,7 @@ function TeamChangeConfirmation({ reviewed, onClose, onSuccess }: {
   </IntegrationConfirmationDialog>;
 }
 
-export function MerchantTeamScreen({ ownerId }: { ownerId: string }) {
+export function MerchantTeamScreen({ ownerId, canManage = true }: { ownerId: string; canManage?: boolean }) {
   const [page, setPage] = useState(1);
   const [edit, setEdit] = useState<Edit>();
   const [reviewed, setReviewed] = useState<Reviewed>();
@@ -168,9 +168,9 @@ export function MerchantTeamScreen({ ownerId }: { ownerId: string }) {
           <h2 className="text-balance text-lg font-semibold">Equipe</h2>
           <p className="text-pretty text-sm text-muted-foreground">Gerencie convites e perfis de acesso à sua conta.</p>
         </div>
-        <Button ref={inviteButton} type="button" className="h-11" onClick={(event) => open(event, { mode: "INVITE" })}>
+        {canManage && <Button ref={inviteButton} type="button" className="h-11" onClick={(event) => open(event, { mode: "INVITE" })}>
           <Plus aria-hidden="true" /> Convidar colaborador
-        </Button>
+        </Button>}
       </div>
       <SkeletonReveal flow revealed={!report.isPending} skeleton={<Skeleton className="m-5 h-44 animate-none" />}>
         {report.isError ? <div className="grid justify-items-start gap-3 p-5">
@@ -187,14 +187,14 @@ export function MerchantTeamScreen({ ownerId }: { ownerId: string }) {
                   <Badge variant={state.variant}>{state.label}</Badge>
                   <span className="text-xs text-muted-foreground">{merchantTeamRoleLabels[member.role]}</span>
                 </div>
-                <div className="flex flex-wrap gap-1 sm:justify-end">
+                {canManage && <div className="flex flex-wrap gap-1 sm:justify-end">
                   {pending && <Button type="button" variant="ghost" className="h-11"
                     onClick={(event) => open(event, { mode: "INVITE", member })}>Reenviar</Button>}
                   {member.state !== "LOCKED" && <Button type="button" variant="outline" className="h-11"
                     onClick={(event) => open(event, { mode: pending ? "REVOKE" : "ACCESS", member })}>
                     {pending ? "Revogar" : "Alterar acesso"}
                   </Button>}
-                </div>
+                </div>}
               </li>;
             })}
           </ul> : <Empty icon={<Users aria-hidden="true" />} className="rounded-none border-0"
@@ -203,13 +203,13 @@ export function MerchantTeamScreen({ ownerId }: { ownerId: string }) {
         </>}
       </SkeletonReveal>
     </Card>
-    {edit && <TeamChangeForm edit={edit} onClose={() => { setEdit(undefined); restoreFocus(); }}
+    {canManage && edit && <TeamChangeForm edit={edit} onClose={() => { setEdit(undefined); restoreFocus(); }}
       prepare={async (action, email) => {
         const review = await merchantTeam.options(action);
         setEdit(undefined);
         setReviewed({ action, email, review });
       }} />}
-    {reviewed && <TeamChangeConfirmation reviewed={reviewed} onSuccess={() => { void report.refetch(); }}
+    {canManage && reviewed && <TeamChangeConfirmation reviewed={reviewed} onSuccess={() => { void report.refetch(); }}
       onClose={() => { setReviewed(undefined); restoreFocus(); }} />}
   </>;
 }

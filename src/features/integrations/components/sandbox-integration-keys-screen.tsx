@@ -63,11 +63,12 @@ async function copySecret(value: string) {
 }
 
 export function SandboxIntegrationKeysScreen({
-  initialKeys, companyName, development,
+  initialKeys, companyName, development, canManage = true,
 }: {
   initialKeys: SandboxKey[];
   companyName: string;
   development: boolean;
+  canManage?: boolean;
 }) {
   const router = useRouter();
   const [keys, setKeys] = useState(initialKeys);
@@ -162,7 +163,7 @@ export function SandboxIntegrationKeysScreen({
       <IntegrationHeading
         title="Chaves de API"
         description={development ? "Gerencie o acesso das aplicações ao Sandbox da sua empresa." : "Gerencie o acesso das aplicações à sua conta Slopay."}
-        action={<Button className="h-11 w-full sm:w-auto" onClick={(event) => {
+        action={canManage && <Button className="h-11 w-full sm:w-auto" onClick={(event) => {
           button.current = event.currentTarget;
           setModal({ kind: "form" });
         }}><Plus aria-hidden="true" data-icon="inline-start" /> Nova chave</Button>}
@@ -199,7 +200,7 @@ export function SandboxIntegrationKeysScreen({
                   <div><dt className="text-xs text-muted-foreground">Status</dt>
                     <dd className="mt-1"><Badge variant={key.status === "active" ? "success" : "secondary"}>{statusLabels[key.status]}</Badge></dd></div>
                 </dl>
-                <DropdownMenu>
+                {canManage && <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button size="icon" variant="ghost" className="col-start-2 row-start-1 size-11 xl:col-start-3"
                       aria-label={`Ações da chave ${key.name}`} onFocus={(event) => { button.current = event.currentTarget; }}>
@@ -224,7 +225,7 @@ export function SandboxIntegrationKeysScreen({
                       <Trash2 aria-hidden="true" /> Revogar chave
                     </DropdownMenuItem>
                   </DropdownMenuContent>
-                </DropdownMenu>
+                </DropdownMenu>}
               </li>
             ))}
           </ul>
@@ -250,7 +251,7 @@ export function SandboxIntegrationKeysScreen({
         </Card>
       )}
 
-      <Dialog open={modal !== null} onOpenChange={(open) => { if (!open) close(); }}>
+      <Dialog open={canManage && modal !== null} onOpenChange={(open) => { if (!open) close(); }}>
         <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-lg"
           onInteractOutside={(event) => { if (busy || modal?.kind === "issued") event.preventDefault(); }}
           onCloseAutoFocus={(event) => {

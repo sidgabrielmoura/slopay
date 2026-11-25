@@ -19,9 +19,11 @@ import {
 
 const replacementOptions = Object.entries(replacementReasonLabels).map(([value, label]) => ({ value, label }));
 
-export function OpeningDocumentReview({ ownerId, version, documents, canReview, onChange }: {
-  ownerId: string; version: number; documents: OpeningDocument[]; canReview: boolean; onChange: () => void;
+export function OpeningDocumentReview({ ownerId, version, documents, canReview, canViewForDecision, onChange }: {
+  ownerId: string; version: number; documents: OpeningDocument[];
+  canReview: boolean; canViewForDecision: boolean; onChange: () => void;
 }) {
+  const canView = canReview || canViewForDecision;
   const [selection, setSelection] = useState<{ document: OpeningDocument; mode: "view" | "replace" }>();
   const [opened, setOpened] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -81,11 +83,9 @@ export function OpeningDocumentReview({ ownerId, version, documents, canReview, 
           <h2 className="text-balance text-lg font-semibold">Documento de identidade</h2>
           {verified && <span className="inline-flex items-center gap-2 text-sm"><LoadingConfirmation size={22} animate />Verificado</span>}
         </div>
-        <p className="text-pretty text-sm text-muted-foreground">
-          {canReview
-            ? "Confira a legibilidade, sinais de alteração e a correspondência com o cadastro."
-            : "A visualização dos anexos é reservada ao responsável durante a análise."}
-        </p>
+        {canView && <p className="text-pretty text-sm text-muted-foreground">
+          Confira a legibilidade, sinais de alteração e a correspondência com o cadastro.
+        </p>}
       </CardHeader>
       <CardContent className="grid gap-4 px-5 pb-5">
         {documents.length ? <ul className="divide-y divide-border rounded-lg border border-border px-3">
@@ -95,17 +95,17 @@ export function OpeningDocumentReview({ ownerId, version, documents, canReview, 
               <li key={document.id} className="flex flex-wrap items-center gap-2 py-3">
                 <FileImage aria-hidden="true" className="size-4 text-muted-foreground" />
                 <span className="mr-auto text-sm font-medium">{document.kind} · {label}</span>
-                {document.replacementRequested ? <Badge variant="secondary">Reenvio solicitado</Badge> : canReview && (
+                {document.replacementRequested ? <Badge variant="secondary">Reenvio solicitado</Badge> : canView && (
                   <div className="flex flex-wrap gap-1">
                     <Button type="button" variant="outline" className="min-h-11" aria-label={"Visualizar " + label.toLowerCase()}
                       onClick={() => setSelection({ document, mode: "view" })}>Ver imagem</Button>
-                    <Button type="button" variant="ghost" className="min-h-11" aria-label={"Pedir reenvio do " + label.toLowerCase()}
+                    {canReview && <Button type="button" variant="ghost" className="min-h-11" aria-label={"Pedir reenvio do " + label.toLowerCase()}
                       onClick={() => {
                         setCategory("");
                         setReason("");
                         setReplacementFailure(undefined);
                         setSelection({ document, mode: "replace" });
-                      }}>Pedir reenvio</Button>
+                      }}>Pedir reenvio</Button>}
                   </div>
                 )}
               </li>
@@ -130,7 +130,7 @@ export function OpeningDocumentReview({ ownerId, version, documents, canReview, 
           </form>
         )}
       </CardContent>
-      <Dialog open={canReview && Boolean(selection)} onOpenChange={(open) => { if (!open && !busy) setSelection(undefined); }}>
+      <Dialog open={canView && Boolean(selection)} onOpenChange={(open) => { if (!open && !busy) setSelection(undefined); }}>
         <DialogContent className={selection?.mode === "view" ? "max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl" : undefined}>
           <DialogHeader>
             <DialogTitle>{dialogTitle}</DialogTitle>
@@ -140,7 +140,7 @@ export function OpeningDocumentReview({ ownerId, version, documents, canReview, 
                 : "Selecione o motivo que o titular verá ao reenviar a imagem."}
             </DialogDescription>
           </DialogHeader>
-          {canReview && selection?.mode === "view" && (
+          {canView && selection?.mode === "view" && (
             <OpeningDocumentImage key={selection.document.id} alt={openingDocumentLabels[selection.document.side] + " do documento de identidade"}
               src={openingDocumentPath(ownerId, selection.document.id)}
               onReady={() => setOpened((previous) => previous.includes(selection.document.id) ? previous : [...previous, selection.document.id])} />

@@ -26,10 +26,11 @@ import {
 import { ExpenseCategoryLabel, ExpenseCategorySelect } from "./expense-category-select";
 import { ExpenseCharts } from "./expense-charts";
 
-function ExpenseItems({ merchantId, period, category, onCategoryChange, page, setPage }: {
+function ExpenseItems({ merchantId, period, category, onCategoryChange, page, setPage, canCategorize }: {
   merchantId: string;
   period: ExpensePeriod;
   category: ExpenseCategoryFilter | null;
+  canCategorize: boolean;
   onCategoryChange: (category: ExpenseCategoryFilter | null) => void;
   page: number;
   setPage: (page: number) => void;
@@ -120,12 +121,12 @@ function ExpenseItems({ merchantId, period, category, onCategoryChange, page, se
                       <p className="max-w-40 truncate text-xs text-muted-foreground">{item.destination}</p>
                     </TableCell>
                     <TableCell className="w-59">
-                      <ExpenseCategorySelect
+                      {canCategorize ? <ExpenseCategorySelect
                         value={item.category}
                         label={"Categoria do saque para " + item.destination + " em " + formatDateTime(item.date, "date-only")}
                         disabled={update.isPending}
                         onChange={(next) => update.mutate({ reference: item.reference, next })}
-                      />
+                      /> : <ExpenseCategoryLabel category={item.category ?? "UNCATEGORIZED"} />}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right font-medium tabular-nums"><PanelAmount cents={item.amountInCents} /></TableCell>
                     <TableCell className="hidden whitespace-nowrap text-right text-muted-foreground tabular-nums lg:table-cell">
@@ -144,7 +145,7 @@ function ExpenseItems({ merchantId, period, category, onCategoryChange, page, se
   );
 }
 
-export function FinancialControlScreen({ merchantId }: { merchantId: string }) {
+export function FinancialControlScreen({ merchantId, canCategorize = true }: { merchantId: string; canCategorize?: boolean }) {
   const [period, setPeriod] = useState(defaultExpensePeriod);
   const [category, setCategory] = useState<ExpenseCategoryFilter | null>(null);
   const [page, setPage] = useState(1);
@@ -179,7 +180,8 @@ export function FinancialControlScreen({ merchantId }: { merchantId: string }) {
       </header>
       <ExpenseCharts merchantId={merchantId} period={period} selected={category}
         onSelect={(next) => changeCategory(category === next ? null : next)} />
-      <ExpenseItems merchantId={merchantId} period={period} category={category} onCategoryChange={changeCategory} page={page} setPage={setPage} />
+      <ExpenseItems merchantId={merchantId} period={period} category={category} onCategoryChange={changeCategory}
+        page={page} setPage={setPage} canCategorize={canCategorize} />
     </div>
   );
 }

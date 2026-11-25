@@ -17,6 +17,7 @@ import { transactionTabs, type TransactionTab } from "@/features/transactions/tr
 import { formatDateTime } from "@/lib/dates";
 import { loadDashboardOperation, loadDashboardTransaction } from "@/lib/server/dashboard";
 import { requireSession } from "@/lib/server/session";
+import { canActInSupport } from "@/lib/support-scope";
 
 export default async function PanelPage({
   params,
@@ -44,6 +45,7 @@ export default async function PanelPage({
   const merchant = user.role === "MERCHANT";
   const panelNavigation = merchantNavigation(!merchant);
   const hasAccess = merchant || Boolean(user.merchantId);
+  const canExport = canActInSupport(user.support, "export");
 
   if (tab === "RECEIPTS") {
     if (!merchant) redirect(transactionTabs.ALL.path);
@@ -52,7 +54,7 @@ export default async function PanelPage({
         <div className="grid min-w-0 gap-6">
           <PanelHeading title="Comprovantes" description="Consulte e compartilhe os comprovantes de recebimentos e saques Pix confirmados." />
           <StatementNavigation tab={tab} receipts />
-          <ReceiptsScreen key={user.id} merchantId={user.id} />
+          <ReceiptsScreen key={user.id} merchantId={user.id} share={canExport} />
         </div>
       </MerchantPanel>
     );
@@ -68,6 +70,7 @@ export default async function PanelPage({
             initialTab={tab}
             initialSearch={initialSearch}
             owner={merchant}
+            canExport={canExport}
           />
         ) : (
           <PanelHeading title="Movimentações Pix" description="A conta vinculada está indisponível para consulta." />
@@ -83,7 +86,7 @@ export default async function PanelPage({
       : transactionTabs.ALL.path;
     const result = await loadDashboardTransaction(reference);
     if (result.state === "ready") {
-      return <MerchantPanel user={user}><LiveTransactionDetail data={result.data} backTo={backTo} share={merchant} /></MerchantPanel>;
+      return <MerchantPanel user={user}><LiveTransactionDetail data={result.data} backTo={backTo} share={merchant && canExport} /></MerchantPanel>;
     }
 
     let sample: Awaited<ReturnType<typeof loadDashboardOperation>> | null = null;

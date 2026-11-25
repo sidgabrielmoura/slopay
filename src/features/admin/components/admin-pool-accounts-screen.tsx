@@ -29,6 +29,7 @@ import { AdminLiveBalancePositions } from "./admin-live-balance-positions";
 import { AdminBalancePositionsScreen } from "./admin-balance-positions-screen";
 import { AdminOperationalAccountsScreen } from "./admin-operational-accounts-screen";
 import { AdminApprovalRulesScreen } from "./admin-approval-rules-screen";
+import { useAdminAccess } from "./admin-access-provider";
 
 type Dialog = { type: "register" } | { type: "status"; account: PoolAccount } | { type: "policy"; owner: PoolOwner };
 type OpenDialog = (event: MouseEvent<HTMLButtonElement>, dialog: Dialog) => void;
@@ -115,6 +116,7 @@ export function AdminWalletsScreen({ user, development }: { user: AdminIdentity;
 function PoolAccountList({ adminId, page, setPage, show, development }: {
   adminId: string; page: number; setPage: (page: number) => void; show: OpenDialog; development: boolean;
 }) {
+  const { can } = useAdminAccess();
   const result = useQuery({
     queryKey: ["admin-pool-accounts", adminId, "accounts", page],
     queryFn: ({ signal }) => poolAccounts.list(page, signal),
@@ -123,6 +125,8 @@ function PoolAccountList({ adminId, page, setPage, show, development }: {
   });
   const data = result.data;
   const writable = development && data?.available === true && !result.isError && !result.isPlaceholderData;
+  const canRegister = writable && can("admin.wallets.register");
+  const canConfigure = can("admin.wallets.configure");
 
   function registration(event: MouseEvent<HTMLButtonElement>) {
     show(event, { type: "register" });
@@ -141,16 +145,16 @@ function PoolAccountList({ adminId, page, setPage, show, development }: {
                   : "Acompanhe as contas que integram o roteamento do Slopay."}
               </p>
             </div>
-            {writable && data.items.length > 0 && <Button type="button" className="h-11" onClick={registration}><Plus aria-hidden="true" />Cadastrar conta</Button>}
+            {canRegister && data.items.length > 0 && <Button type="button" className="h-11" onClick={registration}><Plus aria-hidden="true" />Cadastrar conta</Button>}
           </CardHeader>
           {result.isError && <p role="alert" className="px-5 pb-3 text-sm text-destructive">{result.error.message}</p>}
           {!data.available ? <PoolUnavailable /> : <>
             <div aria-busy={result.isPlaceholderData}>
-              {data.items.length > 0 ? <AccountRows items={data.items} writable={writable} show={show} /> : (
+              {data.items.length > 0 ? <AccountRows items={data.items} writable={writable} canConfigure={canConfigure} show={show} /> : (
                 <Empty title="Nenhuma conta bolsão cadastrada" description="Cadastre a primeira carteira do Slopay para habilitar o roteamento."
                   className="min-h-52 animate-none rounded-none border-0 border-t"
                   icon={<Wallet aria-hidden="true" />}
-                  action={writable && <Button type="button" className="h-11" onClick={registration}><Plus aria-hidden="true" />Cadastrar conta</Button>} />
+                  action={canRegister && <Button type="button" className="h-11" onClick={registration}><Plus aria-hidden="true" />Cadastrar conta</Button>} />
               )}
             </div>
             <TablePagination {...data.pagination} busy={result.isPlaceholderData} label="Paginação das contas bolsão" onPageChange={setPage} />
@@ -161,7 +165,9 @@ function PoolAccountList({ adminId, page, setPage, show, development }: {
   );
 }
 
-function AccountRows({ items, writable, show }: { items: PoolAccount[]; writable: boolean; show: OpenDialog }) {
+function AccountRows({ items, writable, canConfigure, show }: {
+  items: PoolAccount[]; writable: boolean; canConfigure: boolean; show: OpenDialog;
+}) {
   const rowAction = (entry: PoolAccount) => <Button type="button" variant="outline" className="h-11"
     disabled={!writable} aria-label={`${entry.active ? "Pausar" : "Reativar"} ${entry.name}`}
     onClick={(event) => show(event, { type: "status", account: entry })}>
@@ -182,7 +188,7 @@ function AccountRows({ items, writable, show }: { items: PoolAccount[]; writable
             <th scope="col" className="w-[33%] px-3 py-3">Caminho do webhook</th>
             <th scope="col" className="w-[14%] px-3 py-3">Verificada em</th>
             <th scope="col" className="w-[12%] px-3 py-3">Situação</th>
-            <th scope="col" className="px-5 py-3 text-right">Ações</th>
+            {canConfigure && <th scope="col" className="px-5 py-3 text-right">Ações</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -191,7 +197,7 @@ function AccountRows({ items, writable, show }: { items: PoolAccount[]; writable
             <td className="px-3 py-3"><code className="wrap-anywhere text-xs text-muted-foreground">{entry.webhookPath}</code></td>
             <td className="px-3 py-3 tabular-nums text-muted-foreground">{formatDateTime(entry.verifiedAt, "date-only")}</td>
             <td className="px-3 py-3">{status(entry)}</td>
-            <td className="px-5 py-3 text-right">{rowAction(entry)}</td>
+            {canConfigure && <td className="px-5 py-3 text-right">{rowAction(entry)}</td>}
           </tr>)}
         </tbody>
       </table>
@@ -201,7 +207,7 @@ function AccountRows({ items, writable, show }: { items: PoolAccount[]; writable
           <dl>
             <CompanyField label="Caminho do webhook"><code className="wrap-anywhere text-xs">{entry.webhookPath}</code></CompanyField>
           </dl>
-          <div className="justify-self-start">{rowAction(entry)}</div>
+          {canConfigure && <div className="justify-self-start">{rowAction(entry)}</div>}
         </li>)}
       </ul>
     </>
@@ -211,6 +217,7 @@ function AccountRows({ items, writable, show }: { items: PoolAccount[]; writable
 function PoolOwnerList({ adminId, filter, setFilter, show, development }: {
   adminId: string; filter: OwnerFilter; setFilter: (filter: OwnerFilter) => void; show: OpenDialog; development: boolean;
 }) {
+  const { can } = useAdminAccess();
   const searchId = useId();
   const [error, setError] = useState("");
   const [draft, setDraft] = useState({ previous: filter.search, value: filter.search });
@@ -264,7 +271,7 @@ function PoolOwnerList({ adminId, filter, setFilter, show, development }: {
           {result.isError && <p role="alert" className="px-5 pb-3 text-sm text-destructive">{result.error.message}</p>}
           {!data.available ? <PoolUnavailable /> : <>
             <div aria-busy={result.isPlaceholderData}>
-              {data.items.length > 0 ? <OwnerRows items={data.items} writable={writable} show={show} /> : <Empty
+              {data.items.length > 0 ? <OwnerRows items={data.items} writable={writable} canRoute={can("admin.wallets.route")} show={show} /> : <Empty
                 title={filter.search ? "Nenhum titular encontrado" : "Nenhum titular elegível"}
                 description={filter.search ? "Busque pelo nome ou pelo e-mail cadastrado." : "Titulares aprovados aparecem aqui."}
                 className="min-h-52 animate-none rounded-none border-0 border-t"
@@ -280,7 +287,9 @@ function PoolOwnerList({ adminId, filter, setFilter, show, development }: {
   );
 }
 
-function OwnerRows({ items, writable, show }: { items: PoolOwner[]; writable: boolean; show: OpenDialog }) {
+function OwnerRows({ items, writable, canRoute, show }: {
+  items: PoolOwner[]; writable: boolean; canRoute: boolean; show: OpenDialog;
+}) {
   const policy = (owner: PoolOwner): ReactNode => (
     <div className="grid min-w-0 gap-1">
       <Badge variant="secondary" className="w-fit">{poolModeLabels[owner.mode]}</Badge>
@@ -307,20 +316,20 @@ function OwnerRows({ items, writable, show }: { items: PoolOwner[]; writable: bo
           <tr>
             <th scope="col" className="w-[44%] px-5 py-3">Titular</th>
             <th scope="col" className="w-[34%] px-3 py-3">Regra</th>
-            <th scope="col" className="px-5 py-3 text-right">Ações</th>
+            {canRoute && <th scope="col" className="px-5 py-3 text-right">Ações</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {items.map((owner) => <tr key={owner.id} className="hover:bg-muted/30">
             <td className="px-5 py-3">{identity(owner)}</td>
             <td className="px-3 py-3">{policy(owner)}</td>
-            <td className="px-5 py-3 text-right">{action(owner)}</td>
+            {canRoute && <td className="px-5 py-3 text-right">{action(owner)}</td>}
           </tr>)}
         </tbody>
       </table>
       <ul aria-label="Regras de roteamento dos titulares" className="divide-y divide-border border-t border-border md:hidden">
         {items.map((owner) => <li key={owner.id} className="grid min-w-0 gap-3 p-4 sm:p-5">
-          {identity(owner)}{policy(owner)}<div className="justify-self-start">{action(owner)}</div>
+          {identity(owner)}{policy(owner)}{canRoute && <div className="justify-self-start">{action(owner)}</div>}
         </li>)}
       </ul>
     </>

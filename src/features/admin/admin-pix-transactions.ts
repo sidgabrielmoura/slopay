@@ -91,6 +91,10 @@ export function pixQueryString(query: PixTransactionsQuery, detail?: PixTransact
 export const adminPixTransactions = {
   list: (query: PixTransactionsQuery, signal?: AbortSignal) =>
     requestPixGateway(api + pixQueryString(query), pixTransactionsReport, pixTransactionsUnavailable, { signal }),
+  export: (query: PixTransactionsQuery) =>
+    requestPixGateway(api, pixTransactionsReport, pixTransactionsUnavailable, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(pixTransactionQuery.parse(query)),
+    }),
   detail: ({ kind, id }: PixTransactionId, signal: AbortSignal) =>
     requestPixGateway(`${api}/${kind}/${id}`, pixTransactionDetail, pixTransactionUnavailable, { signal }),
 };

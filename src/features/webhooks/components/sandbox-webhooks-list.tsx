@@ -19,7 +19,7 @@ import { SandboxWebhookActionDialog, type WebhookReview } from "./sandbox-webhoo
 import { SandboxWebhookBadge, SandboxWebhookFallback } from "./sandbox-webhook-state";
 import styles from "./webhooks-table.module.css";
 
-export function SandboxWebhooksList({ accountId }: { accountId: string }) {
+export function SandboxWebhooksList({ accountId, canManage = true }: { accountId: string; canManage?: boolean }) {
   const development = useDevelopmentFeatures();
   const list = useQuery({
     queryKey: sandboxWebhookKey(accountId),
@@ -48,7 +48,7 @@ export function SandboxWebhooksList({ accountId }: { accountId: string }) {
   return (
     <div className="grid min-w-0 gap-5">
       <IntegrationHeading title="Webhooks" description="Gerencie os destinos que recebem os eventos Pix do Slopay."
-        action={list.data?.connected && <Button asChild className="h-11 w-full sm:w-auto">
+        action={canManage && list.data?.connected && <Button asChild className="h-11 w-full sm:w-auto">
           <Link href={newWebhookPath}><Plus aria-hidden="true" data-icon="inline-start" /> Novo webhook</Link>
         </Button>} />
 
@@ -100,15 +100,17 @@ export function SandboxWebhooksList({ accountId }: { accountId: string }) {
                           <DropdownMenuContent align="end" onCloseAutoFocus={(event) => {
                             if (openingConfirmation.current) event.preventDefault();
                           }}>
-                            <DropdownMenuItem asChild><Link href={`${webhooksPath}/${webhook.id}`}>{webhook.verifiedAt ? "Editar destino" : "Verificar destino"}</Link></DropdownMenuItem>
+                            <DropdownMenuItem asChild><Link href={`${webhooksPath}/${webhook.id}`}>{!canManage ? "Ver destino" : webhook.verifiedAt ? "Editar destino" : "Verificar destino"}</Link></DropdownMenuItem>
                             <DropdownMenuItem asChild><Link href={`${webhookLogsPath}&destino=${webhook.id}`}>Ver entregas</Link></DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => void copyUrl(webhook.endpointUrl)}>Copiar URL</DropdownMenuItem>
-                            {webhook.verifiedAt && <DropdownMenuItem onSelect={() => action(webhook, webhook.enabled ? "pause" : "enable")}>
+                            {canManage && webhook.verifiedAt && <DropdownMenuItem onSelect={() => action(webhook, webhook.enabled ? "pause" : "enable")}>
                               {webhook.enabled ? "Pausar" : "Habilitar"}
                             </DropdownMenuItem>}
-                            {webhook.interruptedAt && <DropdownMenuItem onSelect={() => action(webhook, "resume")}>Reativar fila</DropdownMenuItem>}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive" onSelect={() => action(webhook, "delete")}>Excluir webhook</DropdownMenuItem>
+                            {canManage && webhook.interruptedAt && <DropdownMenuItem onSelect={() => action(webhook, "resume")}>Reativar fila</DropdownMenuItem>}
+                            {canManage && <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive" onSelect={() => action(webhook, "delete")}>Excluir webhook</DropdownMenuItem>
+                            </>}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -121,7 +123,7 @@ export function SandboxWebhooksList({ accountId }: { accountId: string }) {
         </Card>
       )}
 
-      {review && <SandboxWebhookActionDialog accountId={accountId} review={review}
+      {canManage && review && <SandboxWebhookActionDialog accountId={accountId} review={review}
         onClose={() => { openingConfirmation.current = false; setReview(null); }}
         restoreFocus={() => (menu.current?.isConnected ? menu.current : heading.current)?.focus()} />}
     </div>

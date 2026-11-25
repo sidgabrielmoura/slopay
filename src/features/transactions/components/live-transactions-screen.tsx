@@ -5,11 +5,12 @@ import { fetchLiveTransactions } from "../live-transactions";
 import type { TransactionTab } from "../transaction-presentation";
 import { StatementScreen } from "./statement-screen";
 
-export function LiveTransactionsScreen({ initialTab, initialSearch, merchantId, owner = true }: {
+export function LiveTransactionsScreen({ initialTab, initialSearch, merchantId, owner = true, canExport = true }: {
   initialTab: TransactionTab;
   initialSearch?: string;
   merchantId: string;
   owner?: boolean;
+  canExport?: boolean;
 }) {
   return (
     <StatementScreen
@@ -18,6 +19,7 @@ export function LiveTransactionsScreen({ initialTab, initialSearch, merchantId, 
       initialSearch={initialSearch}
       merchantId={merchantId}
       owner={owner}
+      canExport={canExport}
       afterTable={owner && initialTab === "OUT" ? <ExpenseCharts merchantId={merchantId} preview /> : undefined}
       fetchPage={async (filters, signal) => {
         const result = await fetchLiveTransactions(filters, signal);

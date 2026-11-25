@@ -13,3 +13,10 @@ export function GET(request: NextRequest) {
     searchParams: new URLSearchParams(pixQueryString(query.data)),
   });
 }
+
+export function POST(request: NextRequest) {
+  return forwardIntegrationRequest(request, {
+    path: "/admin/pix-transactions/export", input: pixTransactionQuery, output: pixTransactionsReport,
+    unavailable: "Não foi possível exportar as transações.",
+  });
+}

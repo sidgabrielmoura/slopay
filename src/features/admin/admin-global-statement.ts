@@ -42,6 +42,12 @@ export function globalStatementParams(query: GlobalStatementQuery) {
   return params;
 }
 
+export function exportGlobalStatement(query: GlobalStatementQuery) {
+  return requestPixGateway(api, globalStatementReport, globalStatementUnavailable, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(globalStatementQuery.parse(query)),
+  });
+}
+
 export function fetchGlobalStatement(query: GlobalStatementQuery, signal?: AbortSignal) {
   const params = globalStatementParams(query);
   return requestPixGateway(api + (params.size ? "?" + params : ""), globalStatementReport, globalStatementUnavailable, { signal });

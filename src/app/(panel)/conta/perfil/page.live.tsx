@@ -6,6 +6,8 @@ import { ProfileLayout } from "@/features/account/components/profile-layout";
 import { profilePath } from "@/features/account/profile";
 import { loadProfileDetails } from "@/lib/server/profile";
 import { requireSession } from "@/lib/server/session";
+import { canActInSupport } from "@/lib/support-scope";
+import { formatBrazilianInput } from "@/lib/validators";
 
 export const metadata: Metadata = { title: "Perfil" };
 
@@ -34,7 +36,9 @@ export default async function ProfilePage() {
         securityStatus={user.isTwoFactorEnabled ? "Autenticação em dois fatores ativa" : undefined}
         document={document}
         contact={profile
-          ? <LiveProfileContact key={user.id} userId={user.id} phone={profile.phone} />
+          ? canActInSupport(user.support, "profile")
+            ? <LiveProfileContact key={user.id} userId={user.id} phone={profile.phone} />
+            : <p>{formatBrazilianInput("PHONE", profile.phone ?? "") || "Não informado"}</p>
           : <ReloadProfileContact />}
       />
     </MerchantPanel>

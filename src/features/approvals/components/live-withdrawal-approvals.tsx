@@ -33,7 +33,7 @@ const status: Record<WithdrawalApproval["state"], [string, BadgeProps["variant"]
   CANCELLED: ["Cancelado", "secondary"], REVIEW: ["Em revisão", "warning"],
 };
 
-export function LiveWithdrawalApprovals({ accountId, rule }: { accountId: string; rule: ReactNode }) {
+export function LiveWithdrawalApprovals({ accountId, rule, canDecide = true }: { accountId: string; rule: ReactNode; canDecide?: boolean }) {
   const development = useDevelopmentFeatures();
   const client = useQueryClient();
   const router = useRouter();
@@ -109,7 +109,7 @@ export function LiveWithdrawalApprovals({ accountId, rule }: { accountId: string
                       <div className="flex flex-wrap items-center gap-3 text-sm tabular-nums sm:justify-end">
                         <strong><PanelAmount cents={item.amountInCents} /></strong><Badge variant={variant}>{label}</Badge>
                       </div>
-                      {group === "pending" ? <Button type="button" variant="outline" className="justify-self-start"
+                      {group === "pending" ? canDecide && <Button type="button" variant="outline" className="justify-self-start"
                         onClick={(event) => { origin.current = event.currentTarget; setSelected(item.id); }}>Revisar</Button>
                         : item.authorizedAt && <Button asChild variant="ghost" className="justify-self-start">
                           <Link href={`/movimentacoes/saque-${item.id}`} prefetch={false}>Ver movimentação</Link>
@@ -126,7 +126,7 @@ export function LiveWithdrawalApprovals({ accountId, rule }: { accountId: string
           </TabsContent>
         </Tabs>
       </Card>
-      {selection && <WithdrawalReview key={selection} accountId={accountId} development={development} id={selection} onClose={closeReview}
+      {canDecide && selection && <WithdrawalReview key={selection} accountId={accountId} development={development} id={selection} onClose={closeReview}
         onDecided={() => { setCursors([]); void client.invalidateQueries({ queryKey: key }); }} />}
     </div>
   );

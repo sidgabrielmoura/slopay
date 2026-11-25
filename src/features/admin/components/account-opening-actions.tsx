@@ -16,6 +16,7 @@ import {
 const reviewCopy = {
   START_REVIEW: { title: "Assumir análise", description: "Seu nome ficará registrado como responsável pelo cadastro.", submit: "Assumir análise", complete: "Análise atribuída" },
   REQUEST_CHANGES: { title: "Solicitar ajustes", description: "A orientação ficará disponível para o titular no painel.", submit: "Solicitar ajustes", complete: "Ajustes solicitados" },
+  FOR_DECISION: { title: "Encaminhar para decisão", description: "A análise ficará pronta para a decisão de um administrador autorizado.", submit: "Encaminhar análise", complete: "Análise encaminhada" },
   REJECT: { title: "Recusar cadastro", description: "O motivo ficará disponível para o titular. A equipe poderá reabrir a análise.", submit: "Confirmar recusa", complete: "Recusa registrada" },
   REOPEN: { title: "Reabrir análise", description: "O cadastro voltará à fila. Você poderá assumir a análise na próxima etapa.", submit: "Reabrir análise", complete: "Análise reaberta" },
 };
@@ -32,9 +33,10 @@ export function OpeningReviewDialog({ application, action, onClose, restoreFocus
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<"success" | "failure" | null>(null);
   const [error, setError] = useState("");
+  const [confirmation, setConfirmation] = useState<OpeningReview>();
   const locked = useRef(false);
   const version = useRef(application.version);
-  const needsReason = action !== "START_REVIEW";
+  const needsReason = action !== "START_REVIEW" && action !== "FOR_DECISION";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,6 +45,10 @@ export function OpeningReviewDialog({ application, action, onClose, restoreFocus
     const input = openingReviewSchema.safeParse({ action, version: version.current, reason: needsReason ? data.get("reason") : undefined });
     if (!input.success) {
       toast.error("Informe o motivo da decisão em até 600 caracteres.");
+      return;
+    }
+    if (action === "REJECT" || action === "REOPEN") {
+      setConfirmation(input.data);
       return;
     }
     locked.current = true;
@@ -64,9 +70,13 @@ export function OpeningReviewDialog({ application, action, onClose, restoreFocus
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next && !busy) setOpen(false); }}>
+    <>
+    <Dialog open={open && !confirmation} onOpenChange={(next) => { if (!next && !busy) setOpen(false); }}>
       <DialogContent className={compactDialog} onInteractOutside={(event) => { if (busy) event.preventDefault(); }}
-        onCloseAutoFocus={(event) => { event.preventDefault(); onClose(); restoreFocus(); }}>
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (!confirmation) { onClose(); restoreFocus(); }
+        }}>
         <DialogHeader className="text-left">
           <DialogTitle className="text-balance">{outcome === "success" ? copy.complete : copy.title}</DialogTitle>
           <DialogDescription className="text-pretty">{outcome === "success" ? application.ownerName : copy.description}</DialogDescription>
@@ -94,6 +104,19 @@ export function OpeningReviewDialog({ application, action, onClose, restoreFocus
         )}
       </DialogContent>
     </Dialog>
+    {confirmation && (
+      <IntegrationConfirmationDialog scope={`opening-decision:${application.id}:${action}:${confirmation.version}`}
+        title={copy.title} description={copy.description} completed={copy.complete}
+        options={() => accountOpenings.reviewOptions(application.id, confirmation)}
+        apply={proof => accountOpenings.review(application.id, { ...confirmation, proof })}
+        onSuccess={onChange} onClose={onClose} restoreFocus={restoreFocus}>
+        <div className="grid gap-2 rounded-lg border border-border p-4 text-sm">
+          <strong className="break-words">{application.ownerName}</strong>
+          <p className="whitespace-pre-wrap break-words text-muted-foreground">{confirmation.reason}</p>
+        </div>
+      </IntegrationConfirmationDialog>
+    )}
+    </>
   );
 }
 

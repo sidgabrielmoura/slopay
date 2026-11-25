@@ -31,6 +31,7 @@ import {
 import { retryAdminRead } from "../admin-query";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 import { AdminPixPricingCard } from "./admin-pix-pricing-card";
+import { useAdminAccess } from "./admin-access-provider";
 
 const defaultQuery = adminPixFeesQuery.parse({});
 const count = new Intl.NumberFormat("pt-BR");
@@ -227,6 +228,7 @@ function FeeRows({ items, query }: { items: PixFeeWallet[]; query: PixFeesQuery 
 }
 
 export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
+  const { can } = useAdminAccess();
   const development = useDevelopmentFeatures();
   const query = pixFeesQueryFrom(useSearchParams());
   const filters = pixFeesParams({ ...query, page: 1 });
@@ -259,7 +261,7 @@ export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
           <Link href={pixTransactionsPath + "?view=statement&type=FEE_DEBIT"} prefetch={false}>Extrato de tarifas <ArrowUpRight aria-hidden="true" /></Link>
         </Button>
       </header>
-      <AdminPixPricingCard adminId={user.id} />
+      {can("admin.pricing.global") && <AdminPixPricingCard adminId={user.id} />}
       {(result.isLoading || data) && <AppliedLimits limits={data?.limits} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="pix-fees-wallets">

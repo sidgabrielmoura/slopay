@@ -5,6 +5,7 @@ import { LiveOverviewScreen } from "@/features/overview/components/live-overview
 import { onboardingDestination } from "@/lib/auth-navigation";
 import { loadDashboardOverview } from "@/lib/server/dashboard";
 import { requireSession } from "@/lib/server/session";
+import { canActInSupport } from "@/lib/support-scope";
 
 export const metadata: Metadata = {
   title: "Início",
@@ -32,7 +33,8 @@ export default async function InicioPage() {
           </section>
         </>
       ) : hasAccess ? (
-        <LiveOverviewScreen data={data} merchantId={user.id} owner={merchant} canReceive={user.role !== "AUDITOR"} />
+        <LiveOverviewScreen data={data} merchantId={user.id} owner={merchant} canReceive={user.role !== "AUDITOR"}
+          canOperate={canActInSupport(user.support, "payments")} />
       ) : (
         <PanelHeading title="Visão geral" description="A conta vinculada está indisponível para operações." />
       )}

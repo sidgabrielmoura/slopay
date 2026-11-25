@@ -128,11 +128,12 @@ function exportPage(data: StatementPage) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function StatementScreen({ initialTab, initialSearch = "", merchantId, fetchPage, afterTable, owner = true, available = true }: {
+export function StatementScreen({ initialTab, initialSearch = "", merchantId, fetchPage, afterTable, owner = true, available = true, canExport = true }: {
   initialTab: TransactionTab;
   initialSearch?: string;
   merchantId?: string;
   owner?: boolean;
+  canExport?: boolean;
   available?: boolean;
   fetchPage: (filters: StatementFilters, signal: AbortSignal) => Promise<StatementPage>;
   afterTable?: ReactNode;
@@ -211,7 +212,7 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
             <RotateCcw className="size-3.5" aria-hidden="true" />
             Atualizar
           </Button>
-          {live ? owner && <StatementExportDialog direction={direction} status={filters.status} search={search} disabled={!available || searching || isError} /> : <Button
+          {live ? owner && canExport && <StatementExportDialog direction={direction} status={filters.status} search={search} disabled={!available || searching || isError} /> : <Button
             type="button"
             variant="outline"
             size="sm"

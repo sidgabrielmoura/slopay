@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 import { LoadingIndicator, OperationFailure } from "@/components/ui/loading-indicator";
 import { IntegrationConfirmationDialog } from "@/features/integrations/components/integration-confirmation-dialog";
 import { ApiError } from "@/lib/api-client";
-import { adminClientUsers, clientUserDeletionSchema, type ClientUserDeletion, type ClientUserDeletionOptions } from "../admin-client-users";
+import { adminAccountTermination, clientUserDeletionSchema, type ClientUserDeletion, type ClientUserDeletionOptions } from "../admin-client-users";
 import { AdminReasonField } from "./company-change-dialog";
 import { CompanyField } from "./company-display";
 
-type Target = { id: string; name: string; email: string; version: number; operation: "delete" | "close" };
+type Target = { id: string; name: string; email: string; version: number; operation: "delete" | "close"; company?: boolean };
 type PreparedDeletion = { input: ClientUserDeletion; authorization: ClientUserDeletionOptions };
 
 function ConfirmClientDeletion({ target, review, onClose, onDeleted, onChanged }: {
@@ -23,8 +23,7 @@ function ConfirmClientDeletion({ target, review, onClose, onDeleted, onChanged }
   const readInitialOptions = useRef(false);
   const [failure, setFailure] = useState("");
   const closing = target.operation === "close";
-  const prepareOptions = closing ? adminClientUsers.closeOptions : adminClientUsers.deleteOptions;
-  const apply = closing ? adminClientUsers.close : adminClientUsers.remove;
+  const { apply, options: prepareOptions } = adminAccountTermination(Boolean(target.company), target.operation);
 
   return (
     <IntegrationConfirmationDialog
@@ -32,7 +31,7 @@ function ConfirmClientDeletion({ target, review, onClose, onDeleted, onChanged }
       title={closing ? "Confirmar encerramento" : "Confirmar exclusão"}
       description={closing ? "Confirme sua identidade para encerrar o acesso no Slopay."
         : "A exclusão é definitiva. Confirme sua identidade para excluir esta conta do Slopay."}
-      completed={closing ? "Acesso encerrado" : "Conta excluída"}
+      completed={target.company ? (closing ? "Empresa encerrada" : "Empresa excluída") : closing ? "Acesso encerrado" : "Conta excluída"}
       options={async () => {
         if (readInitialOptions.current) current.current = await prepareOptions(target.id, review.input);
         readInitialOptions.current = true;
@@ -83,7 +82,7 @@ export function AdminClientUserDeleteDialog({ target, onClose, onDeleted, onChan
     setBusy(true);
     setFailure("");
     try {
-      const authorization = await (closing ? adminClientUsers.closeOptions : adminClientUsers.deleteOptions)(target.id, parsed.data);
+      const authorization = await adminAccountTermination(Boolean(target.company), target.operation).options(target.id, parsed.data);
       prepared.current = { input: parsed.data, authorization };
       setOpen(false);
     } catch (error) {
@@ -111,13 +110,17 @@ export function AdminClientUserDeleteDialog({ target, onClose, onDeleted, onChan
           } else onClose();
         }}>
         <AlertDialogHeader className="text-left">
-          <AlertDialogTitle className="text-balance">{closing ? "Encerrar acesso" : "Excluir conta"}</AlertDialogTitle>
+          <AlertDialogTitle className="text-balance">
+            {target.company ? (closing ? "Encerrar empresa" : "Excluir empresa") : closing ? "Encerrar acesso" : "Excluir conta"}
+          </AlertDialogTitle>
           <AlertDialogDescription className="text-pretty">
             <strong className="block wrap-anywhere text-foreground">{target.name}</strong>
             <span className="block wrap-anywhere">{target.email}</span>
             <span className="mt-2 block">{closing
               ? "O Slopay revoga as sessões do titular e da equipe e bloqueia novas operações. A carteira e as transações ficam registradas para conciliação."
-              : "O cadastro e os dados de acesso serão excluídos. O titular poderá se cadastrar novamente."}</span>
+              : target.company
+                ? "O registro da empresa será removido e o acesso vinculado será encerrado."
+                : "O cadastro e os dados de acesso serão excluídos. O titular poderá se cadastrar novamente."}</span>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <form className="grid min-w-0 gap-4" onSubmit={prepare} aria-busy={busy}>

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AdminAccessProvider } from "@/features/admin/components/admin-access-provider";
 import { AdminActivityProvider } from "@/features/admin/components/admin-activity-provider";
 import { AdminPanel } from "@/features/admin/components/layout/admin-panel";
 import { loadPanelUser } from "@/lib/server/session";
@@ -8,10 +9,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   if (user?.role !== "ADMIN") return children;
 
   return (
-    <AdminActivityProvider accountId={user.id}>
-      <AdminPanel user={{ id: user.id, fullName: user.fullName, email: user.email }}>
-        {children}
-      </AdminPanel>
-    </AdminActivityProvider>
+    <AdminAccessProvider access={user.adminAccess}>
+      <AdminActivityProvider accountId={user.id}>
+        <AdminPanel user={{ id: user.id, fullName: user.fullName, email: user.email }}>
+          {children}
+        </AdminPanel>
+      </AdminActivityProvider>
+    </AdminAccessProvider>
   );
 }

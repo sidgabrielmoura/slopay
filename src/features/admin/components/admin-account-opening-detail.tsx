@@ -32,6 +32,7 @@ type Application = OpeningDetail["application"];
 type Action = OpeningReview["action"] | "APPROVE";
 import { openingDocumentsComplete } from "@/features/account-validation/opening-documents";
 import { OpeningDocumentReview } from "./opening-document-review";
+import { useAdminAccess } from "./admin-access-provider";
 
 const actionStates: OpeningStatus[] = ["READY", "UNDER_REVIEW", "RESUBMITTED"];
 const nextStep: Record<OpeningStatus, string> = {
@@ -50,6 +51,7 @@ const nextStep: Record<OpeningStatus, string> = {
 };
 
 export function AdminAccountOpeningDetail({ user, ownerId }: { user: AdminIdentity; ownerId: string }) {
+  const { can } = useAdminAccess();
   const development = useDevelopmentFeatures();
   const listHref = openingsPath + openingParams(openingQueryFrom(useSearchParams()));
   const [page, setPage] = useState(1);
@@ -138,7 +140,9 @@ export function AdminAccountOpeningDetail({ user, ownerId }: { user: AdminIdenti
             {application.identityDocumentsRequired && application.submittedAt && (
               <OpeningDocumentReview key={application.id + application.version} ownerId={application.id}
                 version={application.version} documents={application.documents ?? []}
-                canReview={analysisAssignedToAdmin} onChange={update} />
+                canReview={can("admin.openings.review") && analysisAssignedToAdmin && !application.decisionReady}
+                canViewForDecision={can("admin.openings.decide") && application.decisionReady}
+                onChange={update} />
             )}
             <div className="grid min-w-0 items-start gap-5 xl:grid-cols-2">
               <div className="grid min-w-0 gap-5">
@@ -233,12 +237,17 @@ function ApplicationSubmission({ data, submittedAt }: {
 function ApplicationActions({ application, analysisAssignedToAdmin, open }: {
   application: Application; analysisAssignedToAdmin: boolean; open: (action: Action, target: HTMLElement) => void;
 }) {
+  const { can } = useAdminAccess();
+  const canReview = can("admin.openings.review");
+  const canDecide = can("admin.openings.decide");
+  const verified = !application.identityDocumentsRequired ||
+    openingDocumentsComplete(application.documents ?? [], true) || application.decisionReady;
   if (application.status === "REJECTED") {
-    return <Button type="button" className="h-11 w-fit" onClick={(event) => open("REOPEN", event.currentTarget)}>Reabrir análise</Button>;
+    return canDecide && <Button type="button" className="h-11 w-fit" onClick={(event) => open("REOPEN", event.currentTarget)}>Reabrir análise</Button>;
   }
   if (application.status === "CHANGES_REQUESTED") {
     return (
-      <Button type="button" variant="outline" className="h-11 w-fit text-destructive"
+      canDecide && <Button type="button" variant="outline" className="h-11 w-fit text-destructive"
         onClick={(event) => open("REJECT", event.currentTarget)}>Recusar cadastro</Button>
     );
   }
@@ -246,21 +255,26 @@ function ApplicationActions({ application, analysisAssignedToAdmin, open }: {
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap gap-2">
-        {!analysisAssignedToAdmin && (
+        {canReview && !analysisAssignedToAdmin && !application.decisionReady && (
           <Button type="button" className="h-11" onClick={(event) => open("START_REVIEW", event.currentTarget)}>
             Assumir análise
           </Button>
         )}
-        {analysisAssignedToAdmin && application.submittedAt && (
+        {canDecide && (analysisAssignedToAdmin || application.decisionReady) && application.submittedAt && (
           <Button type="button" className="h-11"
-            disabled={application.identityDocumentsRequired && !openingDocumentsComplete(application.documents ?? [], true)}
+            disabled={!verified}
             onClick={(event) => open("APPROVE", event.currentTarget)}>
             Aprovar cadastro
           </Button>
         )}
-        <Button type="button" variant="outline" className="h-11" onClick={(event) => open("REQUEST_CHANGES", event.currentTarget)}>Solicitar ajustes</Button>
-        <Button type="button" variant="ghost" className="h-11 text-destructive" onClick={(event) => open("REJECT", event.currentTarget)}>Recusar cadastro</Button>
+        {canReview && analysisAssignedToAdmin && !application.decisionReady && <>
+          <Button type="button" variant="outline" className="h-11" onClick={(event) => open("REQUEST_CHANGES", event.currentTarget)}>Solicitar ajustes</Button>
+          <Button type="button" variant="outline" className="h-11" disabled={!verified || !application.submittedAt}
+            onClick={(event) => open("FOR_DECISION", event.currentTarget)}>Encaminhar para decisão</Button>
+        </>}
+        {canDecide && <Button type="button" variant="ghost" className="h-11 text-destructive" onClick={(event) => open("REJECT", event.currentTarget)}>Recusar cadastro</Button>}
       </div>
+      {application.decisionReady && <p className="text-sm text-muted-foreground">Aguardando a decisão de um administrador autorizado.</p>}
     </div>
   );
 }

@@ -6,14 +6,16 @@ import {
   UserCog, Users2, WalletCards, Webhook,
 } from "lucide-react";
 import { PanelSidebar, type PanelSidebarGroup } from "@/components/layout/panel-sidebar";
+import { adminPageAllowed, type AdminSessionAccess } from "../../admin-access";
+import { useAdminAccess } from "../admin-access-provider";
 
 type AdminNavigationOptions = {
   pendingSummary?: { pendingApplicationsCount?: number; pendingFinancialApprovalsCount?: number; totalUrgentTasks?: number };
   live?: boolean;
 };
 
-export function adminNavigationGroups({ pendingSummary }: AdminNavigationOptions): PanelSidebarGroup[] {
-  return [
+export function adminNavigationGroups({ pendingSummary }: AdminNavigationOptions, access?: AdminSessionAccess): PanelSidebarGroup[] {
+  const groups: PanelSidebarGroup[] = [
     {
       label: "Visão geral",
       items: [
@@ -75,6 +77,8 @@ export function adminNavigationGroups({ pendingSummary }: AdminNavigationOptions
       ],
     },
   ];
+  return access ? groups.map(group => ({ ...group, items: group.items.filter(item => adminPageAllowed(access, item.path)) }))
+    .filter(group => group.items.length > 0) : groups;
 }
 
 export function adminNavigationFooter(live: boolean) {
@@ -84,8 +88,9 @@ export function adminNavigationFooter(live: boolean) {
 }
 
 export function AdminSidebar({ pendingSummary, live = false }: AdminNavigationOptions) {
+  const { access } = useAdminAccess();
   return <PanelSidebar
-    groups={adminNavigationGroups({ pendingSummary })}
+    groups={adminNavigationGroups({ pendingSummary }, live ? access ?? { level: "VIEWER", permissions: ["admin.dashboard.read"] } : undefined)}
     homePath="/admin"
     homeLabel="Início do superadmin"
     subtitle="Superadmin"

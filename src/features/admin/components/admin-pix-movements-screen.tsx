@@ -34,6 +34,8 @@ import { AdminChargeBadge } from "./admin-pix-charge-detail";
 import type { AdminIdentity } from "./layout/admin-panel";
 import { PixTransactionDialog, PixTransactionStatus } from "./pix-transaction-detail";
 import { PixTransactionExport } from "./pix-transaction-export";
+import { useAdminAccess } from "./admin-access-provider";
+import { exportGlobalStatement } from "../admin-global-statement";
 
 const views = {
   all: { label: "Todas", period: "Data da movimentação", firstColumn: "Operação", dateColumn: "Movimentação" },
@@ -312,7 +314,7 @@ function ScopeFilter({ label, id, onFilter, secondary = false }: {
 }
 
 async function exportStatement(query: GlobalStatementQuery) {
-  const { pagination, items } = await fetchGlobalStatement(query);
+  const { pagination, items } = await exportGlobalStatement(query);
   if (pagination.page !== query.page || !items.length) throw new Error("A página mudou. Confira os resultados antes de exportar.");
   const columns = ["ID da transação", "Lançamento", "Operação Pix", "Empresa", "Carteira (final)", "Data e hora (Brasília)", "Origem da data", "Valor (BRL)"];
   downloadAdminCsv("extrato-global-pagina-" + query.page + ".csv", columns, items.map(item => [
@@ -323,6 +325,7 @@ async function exportStatement(query: GlobalStatementQuery) {
 }
 
 export function AdminPixMovementsScreen({ user }: { user: AdminIdentity }) {
+  const { can } = useAdminAccess();
   const params = useSearchParams();
   const query = pixMovementQueryFrom(params);
   const selection = pixMovementSelection(params);
@@ -387,8 +390,8 @@ export function AdminPixMovementsScreen({ user }: { user: AdminIdentity }) {
                 <h2 id="pix-movement-list" className="text-balance text-lg font-semibold">{query.view === "all" ? "Operações" : view.label}</h2>
                 <p className="text-pretty text-sm text-muted-foreground">{view.period} no horário de Brasília.{query.view === "statement" && " Tarifas aparecem em linhas próprias."}</p>
               </div>
-              {displayed.view === "all" && <PixTransactionExport query={displayed} disabled={exportDisabled} onRefresh={() => void result.refetch()} />}
-              {displayed.view === "statement" && <AdminCsvExport page={displayed.page} disabled={exportDisabled}
+              {can("admin.movements.export") && displayed.view === "all" && <PixTransactionExport query={displayed} disabled={exportDisabled} onRefresh={() => void result.refetch()} />}
+              {can("admin.movements.export") && displayed.view === "statement" && <AdminCsvExport page={displayed.page} disabled={exportDisabled}
                 description="O CSV inclui os lançamentos desta página com os filtros atuais."
                 onExport={() => exportStatement(displayed)} onRefresh={() => void result.refetch()} />}
             </div>

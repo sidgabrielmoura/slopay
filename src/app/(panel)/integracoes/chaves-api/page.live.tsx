@@ -7,19 +7,22 @@ import { LiveIntegrationPage } from "@/features/integrations/components/live-int
 import { SandboxIntegrationKeysScreen } from "@/features/integrations/components/sandbox-integration-keys-screen";
 import { apiKeysPath } from "@/features/integrations/navigation";
 import { loadIntegrationKeys } from "@/lib/server/sandbox-integration-keys";
+import { canActInSupport } from "@/lib/support-scope";
 
 export const metadata = { title: "Chaves de API" };
 
 export default function ApiKeysPage() {
-  return <LiveIntegrationPage path={apiKeysPath}><LiveKeys /></LiveIntegrationPage>;
+  return <LiveIntegrationPage path={apiKeysPath}>
+    {user => <LiveKeys canManage={canActInSupport(user.support, "integrations")} />}
+  </LiveIntegrationPage>;
 }
 
-async function LiveKeys() {
+async function LiveKeys({ canManage }: { canManage: boolean }) {
   const development = developmentFeaturesEnabled();
   const result = await loadIntegrationKeys(development ? "sandbox" : "live");
   if (result.state === "ready") {
     return <SandboxIntegrationKeysScreen key={result.company.id} companyName={result.company.legalName}
-      initialKeys={result.keys} development={development} />;
+      initialKeys={result.keys} development={development} canManage={canManage} />;
   }
   return (
     <div className="grid gap-5">

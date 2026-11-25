@@ -6,6 +6,7 @@ import { cookies, headers as requestHeaders } from "next/headers";
 import { after } from "next/server";
 import { z } from "zod";
 import { sentryDsn } from "@/config/sentry";
+import { adminSessionAccessSchema } from "@/features/admin/admin-access";
 import { backendFailureMessage } from "@/lib/sentry-options";
 import { isSupportBackendPath, supportApiRequestHeader, supportContextChanged, supportPanelSessionSchema, supportScopeCookie, supportScopeHeader } from "@/lib/support-scope";
 
@@ -46,11 +47,13 @@ export function appOrigin(requestUrl: string, requestHost?: string | null): stri
   throw new Error("SLOPAY_APP_ORIGIN ausente.");
 }
 
+
 export const sessionUserSchema = z.object({
   id: z.string(),
   fullName: z.string().optional(),
   email: z.string(),
   role: z.enum(["ADMIN", "MERCHANT", "OPERATOR", "AUDITOR"]),
+  adminAccess: adminSessionAccessSchema.optional(),
   status: z.enum(["ACTIVE", "PENDING_VERIFICATION", "SUSPENDED", "LOCKED"]),
   isEmailVerified: z.boolean(),
   onboardingRequired: z.boolean().optional(),

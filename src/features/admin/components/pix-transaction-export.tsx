@@ -5,7 +5,7 @@ import { adminPixTransactions, pixKindLabels, pixStatusLabels, type PixTransacti
 import { AdminCsvExport, downloadAdminCsv } from "./admin-csv-export";
 
 async function exportPage(query: PixTransactionsQuery) {
-  const { pagination, items } = await adminPixTransactions.list(query);
+  const { pagination, items } = await adminPixTransactions.export(query);
   if (pagination.page !== query.page || !items.length) {
     throw new Error("A página mudou. Confira os resultados antes de exportar.");
   }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useAdminAccess } from "./admin-access-provider";
+
 import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -300,6 +302,8 @@ function accessDenied(error: Error | null) {
 }
 
 export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
+  const { can } = useAdminAccess();
+  const canExport = can("admin.reports.export");
   const development = useDevelopmentFeatures();
   const { historyPage, ...query } = reportQueryFrom(useSearchParams());
   const historyKey = ["admin-report-history", user.id] as const;
@@ -318,7 +322,7 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
     queryKey: [...historyKey, historyPage],
     queryFn: ({ signal }) => adminReports.history(historyPage, signal),
     placeholderData: (previous, request) => request?.queryKey[1] === user.id ? previous : undefined,
-    staleTime: 15_000, retry: retryAdminRead,
+    enabled: canExport, staleTime: 15_000, retry: retryAdminRead,
   });
   const denied = accessDenied(preview.error) || accessDenied(history.error);
   const data = denied ? undefined : preview.data;
@@ -341,13 +345,13 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
       <Card className="min-w-0" aria-labelledby="report-preview">
         <header className="flex flex-wrap items-center justify-between gap-3 p-4 sm:px-5">
           <h2 id="report-preview" className="text-balance text-lg font-semibold">Prévia do relatório</h2>
-          <Button type="button" className="h-11" disabled={!data?.items.length || preview.isError || preview.isPlaceholderData} onClick={(event) => {
+          {canExport && <Button type="button" className="h-11" disabled={!data?.items.length || preview.isError || preview.isPlaceholderData} onClick={(event) => {
             if (!data) return;
             const { kind, period, search } = query;
             const { fromDate, throughDate } = data;
             origin.current = event.currentTarget;
             setAction({ type: "issue", report: { requestId: crypto.randomUUID(), kind, period, search, fromDate, throughDate } });
-          }}><FileText aria-hidden="true" /> Emitir CSV</Button>
+          }}><FileText aria-hidden="true" /> Emitir CSV</Button>}
         </header>
         <ReportFilters query={query} onChange={navigate} />
         {preview.isLoading && <p role="status" className="sr-only">Carregando prévia do relatório</p>}
@@ -357,7 +361,7 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
         </SkeletonReveal>
       </Card>
 
-      <Card className="min-w-0" aria-labelledby="report-history">
+      {canExport && <Card className="min-w-0" aria-labelledby="report-history">
         <header className="border-b border-border p-4 sm:px-5">
           <h2 id="report-history" className="text-balance text-lg font-semibold">Relatórios emitidos</h2>
         </header>
@@ -376,7 +380,7 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
             <p className="p-4 text-pretty text-sm text-muted-foreground sm:px-5">As emissões aparecerão aqui após a confirmação.</p>
           ) : (history.isError || denied) && <ReadError label="Não foi possível consultar o histórico" retry={() => void history.refetch()} />}
         </SkeletonReveal>
-      </Card>
+      </Card>}
       {action && <ReportFileDialog action={action} onClose={() => setAction(undefined)} onIssue={() => {
         navigate(query, 1);
         void client.invalidateQueries({ queryKey: historyKey });

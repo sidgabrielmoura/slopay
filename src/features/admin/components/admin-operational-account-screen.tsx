@@ -30,6 +30,7 @@ import { CompanyField, CompanyReadError, CompanyRowsSkeleton } from "./company-d
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 import { OperationalAccountAudit, OperationalAccountKeys } from "./operational-account-activity";
 import { OperationalAccountStatusDialog } from "./operational-account-status-dialog";
+import { useAdminAccess } from "./admin-access-provider";
 
 const count = new Intl.NumberFormat("pt-BR");
 
@@ -75,6 +76,9 @@ export function AdminOperationalAccountScreen({ user, accountId }: { user: Admin
 }
 
 function AccountDetails({ account, adminId }: { account: OperationalAccountDetail; adminId: string }) {
+  const { can } = useAdminAccess();
+  const canRefresh = account.canManage && can("admin.wallets.refresh");
+  const canConfigure = account.canManage && can("admin.wallets.configure");
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const action = useRef<HTMLButtonElement>(null);
@@ -110,15 +114,15 @@ function AccountDetails({ account, adminId }: { account: OperationalAccountDetai
           </div>
           <p className="text-sm tabular-nums text-muted-foreground">Carteira final {account.walletSuffix}</p>
         </div>
-        {account.canManage && <div className="flex flex-wrap gap-2">
-          <Button type="button" className="h-11" onClick={() => sync.mutate(account.id)} disabled={sync.isPending}>
+        {(canRefresh || canConfigure) && <div className="flex flex-wrap gap-2">
+          {canRefresh && <Button type="button" className="h-11" onClick={() => sync.mutate(account.id)} disabled={sync.isPending}>
             {sync.isPending ? <LoadingIndicator /> : <RefreshCw aria-hidden="true" />}
             {sync.isPending ? "Consultando Asaas…" : "Atualizar dados do Asaas"}
-          </Button>
-          <Button type="button" ref={action} variant="outline" className="h-11" onClick={() => setDialogOpen(true)}>
+          </Button>}
+          {canConfigure && <Button type="button" ref={action} variant="outline" className="h-11" onClick={() => setDialogOpen(true)}>
             {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
             {paused ? "Retomar operações Pix" : "Pausar operações Pix"}
-          </Button>
+          </Button>}
         </div>}
       </header>
 
@@ -165,7 +169,7 @@ function AccountDetails({ account, adminId }: { account: OperationalAccountDetai
         <TabsContent value="keys" className="mt-0 min-w-0"><OperationalAccountKeys {...context} /></TabsContent>
         <TabsContent value="audit" className="mt-0 min-w-0"><OperationalAccountAudit {...context} /></TabsContent>
       </Tabs>
-      {dialogOpen && <OperationalAccountStatusDialog account={account} onChange={invalidate}
+      {canConfigure && dialogOpen && <OperationalAccountStatusDialog account={account} onChange={invalidate}
         onClose={() => setDialogOpen(false)} restoreFocus={() => action.current?.focus()} />}
     </div>
   );

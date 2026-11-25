@@ -20,6 +20,7 @@ import {
 } from "../admin-team";
 import { AdminDetailsDialog } from "./admin-details-dialog";
 import { AdminTeamAccessDialog } from "./admin-team-access-dialog";
+import { adminAccessLevelLabels } from "../admin-access";
 import { AdminMemberLogin, AdminMemberStatus } from "./admin-team-member-display";
 import { CompanyField, CompanyReadError } from "./company-display";
 
@@ -34,8 +35,8 @@ function MemberAccessInfo({ member }: { member: AdminMemberDetail }) {
           <h2 id="admin-member-access" className="text-balance text-lg font-semibold">Acesso ao painel</h2>
         </div>
         <dl className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-4">
-          <CompanyField label="Perfil">Superadmin</CompanyField>
-          <CompanyField label="Escopo">Acesso global</CompanyField>
+          <CompanyField label="Nível">{adminAccessLevelLabels[member.accessLevel]}</CompanyField>
+          <CompanyField label="Permissões extras">{count.format(member.grants.length)}</CompanyField>
           <CompanyField label="Último login"><AdminMemberLogin lastLoginAt={member.lastLoginAt} /></CompanyField>
           <CompanyField label="Sessões com acesso"><span className="font-semibold tabular-nums">{count.format(member.activeSessions)}</span></CompanyField>
         </dl>
@@ -64,18 +65,18 @@ function AccessHistory({ events }: { events: AdminMemberAccessEvent[] }) {
   return (
     <ol className="divide-y divide-border" aria-label="Alterações de acesso">
       {events.map((event) => {
-        const suspended = event.action === "SUSPEND";
+        const label = { SUSPEND: "Acesso suspenso", REACTIVATE: "Acesso reativado", EDIT_ACCESS: "Membro atualizado", REMOVE: "Membro excluído" }[event.action];
         return (
           <li key={event.id} className="grid min-w-0 gap-2 px-4 py-4 sm:px-5">
             <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-2">
               <div className="min-w-0 space-y-0.5">
-                <p className="text-sm font-semibold">{suspended ? "Acesso suspenso" : "Acesso reativado"}</p>
+                <p className="text-sm font-semibold">{label}</p>
                 <p className="wrap-anywhere text-xs text-muted-foreground">{event.actorName ? "Por " + event.actorName : "Autor indisponível"}</p>
               </div>
               <time dateTime={event.createdAt} className="text-xs text-muted-foreground tabular-nums">{formatDateTime(event.createdAt)}</time>
             </div>
             <p className="wrap-anywhere whitespace-pre-wrap text-pretty text-sm">{event.reason}</p>
-            {suspended && <p className="text-xs text-muted-foreground tabular-nums">
+            {event.action !== "REACTIVATE" && <p className="text-xs text-muted-foreground tabular-nums">
               {count.format(event.revokedSessions)} {event.revokedSessions === 1 ? "sessão encerrada" : "sessões encerradas"}
             </p>}
           </li>
@@ -95,6 +96,7 @@ type MemberDialogProps = {
 
 export function AdminTeamMemberDialog({ userId, memberId, open, onOpenChange, onCloseAutoFocus }: MemberDialogProps) {
   const [page, setPage] = useState(1);
+  const removed = useRef(false);
   const client = useQueryClient();
   const [selected, setSelected] = useState<{ member: AdminMemberDetail; action: AdminTeamChange["action"] } | null>(null);
   const changeButton = useRef<HTMLButtonElement>(null);
@@ -119,7 +121,7 @@ export function AdminTeamMemberDialog({ userId, memberId, open, onOpenChange, on
   }
 
   function restoreFocus() {
-    if (changeButton.current) changeButton.current.focus();
+    if (changeButton.current?.isConnected) changeButton.current.focus();
     else heading.current?.focus();
   }
 
@@ -148,11 +150,24 @@ export function AdminTeamMemberDialog({ userId, memberId, open, onOpenChange, on
                   <p className="wrap-anywhere text-sm text-muted-foreground">{member.email}</p>
                 </div>
                 {availableAction && (
-                  <Button type="button" ref={changeButton} variant="outline" className="h-11"
-                    aria-haspopup="dialog" onClick={() => setSelected({ member, action: availableAction })}>
+                  <Button type="button" variant="outline" className="h-11"
+                    aria-haspopup="dialog" onClick={event => {
+                      changeButton.current = event.currentTarget;
+                      setSelected({ member, action: availableAction });
+                    }}>
                     {availableAction === "SUSPEND" ? "Suspender acesso" : "Reativar acesso"}
                   </Button>
                 )}
+                {member.canManage && <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" className="h-11" aria-haspopup="dialog" onClick={event => {
+                    changeButton.current = event.currentTarget;
+                    setSelected({ member, action: "EDIT_ACCESS" });
+                  }}>Editar membro</Button>
+                  <Button type="button" variant="ghost" className="h-11 text-destructive" aria-haspopup="dialog" onClick={event => {
+                    changeButton.current = event.currentTarget;
+                    setSelected({ member, action: "REMOVE" });
+                  }}>Excluir membro</Button>
+                </div>}
                 {self && <Button asChild variant="outline" className="h-11">
                   <Link href="/conta/seguranca" prefetch={false}>Minha segurança <ArrowUpRight aria-hidden="true" /></Link>
                 </Button>}
@@ -180,8 +195,21 @@ export function AdminTeamMemberDialog({ userId, memberId, open, onOpenChange, on
           ) : <CompanyReadError title="Consulta do membro indisponível" retry={() => void query.refetch()} />)}
         </SkeletonReveal>
       </div>
-      {selected && <AdminTeamAccessDialog member={selected.member} action={selected.action} onClose={() => setSelected(null)}
-        restoreFocus={restoreFocus} onConflict={refresh} onSuccess={() => { setPage(1); refresh(); }} />}
+      {selected && <AdminTeamAccessDialog member={selected.member} action={selected.action}
+        onClose={() => {
+          setSelected(null);
+          if (removed.current) onOpenChange(false);
+        }}
+        restoreFocus={restoreFocus} onConflict={refresh}
+        onSuccess={() => {
+          if (selected.action === "REMOVE") {
+            removed.current = true;
+            void client.invalidateQueries({ queryKey: adminTeamKey(userId) });
+          } else {
+            setPage(1);
+            refresh();
+          }
+        }} />}
     </AdminDetailsDialog>
   );
 }

@@ -17,6 +17,7 @@ import { adminClientUsers, clientUserRoleLabels, type ClientUserDetail } from ".
 import { companiesPath, refreshAdminCompanyData } from "../admin-companies";
 import { retryAdminRead } from "../admin-query";
 import { AdminClientUserDeleteDialog } from "./admin-client-user-delete-dialog";
+import { useAdminAccess } from "./admin-access-provider";
 import { AdminDetailsDialog } from "./admin-details-dialog";
 import { AdminMemberLogin } from "./admin-team-member-display";
 import { CompanyAccessDialog, type CompanyAccessTarget } from "./company-change-dialog";
@@ -66,8 +67,9 @@ export function AdminClientUserDialog({ adminId, id, open, onOpenChange, onClose
   });
   const status = result.error instanceof ApiError ? result.error.status : undefined;
   const detail = status && [401, 403, 404].includes(status) ? undefined : result.data;
-  const deletion = detail?.deletion;
-  const access = detail?.company && detail.accessVersion !== null && (detail.status === "ACTIVE" || detail.status === "SUSPENDED") ? {
+  const { can } = useAdminAccess();
+  const deletion = can("admin.users.close") ? detail?.deletion : undefined;
+  const access = can("admin.companies.access") && detail?.company && detail.accessVersion !== null && (detail.status === "ACTIVE" || detail.status === "SUSPENDED") ? {
     ...detail.company, profileVersion: detail.accessVersion, owner: { fullName: detail.name, status: detail.status },
   } : null;
 

@@ -11,6 +11,7 @@ import { UserIdentity } from "@/features/users/components/user-identity";
 import { MerchantTeamScreen } from "@/features/users/components/merchant-team-screen";
 import { usersPath } from "@/features/users/user-access";
 import { requireSession } from "@/lib/server/session";
+import { canActInSupport } from "@/lib/support-scope";
 
 export const metadata: Metadata = { title: "Usuários" };
 
@@ -41,7 +42,7 @@ export default async function UsersPage() {
             </div>
           </CardContent>
         </Card>
-        {user.role === "MERCHANT" && <MerchantTeamScreen ownerId={user.id} />}
+        {user.role === "MERCHANT" && <MerchantTeamScreen ownerId={user.id} canManage={canActInSupport(user.support, "team")} />}
       </div>
     </MerchantPanel>
   );

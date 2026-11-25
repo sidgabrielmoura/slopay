@@ -71,6 +71,7 @@ const profileVersion = z.int().min(0).max(2_000_000_000);
 export const companyDetailSchema = companyProfileSchema.extend({
   id: z.uuid(), ownerId: z.uuid(), cnpj: z.string().nullable(), profileVersion, createdAt: date, canManage: z.boolean(),
   canSupport: z.boolean().default(false),
+  terminationVersion: z.int().nonnegative().nullish(),
   owner: z.object({
     operationalClosedAt: z.iso.datetime({ offset: true }).nullish(),
     fullName: z.string(), email: z.string(), phone: z.string(), status: companyAccessStatus,

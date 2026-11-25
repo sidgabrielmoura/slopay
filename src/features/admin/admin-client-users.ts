@@ -90,23 +90,21 @@ function deletionPost(body: object) {
   return { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
 
+export function adminAccountTermination(company: boolean, operation: "close" | "delete") {
+  const endpoint = company ? "/api/admin/companies" : api;
+  return {
+    options: (id: string, input: ClientUserDeletion) =>
+      requestPixGateway(`${endpoint}/${id}/${operation}/options`, clientUserDeletionOptions,
+        "Não foi possível preparar a operação.", deletionPost(input)),
+    apply: (id: string, input: ClientUserDeletion, confirmation: string, proof: IntegrationProof) =>
+      requestPixGateway(`${endpoint}/${id}/${operation}`, z.union([clientUserClosedSchema, clientUserDeletedSchema]),
+        "Não foi possível confirmar a operação.", deletionPost({ ...input, confirmation, proof })),
+  };
+}
+
 export const adminClientUsers = {
   list: (query: ClientUserQuery, signal: AbortSignal) =>
     requestPixGateway(api + "?" + clientUserParams(query), clientUsersSchema, clientUsersUnavailable, { signal }),
   detail: (id: string, signal: AbortSignal) =>
     requestPixGateway(`${api}/${id}`, clientUserDetailSchema, clientUserUnavailable, { signal }),
-  deleteOptions: (id: string, input: ClientUserDeletion) => requestPixGateway(
-    `${api}/${id}/delete/options`, clientUserDeletionOptions, "Não foi possível preparar a exclusão.", deletionPost(input),
-  ),
-  remove: (id: string, input: ClientUserDeletion, confirmation: string, proof: IntegrationProof) => requestPixGateway(
-    `${api}/${id}/delete`, clientUserDeletedSchema, "Não foi possível confirmar a exclusão.",
-    deletionPost({ ...input, confirmation, proof }),
-  ),
-  closeOptions: (id: string, input: ClientUserDeletion) => requestPixGateway(
-    `${api}/${id}/close/options`, clientUserDeletionOptions, "Não foi possível preparar o encerramento.", deletionPost(input),
-  ),
-  close: (id: string, input: ClientUserDeletion, confirmation: string, proof: IntegrationProof) => requestPixGateway(
-    `${api}/${id}/close`, clientUserClosedSchema, "Não foi possível confirmar o encerramento.",
-    deletionPost({ ...input, confirmation, proof }),
-  ),
 };

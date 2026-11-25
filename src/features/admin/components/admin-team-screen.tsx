@@ -16,6 +16,7 @@ import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { ApiError } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 import { operationalSearch } from "../admin-operational-accounts";
 import { retryAdminRead } from "../admin-query";
 import {
@@ -25,6 +26,8 @@ import {
 import { AdminMemberLogin, AdminTeamEntryStatus } from "./admin-team-member-display";
 import { AdminTeamInviteDialog } from "./admin-team-invite-dialog";
 import { AdminTeamMemberDialog } from "./admin-team-member-dialog";
+import { useAdminAccess } from "./admin-access-provider";
+import { adminAccessLevelLabels } from "../admin-access";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 
 const initialQuery = adminTeamQuery.parse({});
@@ -106,7 +109,10 @@ function TeamFilters({ query, onChange }: { query: AdminTeamQuery; onChange: (qu
 }
 
 function TeamIdentity({ entry, isSelf }: { entry: AdminTeamEntry; isSelf: boolean }) {
-  if (entry.kind === "invitation") return <p className="min-w-0 wrap-anywhere font-medium">{entry.email}</p>;
+  if (entry.kind === "invitation") return <div className="min-w-0 space-y-0.5">
+    <p className="wrap-anywhere font-medium">{entry.email}</p>
+    <p className="text-xs text-muted-foreground">{adminAccessLevelLabels[entry.accessLevel]}</p>
+  </div>;
   return (
     <div className="min-w-0 space-y-0.5">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -114,15 +120,20 @@ function TeamIdentity({ entry, isSelf }: { entry: AdminTeamEntry; isSelf: boolea
         {isSelf && <Badge variant="secondary">Sua conta</Badge>}
       </div>
       <p className="wrap-anywhere text-xs text-muted-foreground">{entry.email}</p>
+      <p className="text-xs text-muted-foreground">{adminAccessLevelLabels[entry.accessLevel]}</p>
     </div>
   );
 }
 
 type OpenMember = (id: string, trigger: HTMLButtonElement) => void;
 
-function MemberButton({ member, openMember }: { member: AdminTeamMember; openMember: OpenMember }) {
+function MemberButton({ member, openMember, className }: {
+  member: AdminTeamMember;
+  openMember: OpenMember;
+  className?: string;
+}) {
   return (
-    <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0 text-muted-foreground"
+    <Button type="button" variant="ghost" size="icon" className={cn("size-11 shrink-0 text-muted-foreground", className)}
       aria-label={"Ver detalhes de " + member.name} aria-haspopup="dialog" onClick={(event) => openMember(member.id, event.currentTarget)}>
       <ChevronRight aria-hidden="true" />
     </Button>
@@ -163,16 +174,27 @@ function TeamRows({ entries, userId, openMember }: { entries: AdminTeamEntry[]; 
       </div>
       <ul aria-label="Membros e convites da equipe administrativa" className="min-w-0 divide-y divide-border xl:hidden">
         {entries.map((entry) => (
-          <li key={entry.id} className="grid min-w-0 gap-2.5 px-4 py-3.5 sm:px-5">
-            <div className="flex min-w-0 items-center justify-between gap-2">
+          <li key={entry.id} className="grid min-w-0 gap-2 px-4 py-3 sm:px-5">
+            <div className="relative flex min-w-0 items-center justify-between gap-2">
               <TeamIdentity entry={entry} isSelf={entry.id === userId} />
-              {entry.kind === "member" && <MemberButton member={entry} openMember={openMember} />}
+              {entry.kind === "member" && (
+                <MemberButton member={entry} openMember={openMember}
+                  className="after:absolute after:inset-0 after:rounded-md focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring" />
+              )}
             </div>
-            <AdminTeamEntryStatus entry={entry} />
+            <AdminTeamEntryStatus entry={entry}>
+              {entry.kind === "member" && (
+                <p className="text-xs text-muted-foreground">
+                  <span className="sr-only">Verificação em duas etapas </span>
+                  <span aria-hidden="true">2FA </span>
+                  {entry.mfaEnabled ? "ativa" : "pendente"}
+                </p>
+              )}
+            </AdminTeamEntryStatus>
             {entry.kind === "member" && (
-              <dl className="grid min-w-0 grid-cols-2 gap-2 text-sm">
-                <div className="space-y-0.5"><dt className="text-xs text-muted-foreground">Verificação em duas etapas</dt><dd>{entry.mfaEnabled ? "Ativa" : "Pendente"}</dd></div>
-                <div className="space-y-0.5"><dt className="text-xs text-muted-foreground">Último login</dt><dd><AdminMemberLogin lastLoginAt={entry.lastLoginAt} /></dd></div>
+              <dl className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
+                <dt className="text-muted-foreground">Último login</dt>
+                <dd><AdminMemberLogin lastLoginAt={entry.lastLoginAt} /></dd>
               </dl>
             )}
           </li>
@@ -183,6 +205,7 @@ function TeamRows({ entries, userId, openMember }: { entries: AdminTeamEntry[]; 
 }
 
 export function AdminTeamScreen({ user }: { user: AdminIdentity }) {
+  const { can } = useAdminAccess();
   const client = useQueryClient();
   const heading = useRef<HTMLHeadingElement>(null);
   const detailsTrigger = useRef<HTMLButtonElement>(null);
@@ -231,7 +254,7 @@ export function AdminTeamScreen({ user }: { user: AdminIdentity }) {
           <h1 ref={heading} tabIndex={-1} className="text-balance text-2xl font-semibold outline-none sm:text-3xl">Equipe Administrativa</h1>
           <p className="text-pretty text-sm text-muted-foreground">Gerencie o acesso dos superadmins e consulte o histórico de alterações da equipe.</p>
         </div>
-        {!denied && <Button ref={inviteTrigger} type="button" className="h-11" onClick={() => setInviting(true)}>
+        {!denied && can("admin.team.manage") && <Button ref={inviteTrigger} type="button" className="h-11" onClick={() => setInviting(true)}>
           <UserPlus aria-hidden="true" />Criar membro
         </Button>}
       </header>
@@ -245,8 +268,11 @@ export function AdminTeamScreen({ user }: { user: AdminIdentity }) {
         {loading && <span role="status" className="sr-only">Carregando equipe administrativa</span>}
         <SkeletonReveal flow revealed={!loading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3, 4].map((index) => (
-            <div key={index} className="flex min-h-16 items-center justify-between gap-4 px-4 sm:px-5">
-              <Skeleton className="h-4 w-2/5 animate-none" /><Skeleton className="h-4 w-1/5 animate-none" />
+            <div key={index} className="grid min-h-28 content-center gap-2 px-4 py-3 sm:px-5 xl:flex xl:min-h-16 xl:items-center xl:justify-between xl:gap-4">
+              <Skeleton className="h-4 w-2/5 animate-none" />
+              <Skeleton className="h-3 w-3/5 animate-none xl:hidden" />
+              <Skeleton className="h-4 w-1/5 animate-none" />
+              <Skeleton className="h-3 w-1/3 animate-none xl:hidden" />
             </div>
           ))}</div>
         }>
