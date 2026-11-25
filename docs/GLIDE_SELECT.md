@@ -40,4 +40,6 @@ O CSS do registry é mantido sem alterações; a integração passa a paleta sem
 
 Ao atualizar pelo registry, revise as alterações locais do JavaScript antes de sobrescrever. Preserve os fluxos de validação, submissão e retorno de foco dos campos existentes.
 
+Use a propriedade opcional `search` para filtros com pesquisa dentro do menu. Ela recebe um rótulo acessível, o texto digitado, o callback de mudança e os estados de consulta. O campo recebe foco na abertura e usa as setas e Enter para navegar e selecionar. O fechamento limpa a busca.
+
 Os menus permitem somente rolagem vertical. A largura respeita a do controle e o espaço disponível na tela, sem mínimo que ultrapasse o limite da viewport. A lista usa uma coluna `minmax(0, 1fr)` e as opções têm `min-width: 0`, evitando que textos longos alarguem o conteúdo quando a barra vertical ocupar espaço. Nomes e tags usam reticências quando necessário; o texto completo continua na árvore de acessibilidade e o check permanece visível. Não remova essas restrições ao ajustar a largura de um campo.

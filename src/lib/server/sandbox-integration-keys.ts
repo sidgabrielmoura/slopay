@@ -5,7 +5,9 @@ import { sandboxIntegrationStatusSchema, sandboxKeysSchema } from "@/features/in
 import { requestBackend } from "./auth-backend";
 import { accessCookie } from "./session";
 
-export async function loadIntegrationKeys(environment: "sandbox" | "live") {
+const pageSize = 8;
+
+export async function loadIntegrationKeys(environment: "sandbox" | "live", requestedPage: number) {
   const path = `/integrations/${environment}` as const;
   const accessToken = (await cookies()).get(accessCookie)?.value;
   if (!accessToken) return { state: "unavailable" } as const;
@@ -29,9 +31,17 @@ export async function loadIntegrationKeys(environment: "sandbox" | "live") {
       return { state: "unavailable" } as const;
     }
     const keys = sandboxKeysSchema.safeParse(await response.json());
-    return keys.success && keys.data.every(key => key.environment === environment)
-      ? { state: "ready", keys: keys.data, company: status.data.company } as const
-      : { state: "unavailable" } as const;
+    if (!keys.success || !keys.data.every(key => key.environment === environment)) return { state: "unavailable" } as const;
+
+    // The gateway returns the account's full list (capped at 50), sorted by creation date and ID.
+    const total = keys.data.length;
+    const page = Math.min(requestedPage, Math.max(1, Math.ceil(total / pageSize)));
+    return {
+      state: "ready",
+      keys: keys.data.slice((page - 1) * pageSize, page * pageSize),
+      pagination: { page, pageSize, total },
+      company: status.data.company,
+    } as const;
   } catch {
     return { state: "unavailable" } as const;
   }

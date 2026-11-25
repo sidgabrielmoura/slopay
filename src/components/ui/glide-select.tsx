@@ -20,7 +20,7 @@ export const GlideSelect = forwardRef<HTMLButtonElement, GlideSelectProps>(funct
   showTags = true, accentColor = "var(--primary)", surfaceColor = "var(--popover)",
   highlightColor = "var(--secondary)", textColor = "var(--foreground)", size = "md", radius = 10,
   menuWidth = 176, placement = "bottom", align = "left", popDuration = 180,
-  glideDuration = 220, rememberPosition = true, disabled = false,
+  glideDuration = 220, rememberPosition = true, search, disabled = false,
   ariaLabel, className, name, required, form, id, ...buttonProps
 }, forwardedRef) {
   const generatedId = useId();
@@ -56,7 +56,7 @@ export const GlideSelect = forwardRef<HTMLButtonElement, GlideSelectProps>(funct
         showTags={showTags} accentColor={accentColor} surfaceColor={surfaceColor}
         highlightColor={highlightColor} textColor={textColor} size={size} radius={radius}
         menuWidth={menuWidth} placement={placement} align={align} popDuration={popDuration}
-        glideDuration={glideDuration} rememberPosition={rememberPosition} disabled={disabled}
+        glideDuration={glideDuration} rememberPosition={rememberPosition} search={search} disabled={disabled}
         ariaLabel={buttonProps["aria-label"] ?? ariaLabel ?? (id || buttonProps["aria-labelledby"] ? null : typeof placeholder === "string" ? placeholder : "Selecionar opção")}
         className={cn("slopay-glide-select", className)} portal
         triggerProps={{ ...buttonProps, id: id ?? generatedId, ref: attachTrigger,

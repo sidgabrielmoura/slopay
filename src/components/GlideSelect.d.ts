@@ -8,6 +8,16 @@ export interface GlideOption {
   disabled?: boolean;
 }
 
+export interface GlideSearch {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  maxLength?: number;
+  busy?: boolean;
+  status?: string;
+}
+
 export interface ReactBitsGlideSelectProps {
   options?: readonly (string | GlideOption)[];
   value?: string;
@@ -27,6 +37,7 @@ export interface ReactBitsGlideSelectProps {
   popDuration?: number;
   glideDuration?: number;
   rememberPosition?: boolean;
+  search?: GlideSearch;
   disabled?: boolean;
   ariaLabel?: string | null;
   className?: string;

@@ -41,7 +41,7 @@ export function SandboxWebhookForm({ accountId, webhookId, canManage = true }: {
   const ready = webhookId ? Boolean(detail.data) : list.data?.connected === true;
 
   return (
-    <div className="mx-auto grid w-full min-w-0 max-w-4xl gap-5">
+    <div className="mx-auto grid w-full min-w-0 gap-5">
       <Button asChild variant="ghost" className="h-10 w-fit"><Link href={webhooksPath}>
         <ArrowLeft aria-hidden="true" data-icon="inline-start" /> Webhooks
       </Link></Button>

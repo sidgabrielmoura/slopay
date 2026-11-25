@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { CirclePause, CirclePlay, Copy, Ellipsis, KeyRound, Plus, Trash2 } from "lucide-react";
+import { CirclePause, CirclePlay, Ellipsis, KeyRound, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { TablePagination } from "@/components/shared/table-pagination";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -15,10 +16,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Empty } from "@/components/ui/empty";
 import { GlideSelect } from "@/components/ui/glide-select";
 import { Input } from "@/components/ui/input";
-import { LoadingConfirmation } from "@/components/ui/loading-indicator";
 import { formatDateTime } from "@/lib/dates";
 import { apiKeyEnvironments, type ApiKeyEnvironment, type PreviewApiKey } from "../preview-data";
 import { useIntegrationsPreview } from "../preview-provider";
+import { ApiKeyIssuedContent } from "./api-key-issued-content";
 import { IntegrationHeading } from "./integration-heading";
 
 const environmentOptions = [
@@ -27,8 +28,9 @@ const environmentOptions = [
 ];
 
 const environmentFilters = [{ value: "all", label: "Todos os ambientes" }, ...environmentOptions];
+const pageSize = 8;
 
-function CreateApiKey({ environment }: { environment: ApiKeyEnvironment }) {
+function CreateApiKey({ environment, onCreated }: { environment: ApiKeyEnvironment; onCreated: () => void }) {
   const { setApiKeys } = useIntegrationsPreview();
   const [result, setResult] = useState<{ name: string; value: string } | null>(null);
   const [open, setOpen] = useState(false);
@@ -52,16 +54,8 @@ function CreateApiKey({ environment }: { environment: ApiKeyEnvironment }) {
       id, name, environment, enabled: true, suffix: value.slice(-4),
       createdAt: new Date().toISOString(), expiresOn: String(form.get("expiresOn") ?? "") || null, lastUsedAt: null,
     }, ...current]);
+    onCreated();
     setResult({ name, value });
-  }
-
-  async function copyKey(value: string) {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success("Chave de exemplo copiada.");
-    } catch {
-      toast.error("Não foi possível copiar. Selecione o valor para copiá-lo.");
-    }
   }
 
   return (
@@ -72,46 +66,38 @@ function CreateApiKey({ environment }: { environment: ApiKeyEnvironment }) {
       <DialogTrigger asChild>
         <Button className="h-11 w-full sm:w-auto"><Plus aria-hidden="true" /> Nova chave</Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-lg">
-        <DialogHeader className="pr-5 text-left">
-          <DialogTitle>{result ? "Chave de exemplo criada" : "Nova chave de API"}</DialogTitle>
-          <DialogDescription>
-            {result ? "O valor completo aparece somente nesta etapa." : "Escolha o ambiente e dê um nome que identifique a aplicação."}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] gap-5 overflow-y-auto p-4 sm:max-w-lg sm:p-6"
+        onInteractOutside={(event) => { if (result) event.preventDefault(); }}>
         {result ? (
-          <>
-            <div className="grid min-w-0 justify-items-start gap-2" role="status">
-              <LoadingConfirmation size={40} animate />
-              <p className="max-w-full wrap-anywhere text-sm font-medium">{result.name}</p>
-              <code className="w-full select-all wrap-anywhere rounded-lg border bg-background p-3 font-mono text-xs">{result.value}</code>
-            </div>
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button type="button" variant="outline" className="h-11" onClick={() => void copyKey(result.value)}
-                ref={(button) => { button?.focus({ preventScroll: true }); }}><Copy aria-hidden="true" /> Copiar chave</Button>
-              <Button type="button" className="h-11" onClick={() => { setOpen(false); setResult(null); }}>Concluir</Button>
-            </div>
-          </>
+          <ApiKeyIssuedContent example name={result.name} secret={result.value} onClose={() => { setOpen(false); setResult(null); }} />
         ) : (
-          <form className="grid gap-4" onSubmit={create}>
-            <div className="grid gap-1.5">
-              <label htmlFor="api-key-name" className="text-sm font-medium">Nome da chave</label>
-              <Input id="api-key-name" name="name" className="h-11" required maxLength={80} autoComplete="off"
-                placeholder="Ex. ERP · Conciliação" aria-invalid={nameInvalid || undefined} onChange={() => setNameInvalid(false)} />
-            </div>
-            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-              <div className="grid min-w-0 gap-1.5">
-                <label htmlFor="api-key-environment" className="text-sm font-medium">Ambiente</label>
-                <GlideSelect id="api-key-environment" name="environment" options={environmentOptions}
-                  defaultValue={environment} required size="lg" className="w-full" />
+          <>
+            <DialogHeader className="pr-6 text-left">
+              <DialogTitle className="text-balance text-xl leading-snug">Nova chave de API</DialogTitle>
+              <DialogDescription>Escolha o ambiente e dê um nome que identifique a aplicação.</DialogDescription>
+            </DialogHeader>
+            <form className="grid gap-4" onSubmit={create}>
+              <div className="grid gap-1.5">
+                <label htmlFor="api-key-name" className="text-sm font-medium">Nome da chave</label>
+                <Input id="api-key-name" name="name" className="h-11" required maxLength={80} autoComplete="off"
+                  placeholder="Ex. ERP · Conciliação" aria-invalid={nameInvalid || undefined} onChange={() => setNameInvalid(false)} />
               </div>
-              <div className="grid min-w-0 gap-1.5">
-                <label htmlFor="api-key-expiration" className="text-sm font-medium">Vencimento <span className="text-muted-foreground">(opcional)</span></label>
-                <Input id="api-key-expiration" name="expiresOn" type="date" className="h-11 min-w-0 scheme-dark" />
+              <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="api-key-environment" className="text-sm font-medium">Ambiente</label>
+                  <GlideSelect id="api-key-environment" name="environment" options={environmentOptions}
+                    defaultValue={environment} required size="lg" className="w-full" />
+                </div>
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="api-key-expiration" className="text-sm font-medium">Vencimento <span className="text-muted-foreground">(opcional)</span></label>
+                  <Input id="api-key-expiration" name="expiresOn" type="date" className="h-11 min-w-0 scheme-dark" />
+                </div>
               </div>
-            </div>
-            <Button type="submit" className="h-11 justify-self-end">Criar chave de exemplo</Button>
-          </form>
+              <footer className="flex justify-end border-t pt-4">
+                <Button type="submit" className="h-11">Criar chave de exemplo</Button>
+              </footer>
+            </form>
+          </>
         )}
       </DialogContent>
     </Dialog>
@@ -121,24 +107,35 @@ function CreateApiKey({ environment }: { environment: ApiKeyEnvironment }) {
 export function ApiKeysScreen({ readOnly = false }: { readOnly?: boolean }) {
   const { apiKeys, setApiKeys } = useIntegrationsPreview();
   const [filter, setFilter] = useState("all");
+  const [requestedPage, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<PreviewApiKey | null>(null);
   const filterRef = useRef<HTMLButtonElement>(null);
   const actionsRef = useRef<HTMLButtonElement | null>(null);
-  const visible = apiKeys.filter((key) => filter === "all" || key.environment === filter);
+  const filtered = apiKeys.filter((key) => filter === "all" || key.environment === filter)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+  const page = Math.min(requestedPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
+  const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  function changeFilter(value: string) {
+    setFilter(value);
+    setPage(1);
+  }
 
   return (
-    <div className="grid min-w-0 gap-5">
+    <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-6">
       <IntegrationHeading preview title="Chaves de API" description="Gerencie as credenciais que identificam sua integração e autorizam chamadas à API."
-        action={readOnly ? undefined : <CreateApiKey environment={filter === "production" ? "production" : "sandbox"} />} />
+        action={readOnly ? undefined : <CreateApiKey environment={filter === "production" ? "production" : "sandbox"} onCreated={() => setPage(1)} />} />
 
       <Card className="min-w-0">
-        <CardHeader className="gap-3 space-y-0 border-b p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div className="grid gap-1">
-            <h2 className="text-balance text-lg font-semibold">Chaves cadastradas</h2>
-            <p className="text-xs text-muted-foreground tabular-nums" aria-live="polite">{visible.length} {visible.length === 1 ? "chave" : "chaves"}</p>
+        <CardHeader className="gap-3 space-y-0 border-b p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+              <KeyRound aria-hidden="true" className="size-5" />
+            </div>
+            <h2 className="text-balance text-lg font-semibold tracking-tight">Chaves cadastradas</h2>
           </div>
           <GlideSelect ref={filterRef} ariaLabel="Filtrar por ambiente" options={environmentFilters} value={filter}
-            onChange={setFilter} size="lg" className="w-full shrink-0 sm:w-52" />
+            onChange={changeFilter} size="lg" className="w-full shrink-0 sm:w-52" />
         </CardHeader>
         {visible.length ? (
           <ul className="divide-y divide-border" aria-label="Chaves cadastradas">
@@ -185,9 +182,10 @@ export function ApiKeysScreen({ readOnly = false }: { readOnly?: boolean }) {
           <Empty icon={<KeyRound aria-hidden="true" />} className="rounded-none border-0"
             title={filter === "all" ? "Nenhuma chave cadastrada" : "Nenhuma chave neste ambiente"}
             action={filter === "all" ? undefined : (
-              <Button type="button" variant="outline" className="h-11" onClick={() => { setFilter("all"); filterRef.current?.focus(); }}>Ver todos os ambientes</Button>
+              <Button type="button" variant="outline" className="h-11" onClick={() => { changeFilter("all"); filterRef.current?.focus(); }}>Ver todos os ambientes</Button>
             )} />
         )}
+        {visible.length > 0 && <TablePagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} label="Paginação das chaves de API" />}
       </Card>
 
       <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
@@ -204,6 +202,7 @@ export function ApiKeysScreen({ readOnly = false }: { readOnly?: boolean }) {
             <AlertDialogAction className="h-11" onClick={() => {
               const id = deleteTarget?.id;
               setApiKeys((current) => current.filter((item) => item.id !== id));
+              if (visible.length === 1 && page > 1) setPage(page - 1);
               toast.success("Chave de exemplo excluída.");
             }}>Excluir chave</AlertDialogAction>
           </AlertDialogFooter>

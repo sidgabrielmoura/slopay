@@ -78,7 +78,7 @@ function DeliveryHistory({ accountId, webhookId }: { accountId: string; webhookI
   return (
     <>
       <Card className="min-w-0">
-        <CardHeader className="flex flex-wrap items-center justify-between gap-3 border-b p-4 sm:p-5">
+        <CardHeader className="flex flex-row! flex-wrap items-center justify-between gap-3 border-b p-4 sm:p-5">
           <h2 ref={heading} tabIndex={-1} className="text-lg font-semibold">Histórico de entregas</h2>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <GlideSelect ariaLabel="Filtrar entregas por status" size="lg" options={filters} value={state}

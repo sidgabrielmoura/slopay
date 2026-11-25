@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ArrowDown01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import * as Popover from '@radix-ui/react-popover';
+import { Input } from '@/components/ui/input';
 
 import './GlideSelect.css';
 
@@ -47,6 +48,7 @@ export default function GlideSelect({
   popDuration = 180,
   glideDuration = 220,
   rememberPosition = true,
+  search,
   disabled = false,
   ariaLabel = 'Select',
   className = '',
@@ -62,6 +64,7 @@ export default function GlideSelect({
   const [side, setSide] = useState(placement);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
+  const searchRef = useRef(null);
   const menuRef = useRef(null);
   const [menuElement, setMenuElement] = useState(null);
   const attachMenu = useCallback(node => {
@@ -73,6 +76,9 @@ export default function GlideSelect({
   const closeTimer = useRef(undefined);
   const scrub = useRef(null);
   const id = useId();
+  const listId = `${id}-list`;
+  const menuId = `${id}-menu`;
+  const activeId = active !== null && items[active] && !items[active].disabled ? `${id}-${active}` : undefined;
   const S = SIZES[size] ?? SIZES.md;
   const step = S.row + GAP;
   const popOut = Math.round((popDuration * 2) / 3);
@@ -103,13 +109,14 @@ export default function GlideSelect({
       void p.offsetHeight;
       p.style.transition = '';
     }
+    searchRef.current?.focus({ preventScroll: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, menuElement]);
 
   useLayoutEffect(() => {
     const p = pillRef.current;
     if (!p || phase !== 'open') return;
-    if (active === null) {
+    if (!activeId) {
       p.style.opacity = '0';
       return;
     }
@@ -119,7 +126,7 @@ export default function GlideSelect({
     p.style.opacity = '1';
     instant.current = false;
     if (portal) menuRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: 'nearest' });
-  }, [active, phase, step, menuElement, portal]);
+  }, [active, activeId, phase, step, menuElement, portal]);
 
   const open = viaKey => {
     if (disabled) return;
@@ -131,6 +138,7 @@ export default function GlideSelect({
   };
   const close = mode => {
     setActive(null);
+    if (search?.value) search.onChange('');
     clearTimeout(closeTimer.current);
     const el = menuRef.current;
     if (mode === 'instant' || !el) {
@@ -186,6 +194,24 @@ export default function GlideSelect({
       if (k === 'Escape') e.preventDefault();
       close('instant');
     } else if (k.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) go(typeaheadIndex(items, cur, k));
+  };
+
+  const onSearchKey = e => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'Tab') {
+      e.stopPropagation();
+      triggerRef.current?.focus({ preventScroll: true });
+      close('instant');
+    } else if (e.key === 'Escape') {
+      onTriggerKey(e);
+      triggerRef.current?.focus({ preventScroll: true });
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!search.busy) onTriggerKey(e);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!search.busy && activeId) pick(active, true);
+    }
   };
 
   useEffect(() => {
@@ -259,16 +285,25 @@ export default function GlideSelect({
     '--gs-ease-out': 'cubic-bezier(0.23, 1, 0.32, 1)'
   };
   const menu = phase !== 'closed' ? (
-    <div ref={attachMenu}
+    <div ref={attachMenu} id={search ? menuId : undefined}
       className="glide-select__menu" data-state="open" data-side={side} data-align={align}
-      data-gs-portal={portal ? '' : undefined} style={variables}>
+      data-gs-portal={portal ? '' : undefined} data-gs-search={search ? '' : undefined} style={variables}>
+      {search && <div className="glide-select__search">
+        <Input ref={searchRef} type="search" role="combobox" aria-label={search.label} aria-autocomplete="list"
+          aria-controls={listId} aria-expanded={phase === 'open'} aria-activedescendant={search.busy ? undefined : activeId}
+          value={search.value} placeholder={search.placeholder} maxLength={search.maxLength} autoComplete="off"
+          className="h-11 bg-background"
+          onChange={e => { setActive(null); search.onChange(e.target.value); }}
+          onKeyDownCapture={onSearchKey} />
+      </div>}
       <div
-        id={`${id}-list`}
+        id={listId}
         role="listbox"
         aria-label={ariaLabel ?? triggerProps['aria-label']}
         aria-labelledby={triggerProps['aria-labelledby'] ?? (ariaLabel ? undefined : triggerProps.id)}
+        aria-busy={search?.busy || undefined}
         className="glide-select__list"
-        data-live={active !== null ? '' : undefined}
+        data-live={activeId ? '' : undefined}
         onPointerOver={onListOver}
         onPointerLeave={() => {
           if (!scrub.current && !rememberPosition) setActive(null);
@@ -301,6 +336,7 @@ export default function GlideSelect({
           </div>
         ))}
       </div>
+      {search?.status && <p role="status" className="px-2.5 py-2 text-sm text-muted-foreground">{search.status}</p>}
     </div>
   ) : null;
   const control = (
@@ -322,11 +358,11 @@ export default function GlideSelect({
           else if (triggerProps.ref) triggerProps.ref.current = node;
         }}
         type="button"
-        role="combobox"
-        aria-haspopup="listbox"
+        role={search ? undefined : 'combobox'}
+        aria-haspopup={search ? 'dialog' : 'listbox'}
         aria-expanded={phase === 'open'}
-        aria-controls={`${id}-list`}
-        aria-activedescendant={active !== null ? `${id}-${active}` : undefined}
+        aria-controls={search ? menuId : listId}
+        aria-activedescendant={search ? undefined : activeId}
         aria-label={ariaLabel}
         disabled={disabled}
         className="glide-select__trigger"
@@ -365,9 +401,13 @@ export default function GlideSelect({
       {phase !== 'closed' && (
         <Popover.Portal>
           <Popover.Content asChild side={side} align={align === 'right' ? 'end' : 'start'}
-            sideOffset={MENU_GAP} collisionPadding={8} role="presentation"
+            sideOffset={MENU_GAP} collisionPadding={8} role={search ? 'dialog' : 'presentation'}
+            aria-label={search?.label}
             onOpenAutoFocus={e => e.preventDefault()}
             onCloseAutoFocus={e => e.preventDefault()}
+            onFocusOutside={e => {
+              if (search && triggerRef.current?.contains(e.target)) e.preventDefault();
+            }}
             onEscapeKeyDown={e => { e.preventDefault(); close('instant'); triggerRef.current?.focus({ preventScroll: true }); }}>
             {menu}
           </Popover.Content>

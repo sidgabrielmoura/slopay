@@ -12,21 +12,24 @@ import { canActInSupport } from "@/lib/support-scope";
 
 export const metadata = { title: "Chaves de API" };
 
-export default function ApiKeysPage() {
+export default async function ApiKeysPage({ searchParams }: { searchParams: Promise<{ pagina?: string | string[] }> }) {
+  const { pagina } = await searchParams;
+  const requested = typeof pagina === "string" && /^[1-9]\d*$/.test(pagina) ? Number(pagina) : 1;
+  const page = Number.isSafeInteger(requested) ? requested : 1;
   return <LiveIntegrationPage path={apiKeysPath}>
-    {user => <LiveKeys canManage={canActInSupport(user.support, "integrations")} />}
+    {user => <LiveKeys canManage={canActInSupport(user.support, "integrations")} page={page} />}
   </LiveIntegrationPage>;
 }
 
-async function LiveKeys({ canManage }: { canManage: boolean }) {
+async function LiveKeys({ canManage, page }: { canManage: boolean; page: number }) {
   const development = developmentFeaturesEnabled();
-  const result = await loadIntegrationKeys(development ? "sandbox" : "live");
+  const result = await loadIntegrationKeys(development ? "sandbox" : "live", page);
   if (result.state === "ready") {
     return <SandboxIntegrationKeysScreen key={result.company.id} companyName={result.company.legalName}
-      initialKeys={result.keys} development={development} apiOrigin={publicIntegrationApiOrigin()} canManage={canManage} />;
+      keys={result.keys} pagination={result.pagination} development={development} apiOrigin={publicIntegrationApiOrigin()} canManage={canManage} />;
   }
   return (
-    <div className="grid gap-5">
+    <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-6">
       <IntegrationHeading title="Chaves de API" description="Gerencie o acesso das aplicações à conta da sua empresa." />
       <Card>
         <Empty className="rounded-none border-0" icon={<KeyRound aria-hidden="true" />}

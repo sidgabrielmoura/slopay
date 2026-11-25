@@ -54,6 +54,18 @@
   touch-action: pan-y;
 }
 
+.glide-select__menu[data-gs-search] {
+  scroll-padding-top: calc(2.75rem + 8px);
+}
+
+.glide-select__search {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 4px;
+  background: var(--gs-surface);
+}
+
 .glide-select__menu[data-gs-portal] .glide-select__option {
   min-width: 0;
 }

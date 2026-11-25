@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { CirclePause, CirclePlay, Copy, Ellipsis, KeyRound, Plus, Trash2 } from "lucide-react";
+import { useRef, useState, useTransition, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CirclePause, CirclePlay, Ellipsis, KeyRound, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -20,12 +20,14 @@ import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
 import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
+import { cn } from "@/lib/utils";
 import {
   issuedKeySchema, keyDraftSchema, sandboxKeyPermissions, sandboxKeySchema,
   type IssuedKey, type KeyChange, type KeyDraft, type KeyProof, type SandboxKey,
 } from "../sandbox-keys";
-import { integrationLogsPath, integrationSecurityPath } from "../navigation";
-import { webhooksPath } from "@/features/webhooks/webhooks";
+import { apiKeysPath } from "../navigation";
+import { ApiKeyIssuedContent } from "./api-key-issued-content";
+import { ApiKeyQuickStart } from "./api-key-quick-start";
 import { IntegrationHeading } from "./integration-heading";
 
 const endpoint = "/api/integrations/keys";
@@ -34,6 +36,8 @@ const unavailable = "As chaves de API estão temporariamente indisponíveis.";
 const actionTitles = { pause: "Pausar chave", resume: "Reativar chave", revoke: "Revogar chave" } as const;
 const actionResults = { pause: "Chave pausada", resume: "Chave reativada", revoke: "Chave revogada" } as const;
 const statusLabels = { active: "Ativa", paused: "Pausada", expired: "Expirada", revoked: "Revogada" } as const;
+const statusVariants = { active: "success", paused: "warning", expired: "secondary", revoked: "secondary" } as const;
+const keyColumns = "@3xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_7rem_5.5rem_2.75rem]";
 
 type Confirmation =
   | { kind: "create"; draft: KeyDraft }
@@ -53,34 +57,33 @@ function post(body: object): RequestInit {
   return { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
 
-async function copySecret(value: string) {
-  try {
-    await navigator.clipboard.writeText(value);
-    toast.success("Chave de API copiada.");
-  } catch {
-    toast.error("Selecione a chave para copiá-la.");
-  }
-}
-
 export function SandboxIntegrationKeysScreen({
-  initialKeys, companyName, development, apiOrigin, canManage = true,
+  keys, pagination, companyName, development, apiOrigin, canManage = true,
 }: {
-  initialKeys: SandboxKey[];
+  keys: SandboxKey[];
+  pagination: { page: number; pageSize: number; total: number };
   companyName: string;
   development: boolean;
   apiOrigin: string | null;
   canManage?: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [listPending, startListTransition] = useTransition();
   const apiPath = development ? "/v1/sandbox/pix" : "/v1/pix";
-  const [keys, setKeys] = useState(initialKeys);
   const [modal, setModal] = useState<Modal | null>(null);
   const button = useRef<HTMLElement | null>(null);
   const listTitle = useRef<HTMLHeadingElement>(null);
   const formName = useRef<HTMLInputElement>(null);
   const confirmation = modal?.kind === "confirm" ? modal.operation : null;
 
-  useEffect(() => { setKeys(initialKeys); }, [initialKeys]);
+  function changePage(page: number) {
+    const query = new URLSearchParams(searchParams.toString());
+    if (page === 1) query.delete("pagina");
+    else query.set("pagina", String(page));
+    const search = query.toString();
+    startListTransition(() => router.replace(search ? `${apiKeysPath}?${search}` : apiKeysPath, { scroll: false }));
+  }
 
   async function mutate(proof: KeyProof): Promise<Confirmed> {
     if (confirmation?.kind === "create") {
@@ -98,14 +101,10 @@ export function SandboxIntegrationKeysScreen({
 
   function apply(result: Confirmed) {
     if (result.kind === "issued") {
-      const { secret: _secret, ...key } = result.key;
-      setKeys((previous) => [key, ...previous]);
       setModal(result);
       return;
     }
-    setKeys((previous) => result.key.status === "revoked"
-      ? previous.filter((key) => key.id !== result.key.id)
-      : previous.map((key) => key.id === result.key.id ? result.key : key));
+    if (result.key.status === "revoked") button.current = null;
     setModal({ kind: "done", action: result.action });
   }
 
@@ -129,7 +128,11 @@ export function SandboxIntegrationKeysScreen({
 
   function close() {
     if (busy) return;
-    if (code.field.status.status === "failed" || passkey.error) router.refresh();
+    // Refresh after dismissal so a failed reload can't interrupt access to the issued secret.
+    if (modal?.kind === "issued" && pagination.page !== 1) changePage(1);
+    else if (modal?.kind === "issued" || modal?.kind === "done" || code.field.status.status === "failed" || passkey.error) {
+      startListTransition(() => router.refresh());
+    }
     code.reset();
     setModal(null);
   }
@@ -155,13 +158,12 @@ export function SandboxIntegrationKeysScreen({
     setModal({ kind: "confirm", operation: { kind: "create", draft: draft.data } });
   }
 
-  const title = modal?.kind === "issued" ? "Chave de API criada"
-    : modal?.kind === "done" ? actionResults[modal.action]
-      : confirmation?.kind === "change" ? actionTitles[confirmation.action]
-        : confirmation ? "Confirmar criação da chave" : "Nova chave de API";
+  const title = modal?.kind === "done" ? actionResults[modal.action]
+    : confirmation?.kind === "change" ? actionTitles[confirmation.action]
+      : confirmation ? "Confirmar criação da chave" : "Nova chave de API";
 
   return (
-    <div className="grid min-w-0 gap-5">
+    <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-6">
       <IntegrationHeading
         title="Chaves de API"
         description={development ? "Gerencie o acesso das aplicações ao Sandbox da sua empresa." : "Gerencie o acesso das aplicações à sua conta Slopay."}
@@ -171,147 +173,173 @@ export function SandboxIntegrationKeysScreen({
         }}><Plus aria-hidden="true" data-icon="inline-start" /> Nova chave</Button>}
       />
 
-      <Card className="min-w-0">
-        <CardHeader className="flex flex-row items-start justify-between gap-3 border-b p-4 sm:p-5">
-          <div className="grid min-w-0 gap-1">
-            <h2 ref={listTitle} tabIndex={-1} className="text-lg font-semibold">Chaves cadastradas</h2>
-            <p className="wrap-anywhere text-sm text-muted-foreground">{companyName}</p>
+      <Card className="@container min-w-0" aria-labelledby="api-keys-list-title" aria-busy={listPending}>
+        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0 border-b p-4 sm:p-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+              <KeyRound aria-hidden="true" className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 id="api-keys-list-title" ref={listTitle} tabIndex={-1} className="text-lg font-semibold tracking-tight">Chaves cadastradas</h2>
+              <p className="wrap-anywhere text-sm text-muted-foreground">{companyName}</p>
+            </div>
           </div>
-          {development && <Badge variant="secondary">Sandbox</Badge>}
+          {development && <Badge variant="secondary" className="shrink-0">Sandbox</Badge>}
         </CardHeader>
         {keys.length === 0 ? (
-          <Empty icon={<KeyRound aria-hidden="true" />} className="rounded-none border-0" title="Nenhuma chave cadastrada" />
+          <Empty icon={<KeyRound aria-hidden="true" />} className="rounded-none border-0" title="Nenhuma chave cadastrada"
+            description={canManage ? "Crie uma chave para conectar uma aplicação à API." : undefined} />
         ) : (
-          <ul className="divide-y divide-border" aria-label="Chaves cadastradas">
-            {keys.map((key) => (
-              <li key={key.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] xl:items-center">
-                <div className="min-w-0">
-                  <h3 className="wrap-anywhere text-sm font-semibold">{key.name}</h3>
-                  <code className="mt-1 block wrap-anywhere text-xs text-muted-foreground">{key.keyPrefix}</code>
-                  {key.lastUsedAt && <p className="mt-1 text-xs text-muted-foreground">
-                    Último uso <time dateTime={key.lastUsedAt}>{formatDateTime(key.lastUsedAt, "short")}</time>
-                  </p>}
-                </div>
-                <dl className="col-span-2 row-start-2 grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-4 xl:col-span-1 xl:col-start-2 xl:row-start-1">
-                  <div className="col-span-2">
-                    <dt className="text-xs text-muted-foreground">Permissões</dt>
-                    <dd className="mt-1 text-pretty">{key.scopes.map((scope) => sandboxKeyPermissions[scope]).join(" · ")}</dd>
+          <>
+            <div aria-hidden="true" className={cn("hidden gap-4 border-b bg-muted/40 px-6 py-3 text-xs font-medium text-muted-foreground @3xl:grid", keyColumns)}>
+              <span>Chave</span>
+              <span>Permissões</span>
+              <span>Vencimento</span>
+              <span>Status</span>
+            </div>
+            <ul role="list" className="divide-y divide-border" aria-label="Chaves cadastradas">
+              {keys.map((key) => (
+                <li key={key.id} className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-x-3 gap-y-4 p-4 sm:p-6 @3xl:gap-x-4", keyColumns)}>
+                  <div className="col-start-1 row-start-1 min-w-0">
+                    <h3 className="wrap-anywhere text-sm font-semibold">{key.name}</h3>
+                    <code className="mt-1.5 block wrap-anywhere font-mono text-xs text-muted-foreground">{key.keyPrefix}</code>
+                    {key.lastUsedAt && <p className="mt-2 text-xs text-muted-foreground">
+                      Último uso <time className="tabular-nums" dateTime={key.lastUsedAt}>{formatDateTime(key.lastUsedAt, "short")}</time>
+                    </p>}
                   </div>
-                  <div><dt className="text-xs text-muted-foreground">Vencimento</dt>
-                    <dd className="mt-1 tabular-nums">{key.expiresAt ? formatDateTime(key.expiresAt, "date-only") : "Sem data"}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Status</dt>
-                    <dd className="mt-1"><Badge variant={key.status === "active" ? "success" : "secondary"}>{statusLabels[key.status]}</Badge></dd></div>
-                </dl>
-                {canManage && <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="icon" variant="ghost" className="col-start-2 row-start-1 size-11 xl:col-start-3"
-                      aria-label={`Ações da chave ${key.name}`} onFocus={(event) => { button.current = event.currentTarget; }}>
-                      <Ellipsis aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onCloseAutoFocus={(event) => { if (modal) event.preventDefault(); }}>
-                    {key.status === "active" || key.status === "paused" ? (
-                      <>
-                        <DropdownMenuItem className="min-h-10" onSelect={() => setModal({
-                          kind: "confirm", operation: { kind: "change", key, action: key.status === "active" ? "pause" : "resume" },
-                        })}>
-                          {key.status === "active" ? <CirclePause aria-hidden="true" /> : <CirclePlay aria-hidden="true" />}
-                          {key.status === "active" ? actionTitles.pause : actionTitles.resume}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                      </>
-                    ) : null}
-                    <DropdownMenuItem className="min-h-10 text-destructive" onSelect={() => setModal({
-                      kind: "confirm", operation: { kind: "change", key, action: "revoke" },
-                    })}>
-                      <Trash2 aria-hidden="true" /> Revogar chave
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>}
-              </li>
-            ))}
-          </ul>
+                  <div className="col-span-full row-start-2 min-w-0 border-t pt-3 @3xl:col-[2] @3xl:row-start-1 @3xl:border-0 @3xl:pt-0">
+                    <p className="mb-1.5 text-xs font-medium text-muted-foreground @3xl:sr-only">Permissões</p>
+                    {key.scopes.length ? (
+                      <ul className="grid gap-1.5 pl-4 text-sm marker:text-muted-foreground">
+                        {key.scopes.map((scope) => <li key={scope} className="list-disc wrap-anywhere leading-snug">{sandboxKeyPermissions[scope]}</li>)}
+                      </ul>
+                    ) : <p className="text-sm text-muted-foreground">Sem permissões</p>}
+                  </div>
+                  <dl className="col-span-full row-start-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 @3xl:col-[3] @3xl:row-start-1">
+                    <dt className="text-xs font-medium text-muted-foreground @3xl:sr-only">Vencimento</dt>
+                    <dd className="text-sm tabular-nums">
+                      {key.expiresAt ? <time dateTime={key.expiresAt}>{formatDateTime(key.expiresAt, "date-only")}</time> : "Sem vencimento"}
+                    </dd>
+                  </dl>
+                  <dl className="col-start-2 row-start-1 self-start @3xl:col-start-4">
+                    <dt className="sr-only">Status</dt>
+                    <dd><Badge variant={statusVariants[key.status]}>{statusLabels[key.status]}</Badge></dd>
+                  </dl>
+                  {canManage && <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" size="icon" variant="ghost"
+                        className="col-start-3 row-start-1 -mt-2 size-11 text-muted-foreground @3xl:col-start-5"
+                        aria-label={`Ações da chave ${key.name}`} onFocus={(event) => { button.current = event.currentTarget; }}>
+                        <Ellipsis aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onCloseAutoFocus={(event) => { if (modal) event.preventDefault(); }}>
+                      {key.status === "active" || key.status === "paused" ? (
+                        <>
+                          <DropdownMenuItem className="min-h-10" onSelect={() => setModal({
+                            kind: "confirm", operation: { kind: "change", key, action: key.status === "active" ? "pause" : "resume" },
+                          })}>
+                            {key.status === "active" ? <CirclePause aria-hidden="true" /> : <CirclePlay aria-hidden="true" />}
+                            {key.status === "active" ? actionTitles.pause : actionTitles.resume}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                        </>
+                      ) : null}
+                      <DropdownMenuItem className="min-h-10 text-destructive" onSelect={() => setModal({
+                        kind: "confirm", operation: { kind: "change", key, action: "revoke" },
+                      })}>
+                        <Trash2 aria-hidden="true" /> Revogar chave
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>}
+                </li>
+              ))}
+            </ul>
+            <TablePagination {...pagination} busy={listPending} label="Paginação das chaves de API" onPageChange={(page) => {
+              listTitle.current?.focus();
+              changePage(page);
+            }} />
+          </>
         )}
       </Card>
 
-      {apiOrigin && (
-        <Card className="min-w-0 gap-3 p-4 sm:p-5" aria-labelledby="integration-quick-start">
-          <h2 id="integration-quick-start" className="text-balance text-lg font-semibold">Conectar uma aplicação</h2>
-          <dl className="grid gap-1 rounded-lg border bg-background p-3">
-            <dt className="text-xs text-muted-foreground">Endereço da API</dt>
-            <dd className="select-all wrap-anywhere font-mono text-sm">{apiOrigin}</dd>
-          </dl>
-          <p className="text-pretty text-sm text-muted-foreground">
-            Envie a chave no cabeçalho <code className="text-foreground">X-API-Key</code> a partir do servidor da sua aplicação.
-            Para criar uma cobrança ou solicitar um saque, envie também <code className="text-foreground">Idempotency-Key</code> e o valor em centavos.
-          </p>
-          <p className="text-pretty text-sm text-muted-foreground">Para conferir a chave, consulte a lista com o escopo de leitura de cobranças.</p>
-          <pre className="select-all whitespace-pre-wrap wrap-anywhere rounded-lg border bg-background p-3 font-mono text-xs leading-relaxed">
-            <code>{`curl -i "${apiOrigin}${apiPath}/charges" -H "X-API-Key: $SLOPAY_API_KEY"`}</code>
-          </pre>
-          <dl className="grid gap-2 text-sm">
-            <div className="grid gap-1 sm:grid-cols-[minmax(0,20rem)_1fr]"><dt className="wrap-anywhere font-mono text-xs">{`POST ${apiPath}/charges`}</dt><dd>Cria uma cobrança Pix.</dd></div>
-            <div className="grid gap-1 sm:grid-cols-[minmax(0,20rem)_1fr]"><dt className="wrap-anywhere font-mono text-xs">{`GET ${apiPath}/charges/{id}/qr-code`}</dt><dd>Consulta o QR Code da cobrança.</dd></div>
-            <div className="grid gap-1 sm:grid-cols-[minmax(0,20rem)_1fr]"><dt className="wrap-anywhere font-mono text-xs">{`POST ${apiPath}/withdrawals`}</dt><dd>Solicita um saque para aprovação do titular.</dd></div>
-          </dl>
-          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-            <Link href={integrationSecurityPath} className="font-medium text-primary hover:underline">Redes permitidas</Link>
-            <Link href={webhooksPath} className="font-medium text-primary hover:underline">Configurar webhooks</Link>
-            <Link href={integrationLogsPath + "?aba=requisicoes"} className="font-medium text-primary hover:underline">Ver requisições</Link>
-          </div>
-        </Card>
-      )}
+      {apiOrigin && <ApiKeyQuickStart apiOrigin={apiOrigin} apiPath={apiPath} />}
 
       <Dialog open={canManage && modal !== null} onOpenChange={(open) => { if (!open) close(); }}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] overflow-y-auto sm:max-w-lg"
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] gap-5 overflow-y-auto p-4 sm:max-w-lg sm:p-6"
           onInteractOutside={(event) => { if (busy || modal?.kind === "issued") event.preventDefault(); }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             (button.current?.isConnected ? button.current : listTitle.current)?.focus();
           }}>
-          <DialogHeader className="pr-5 text-left">
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>
-              {modal?.kind === "issued" ? "Copie a chave. O valor completo é exibido uma vez."
-                : modal?.kind === "done" ? "O novo status já vale para as próximas requisições."
-                  : confirmation?.kind === "change" ? `Confirme a alteração de acesso da chave ${confirmation.key.name}.`
-                    : confirmation ? "Confira as permissões antes de confirmar sua identidade."
-                      : "Defina quais operações a aplicação poderá realizar."}
-            </DialogDescription>
-          </DialogHeader>
+          {modal?.kind !== "issued" && (
+            <div className="flex min-w-0 items-center gap-3 pr-6">
+              {modal?.kind === "done" && <LoadingConfirmation size={40} animate />}
+              <DialogHeader className="min-w-0 text-left">
+                <DialogTitle className="text-balance text-xl leading-snug">{title}</DialogTitle>
+                <DialogDescription className="wrap-anywhere text-pretty">
+                  {modal?.kind === "done" ? "O novo status já vale para as próximas requisições."
+                    : confirmation?.kind === "change" ? `Confirme a alteração de acesso da chave ${confirmation.key.name}.`
+                      : confirmation ? "Confira as permissões antes de confirmar sua identidade."
+                        : "Defina quais operações a aplicação poderá realizar."}
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+          )}
 
           {modal?.kind === "form" && (
-            <form className="flex flex-col gap-4" onSubmit={review}>
-              <div className="grid gap-1.5">
-                <label htmlFor="sandbox-key-name" className="text-sm font-medium">Nome da chave</label>
-                <Input ref={formName} id="sandbox-key-name" name="name" required autoComplete="off" maxLength={80}
-                  placeholder="Ex. ERP da empresa" className="h-11" />
+            <form className="grid min-w-0 gap-5" onSubmit={review}>
+              <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="sandbox-key-name" className="text-sm font-medium">Nome da chave</label>
+                  <Input ref={formName} id="sandbox-key-name" name="name" required autoComplete="off" maxLength={80}
+                    placeholder="Ex. ERP da empresa" className="h-11" />
+                </div>
+                <div className="grid min-w-0 gap-1.5">
+                  <label htmlFor="sandbox-key-expiration" className="text-sm font-medium">Vencimento <span className="text-muted-foreground">(opcional)</span></label>
+                  <Input id="sandbox-key-expiration" name="expiresOn" type="date" className="h-11 min-w-0 scheme-dark" />
+                </div>
               </div>
-              <fieldset className="grid min-w-0 gap-2">
+              <fieldset className="min-w-0">
                 <legend className="mb-2 text-sm font-medium">Permissões</legend>
-                {Object.entries(sandboxKeyPermissions).map(([scope, label]) => (
-                  <label key={scope} className="flex min-h-9 cursor-pointer items-center gap-2 text-sm">
-                    <Checkbox name="scopes" value={scope} defaultChecked={scope === "pix:charges:read"} /> {label}
-                  </label>
-                ))}
+                <div className="divide-y rounded-lg border bg-background">
+                  {Object.entries(sandboxKeyPermissions).map(([scope, label]) => (
+                    <label key={scope} className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm">
+                      <Checkbox name="scopes" value={scope} defaultChecked={scope === "pix:charges:read"} /> {label}
+                    </label>
+                  ))}
+                </div>
               </fieldset>
-              <div className="grid gap-1.5">
-                <label htmlFor="sandbox-key-expiration" className="text-sm font-medium">Vencimento <span className="text-muted-foreground">(opcional)</span></label>
-                <Input id="sandbox-key-expiration" name="expiresOn" type="date" className="h-11 min-w-0 scheme-dark" />
-              </div>
-              <Button type="submit" className="h-11 self-end">Continuar</Button>
+              <footer className="flex justify-end gap-2 border-t pt-4">
+                <Button type="button" variant="ghost" className="h-11" onClick={close}>Cancelar</Button>
+                <Button type="submit" className="h-11">Continuar</Button>
+              </footer>
             </form>
           )}
 
           {confirmation && (
             <div className="grid gap-4">
               {confirmation.kind === "create" && (
-                <div className="grid gap-1 rounded-lg border p-3 text-sm">
-                  <strong className="wrap-anywhere">{confirmation.draft.name}</strong>
-                  <span className="text-muted-foreground">{confirmation.draft.scopes.map((scope) => sandboxKeyPermissions[scope]).join(" · ")}</span>
-                  <span className="text-muted-foreground">{confirmation.draft.expiresAt
-                    ? `Vence em ${formatDateTime(confirmation.draft.expiresAt, "date-only")}` : "Sem vencimento"}</span>
-                </div>
+                <dl className="grid min-w-0 gap-3 rounded-lg border bg-background p-4 text-sm">
+                  <div className="grid gap-1">
+                    <dt className="text-xs text-muted-foreground">Nome da chave</dt>
+                    <dd className="wrap-anywhere font-medium">{confirmation.draft.name}</dd>
+                  </div>
+                  <div className="grid gap-1">
+                    <dt className="text-xs text-muted-foreground">Permissões</dt>
+                    <dd>
+                      <ul className="list-disc space-y-1 pl-4 text-sm marker:text-muted-foreground">
+                        {confirmation.draft.scopes.map((scope) => <li key={scope}>{sandboxKeyPermissions[scope]}</li>)}
+                      </ul>
+                    </dd>
+                  </div>
+                  <div className="grid gap-1">
+                    <dt className="text-xs text-muted-foreground">Vencimento</dt>
+                    <dd className="tabular-nums">{confirmation.draft.expiresAt
+                      ? <time dateTime={confirmation.draft.expiresAt}>{formatDateTime(confirmation.draft.expiresAt, "date-only")}</time>
+                      : "Sem vencimento"}</dd>
+                  </div>
+                </dl>
               )}
               {passkey.showPasskey ? <PasskeyActions prompt={passkey} autoFocus /> : (
                 <>
@@ -323,29 +351,18 @@ export function SandboxIntegrationKeysScreen({
                   }}>Usar biometria</Button>}
                 </>
               )}
-              <Button variant="ghost" className="h-11 justify-self-end" disabled={busy} onClick={close}>Cancelar</Button>
+              <footer className="flex justify-end border-t pt-4">
+                <Button variant="ghost" className="h-11" disabled={busy} onClick={close}>Cancelar</Button>
+              </footer>
             </div>
           )}
 
-          {modal?.kind === "issued" && (
-            <div className="grid min-w-0 gap-3">
-              <LoadingConfirmation size={40} animate />
-              <p className="wrap-anywhere text-sm font-medium">{modal.key.name}</p>
-              <code className="select-all wrap-anywhere rounded-lg border bg-background p-3 font-mono text-xs">{modal.key.secret}</code>
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button variant="outline" className="h-11" onClick={() => void copySecret(modal.key.secret)}
-                  ref={(control) => { control?.focus({ preventScroll: true }); }}>
-                  <Copy aria-hidden="true" data-icon="inline-start" /> Copiar chave
-                </Button>
-                <Button className="h-11" onClick={close}>Concluir</Button>
-              </div>
-            </div>
-          )}
+          {modal?.kind === "issued" && <ApiKeyIssuedContent name={modal.key.name} secret={modal.key.secret} onClose={close} />}
 
-          {modal?.kind === "done" && <div className="flex items-center justify-between gap-3">
-            <LoadingConfirmation size={40} animate />
-            <Button className="h-11" onClick={close} ref={(control) => { control?.focus({ preventScroll: true }); }}>Concluir</Button>
-          </div>}
+          {modal?.kind === "done" && <footer className="flex justify-end border-t pt-4">
+            <Button variant="outline" className="h-11 w-full sm:w-auto" onClick={close}
+              ref={(control) => { control?.focus({ preventScroll: true }); }}>Concluir</Button>
+          </footer>}
         </DialogContent>
       </Dialog>
     </div>

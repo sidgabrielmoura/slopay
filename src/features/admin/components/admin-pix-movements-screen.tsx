@@ -61,7 +61,6 @@ const count = new Intl.NumberFormat("pt-BR");
 function MovementFilters({ adminId, query, onChange }: { adminId: string; query: PixMovementQuery; onChange: (value: PixMovementQuery) => void }) {
   const searchInput = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState({ previous: query.search, value: query.search });
-  const [resetParties, setResetParties] = useState(0);
   const search = draft.previous === query.search ? draft.value : query.search;
   const filtered = query.search || query.companyId || query.accountId || query.merchantId || query.provider || query.period !== "LAST_30_DAYS" ||
     ("type" in query && query.type !== "ALL") || ("status" in query && query.status !== "ALL");
@@ -115,8 +114,8 @@ function MovementFilters({ adminId, query, onChange }: { adminId: string; query:
           </div>
         )}
       </div>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <MovementPartiesFilter key={resetParties} adminId={adminId} query={query} onChange={onChange} />
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+        <MovementPartiesFilter adminId={adminId} query={query} onChange={onChange} />
       </div>
       {filtered && <div className="flex min-w-0 flex-wrap items-center gap-2">
         {(["companyId", "accountId"] as const).map((scope) => query[scope] && (
@@ -128,7 +127,6 @@ function MovementFilters({ adminId, query, onChange }: { adminId: string; query:
         <Button type="button" variant="ghost" size="sm" className="min-h-11" onClick={() => {
           searchInput.current?.focus();
           setDraft({ previous: "", value: "" });
-          setResetParties(value => value + 1);
           onChange(pixMovementViewQuery(query.view, pixMovementQueryFrom(new URLSearchParams())));
         }}>Limpar filtros</Button>
       </div>}
@@ -238,21 +236,26 @@ type FilterByScope = (scope: "companyId" | "accountId", id: string) => void;
 function MovementTable({ report, open, filter }: { report: PixMovementReport; open: OpenMovement; filter: FilterByScope }) {
   const view = views[report.view];
   const rows = movementRows(report);
-  const columns = [view.firstColumn, "Empresa e carteira", view.dateColumn];
-  if (report.view === "charges") columns.push("Vencimento");
-  if (report.view !== "statement") columns.push("Situação");
-  columns.push("Origem");
+  const columns = [
+    { title: view.firstColumn, width: "w-56" },
+    { title: "Empresa e carteira", width: "w-52" },
+    { title: view.dateColumn, width: "w-40" },
+  ];
+  if (report.view === "charges") columns.push({ title: "Vencimento", width: "w-36" });
+  if (report.view !== "statement") columns.push({ title: "Situação", width: "w-36" });
+  columns.push({ title: "Origem", width: "w-32" });
   const showBalance = report.view === "all" && report.environment === "live";
-  if (showBalance) columns.push("Saldo antes e depois");
+  if (showBalance) columns.push({ title: "Saldo antes e depois", width: "w-48" });
   return (
     <>
       <div className="hidden min-w-0 xl:block">
-        <Table aria-label={view.label + " · Movimentações Pix"} className="table-fixed">
+        <Table aria-label={view.label + " · Movimentações Pix"} className="table-fixed"
+          scrollLabel="Rolagem da tabela de movimentações">
           <TableHeader className="bg-secondary/20">
             <TableRow className="hover:bg-transparent">
-              {columns.map((title, i) => <TableHead key={title} scope="col" className={i < 2 ? "w-1/5" : "whitespace-normal"}>{title}</TableHead>)}
-              <TableHead scope="col" className="w-1/6 text-right">Valor</TableHead>
-              <TableHead scope="col" className="w-16"><span className="sr-only">Detalhes</span></TableHead>
+              {columns.map(({ title, width }) => <TableHead key={title} scope="col" className={width}>{title}</TableHead>)}
+              <TableHead scope="col" className="w-36 text-right">Valor</TableHead>
+              <TableHead scope="col" className="w-20"><span className="sr-only">Detalhes</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>{rows.map(row => {
