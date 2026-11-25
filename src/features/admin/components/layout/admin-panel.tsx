@@ -12,6 +12,7 @@ import type { SessionUser } from "@/lib/server/auth-backend";
 import { adminPreferencesPath } from "../../admin-preferences";
 import { AdminNotifications, useAdminActivity } from "../admin-activity-provider";
 import { AdminBottomNav } from "./admin-bottom-nav";
+import { AdminPanelNotices } from "./admin-panel-notices";
 import { AdminSidebar } from "./admin-sidebar";
 
 export type AdminIdentity = Pick<SessionUser, "id" | "fullName" | "email">;
@@ -22,7 +23,10 @@ export function AdminPanel({ user, children, pendingSummary }: {
 }) {
   const activity = useAdminActivity();
   const summary = activity?.summary;
-  return <PanelFrame kind="admin" className="admin-panel" sidebar={<AdminSidebar live pendingSummary={summary ? {
+  const pendingCount = summary?.total ?? pendingSummary?.totalUrgentTasks ?? 0;
+  return <PanelFrame kind="admin" className="admin-panel" notice={(
+    <AdminPanelNotices accountId={user.id} pendingCount={pendingCount} live={activity?.connection === "live"} />
+  )} sidebar={<AdminSidebar live pendingSummary={summary ? {
     pendingApplicationsCount: summary.onboarding, pendingFinancialApprovalsCount: summary.ownerApproval, totalUrgentTasks: summary.total,
   } : pendingSummary} />} topbar={(
     <PanelTopbar user={user} actions={(

@@ -25,7 +25,7 @@ import { adminWebhooksPath } from "../admin-webhooks";
 import { pixTransactionsPath } from "../admin-pix-transactions";
 import { adminApprovalsPath } from "../admin-withdrawal-approvals";
 import {
-  fetchAdminPending, fetchPendingDetail, pendingCategories, pendingCategoryLabels, pendingCategorySchema,
+  adminPendingListKey, fetchAdminPending, fetchPendingDetail, pendingCategories, pendingCategoryLabels, pendingCategorySchema,
   pendingInstructions, pendingKeySchema, pendingKindLabels, pendingResponsibleLabels, pendingStateLabels,
   type AdminPendingReport, type PendingCategory, type PendingItem,
 } from "../admin-pending";
@@ -69,7 +69,7 @@ export function AdminPendingScreen({ user, initialReport }: { user: AdminIdentit
   const urlKey = pendingKeySchema.safeParse(params.get("item"));
   const selectedKey = selected ?? (urlKey.success ? urlKey.data : null);
   const report = useQuery({
-    queryKey: ["admin-pending", user.id, "list", category, search, page],
+    queryKey: adminPendingListKey(user.id, category, search, page),
     queryFn: ({ signal }) => fetchAdminPending(category, search, page, signal),
     initialData: category === "ALL" && !search && page === 1 ? initialReport ?? undefined : undefined,
     placeholderData: (previous, request) => request?.queryKey[1] === user.id && previous?.category === category && previous.search === search ? previous : undefined,

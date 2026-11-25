@@ -4,15 +4,23 @@ import { ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { MerchantPanel } from "@/components/layout/merchant-panel";
 import { LiveWithdrawalApprovals } from "@/features/approvals/components/live-withdrawal-approvals";
+import {
+  withdrawalApprovalIdSchema, withdrawalApprovalReviewParam, withdrawalApprovalsPath,
+} from "@/features/approvals/sandbox-withdrawal-approvals";
 import { requireSession } from "@/lib/server/session";
 
 export const metadata: Metadata = { title: "Aprovações" };
 
 export default async function ApprovalsPage({ searchParams }: {
-  searchParams: Promise<{ regras?: string | string[] }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const showRule = (await searchParams).regras === "1";
-  const user = await requireSession(showRule ? "/aprovacoes?regras=1" : "/aprovacoes", { operations: true });
+  const params = await searchParams;
+  const showRule = params.regras === "1";
+  const reviewId = withdrawalApprovalIdSchema.safeParse(params[withdrawalApprovalReviewParam]).data;
+  const query = new URLSearchParams();
+  if (showRule) query.set("regras", "1");
+  if (reviewId) query.set(withdrawalApprovalReviewParam, reviewId);
+  const user = await requireSession(withdrawalApprovalsPath + (query.size ? `?${query}` : ""), { operations: true });
   if (user.role === "ADMIN") redirect("/admin");
 
   const rule = (

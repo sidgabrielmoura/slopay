@@ -4,6 +4,7 @@ import { useDevelopmentFeatures } from "@/providers/app-providers";
 
 import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListChecks, RotateCw } from "lucide-react";
 import { PanelAmount, PanelPrivacyToggle } from "@/components/layout/panel-privacy";
@@ -19,7 +20,8 @@ import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
 import { usePreferences } from "@/providers/preferences-provider";
 import {
-  approvalGroupSchema, withdrawalApprovalsGateway, type ApprovalDecision,
+  approvalGroupSchema, withdrawalApprovalIdSchema, withdrawalApprovalReviewParam,
+  withdrawalApprovalsGateway, withdrawalApprovalsKey, withdrawalApprovalsPath, type ApprovalDecision,
   type ApprovalGroup, type WithdrawalApproval, type WithdrawalApprovalReview,
 } from "../sandbox-withdrawal-approvals";
 
@@ -34,23 +36,33 @@ const status: Record<WithdrawalApproval["state"], [string, BadgeProps["variant"]
 export function LiveWithdrawalApprovals({ accountId, rule }: { accountId: string; rule: ReactNode }) {
   const development = useDevelopmentFeatures();
   const client = useQueryClient();
+  const router = useRouter();
+  const params = useSearchParams();
   const [group, setGroup] = useState<ApprovalGroup>("pending");
   const [cursors, setCursors] = useState<string[]>([]);
-  const [selection, setSelection] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const linkedSelection = withdrawalApprovalIdSchema.safeParse(params.get(withdrawalApprovalReviewParam)).data;
+  const selection = selected ?? linkedSelection;
   const origin = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const before = cursors.at(-1);
   const gateway = withdrawalApprovalsGateway(development);
-  const key = ["withdrawal-approvals", accountId, development] as const;
+  const key = withdrawalApprovalsKey(accountId, development);
   const queue = useQuery({
     queryKey: [...key, group, before], queryFn: ({ signal }) => gateway.list(group, before, signal),
-    retry: false, refetchInterval: 15_000,
+    retry: false, staleTime: 15_000, refetchInterval: 15_000,
   });
   const more = queue.data?.nextCursor;
 
   function closeReview() {
-    setSelection(null);
+    setSelected(null);
+    if (linkedSelection) {
+      const search = new URLSearchParams(params.toString());
+      search.delete(withdrawalApprovalReviewParam);
+      router.replace(withdrawalApprovalsPath + (search.size ? `?${search}` : ""), { scroll: false });
+    }
     (origin.current?.isConnected ? origin.current : heading.current)?.focus();
+    origin.current = null;
   }
 
   return (
@@ -98,7 +110,7 @@ export function LiveWithdrawalApprovals({ accountId, rule }: { accountId: string
                         <strong><PanelAmount cents={item.amountInCents} /></strong><Badge variant={variant}>{label}</Badge>
                       </div>
                       {group === "pending" ? <Button type="button" variant="outline" className="justify-self-start"
-                        onClick={(event) => { origin.current = event.currentTarget; setSelection(item.id); }}>Revisar</Button>
+                        onClick={(event) => { origin.current = event.currentTarget; setSelected(item.id); }}>Revisar</Button>
                         : item.authorizedAt && <Button asChild variant="ghost" className="justify-self-start">
                           <Link href={`/movimentacoes/saque-${item.id}`} prefetch={false}>Ver movimentação</Link>
                         </Button>}

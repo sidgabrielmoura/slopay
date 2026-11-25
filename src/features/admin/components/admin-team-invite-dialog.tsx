@@ -16,7 +16,9 @@ type InviteReview = {
   offeredForPasskey: boolean;
 };
 
-export function AdminTeamInviteDialog({ onClose, restoreFocus }: { onClose: () => void; restoreFocus: () => void }) {
+export function AdminTeamInviteDialog({ onClose, onInvited, restoreFocus }: {
+  onClose: () => void; onInvited: () => void; restoreFocus: () => void;
+}) {
   const fieldId = useId();
   const [open, setOpen] = useState(true);
   const [email, setEmail] = useState("");
@@ -96,11 +98,11 @@ export function AdminTeamInviteDialog({ onClose, restoreFocus }: { onClose: () =
             throw error;
           }
         }}
-        onSuccess={() => setFailure("")}
+        onSuccess={onInvited}
         onClose={onClose}
         restoreFocus={restoreFocus}
         resultContent={<p className="text-pretty text-sm text-muted-foreground">
-          O e-mail entrou na fila de envio. O convite vale por 24 horas e o membro aparece na lista após criar o acesso.
+          O e-mail entrou na fila de envio. O convite vale por 48 horas e já pode ser acompanhado na lista da equipe.
         </p>}>
         <div className="min-w-0 rounded-lg border border-border bg-muted/40 p-4">
           <p className="text-xs text-muted-foreground">E-mail do novo superadmin</p>

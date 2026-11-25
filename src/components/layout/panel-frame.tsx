@@ -26,6 +26,7 @@ function PanelContent({ children }: { children: ReactNode }) {
 }
 
 export function PanelFrame({
+  notice,
   sidebar,
   topbar,
   bottomNav,
@@ -33,6 +34,7 @@ export function PanelFrame({
   className,
   kind,
 }: {
+  notice?: ReactNode;
   sidebar: ReactNode;
   topbar: ReactNode;
   bottomNav?: ReactNode;
@@ -46,12 +48,15 @@ export function PanelFrame({
   return (
     <EnclosingPanel value={kind}>
       {kind && <SessionMonitor />}
-      <div className={cn("flex h-dvh w-full overflow-hidden bg-background", className)}>
-        {sidebar}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {topbar}
-          <PanelContent>{children}</PanelContent>
-          {bottomNav}
+      <div className={cn("flex h-dvh w-full flex-col overflow-hidden bg-background", className)}>
+        {notice}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {sidebar}
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            {topbar}
+            <PanelContent>{children}</PanelContent>
+            {bottomNav}
+          </div>
         </div>
       </div>
     </EnclosingPanel>

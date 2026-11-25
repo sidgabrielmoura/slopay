@@ -8,6 +8,8 @@ import { Topbar } from "@/components/layout/topbar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { AccountStatusGate } from "@/components/layout/account-status-gate";
 import { PanelFrame } from "@/components/layout/panel-frame";
+import { PanelNoticeStrip, type PanelNotice } from "@/components/layout/panel-notice-strip";
+import { merchantPanelTips } from "@/components/layout/merchant-panel-tips";
 import { ScenarioSwitcher } from "@/components/shared/scenario-switcher";
 import { DemoProvider, useDemoScenario, useGatewayService } from "@/providers/demo-provider";
 import { queryKeys } from "@/lib/query-keys";
@@ -23,11 +25,17 @@ function PanelShell({
     queryKey: queryKeys.approvals("PENDING"),
     queryFn: () => service.getApprovals("PENDING"),
   });
+  const [first, ...rest] = (approvals?.data ?? []).map((item): PanelNotice => ({
+    id: `withdrawal:${item.id}`,
+    message: `Saque ${item.id.slice(0, 8)} aguarda aprovação.`,
+    href: `/aprovacoes/${encodeURIComponent(item.id)}`,
+  }));
 
   return (
     <AccountStatusGate>
       <DashboardPixNoticesProvider mode="demo" accountId={activeScenario}>
         <PanelFrame
+          notice={<PanelNoticeStrip entries={first ? [first, ...rest] : merchantPanelTips} />}
           sidebar={<Sidebar demo pendingApprovals={approvals?.pendingCount} />}
           topbar={<Topbar />}
           bottomNav={<BottomNav pendingApprovals={approvals?.pendingCount} demoControls={<ScenarioSwitcher />} />}

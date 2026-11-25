@@ -12,9 +12,10 @@ const api = "/api/admin/team";
 const date = z.iso.datetime({ offset: true });
 const count = z.int().nonnegative();
 const memberStatus = z.enum(["ACTIVE", "SUSPENDED", "LOCKED", "PENDING_VERIFICATION"]);
+const invitationStatus = z.enum(["INVITE_PENDING", "INVITE_ACCEPTED", "INVITE_EXPIRED"]);
 const changeAction = z.enum(["SUSPEND", "REACTIVATE"]);
 
-export const adminMemberStatusFilter = z.enum(["ALL", ...memberStatus.options]);
+export const adminMemberStatusFilter = z.enum(["ALL", ...memberStatus.options, ...invitationStatus.options]);
 export const adminTeamQuery = z.strictObject({
   search: operationalSearch.default(""),
   status: adminMemberStatusFilter.default("ALL"),
@@ -26,9 +27,22 @@ const member = z.object({
   id: z.uuid(), name: z.string(), email: z.email(), status: memberStatus,
   mfaEnabled: z.boolean(), lastLoginAt: date.nullable(),
 });
+const invitation = z.object({
+  status: invitationStatus,
+  expiresAt: date,
+  acceptedAt: date.nullable(),
+  emailState: z.enum(["PENDING", "ACCEPTED", "FAILED"]).nullable(),
+});
+const teamEntry = z.union([
+  member.extend({ kind: z.literal("member").default("member"), invitation: invitation.nullable().default(null) }),
+  z.object({
+    kind: z.literal("invitation"), id: z.uuid(), email: z.email(),
+    status: invitationStatus, invitation,
+  }),
+]);
 export const adminTeamSchema = z.object({
   summary: z.object({ total: count, active: count, suspended: count, restricted: count }),
-  items: z.array(member).max(8),
+  items: z.array(teamEntry).max(8),
   pagination: adminPaginationSchema,
 });
 export const adminMemberSchema = z.object({
@@ -58,6 +72,7 @@ export const adminTeamInvitedSchema = z.object({ invited: z.literal(true) });
 export type AdminTeamQuery = z.infer<typeof adminTeamQuery>;
 export type AdminTeamSummary = z.infer<typeof adminTeamSchema>["summary"];
 export type AdminTeamMember = z.infer<typeof member>;
+export type AdminTeamEntry = z.infer<typeof teamEntry>;
 export type AdminMemberDetail = z.infer<typeof adminMemberSchema>["member"];
 export type AdminMemberAccessEvent = z.infer<typeof adminMemberSchema>["history"][number];
 export type AdminTeamChange = z.infer<typeof adminTeamChangeSchema>;
@@ -67,6 +82,9 @@ export const adminTeamStatuses = {
   SUSPENDED: { label: "Suspenso", variant: "destructive" },
   LOCKED: { label: "Bloqueado", variant: "warning" },
   PENDING_VERIFICATION: { label: "Verificação pendente", variant: "info" },
+  INVITE_PENDING: { label: "Convite pendente", variant: "info" },
+  INVITE_ACCEPTED: { label: "Convite aceito", variant: "success" },
+  INVITE_EXPIRED: { label: "Convite expirado", variant: "secondary" },
 } as const;
 
 export function adminTeamQueryFrom(params: Pick<URLSearchParams, "get">): AdminTeamQuery {

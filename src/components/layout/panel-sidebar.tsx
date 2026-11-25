@@ -110,7 +110,7 @@ export function PanelSidebar({
         }}
         className={cn(
           styles.sidebar,
-          "sticky top-0 hidden h-dvh shrink-0 select-none flex-col overflow-hidden border-r border-sidebar-border bg-sidebar lg:flex",
+          "sticky top-0 hidden h-dvh max-h-full shrink-0 select-none flex-col overflow-hidden border-r border-sidebar-border bg-sidebar lg:flex",
         )}
       >
         <div className="flex min-h-0 flex-1 flex-col" inert={integrationsOpen} aria-hidden={integrationsOpen || undefined}>

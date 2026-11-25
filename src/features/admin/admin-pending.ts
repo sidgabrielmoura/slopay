@@ -32,6 +32,10 @@ export type PendingSummary = z.infer<typeof pendingSummarySchema>;
 export type PendingItem = z.infer<typeof pendingItemSchema>;
 export type AdminPendingReport = z.infer<typeof adminPendingSchema>;
 
+export function adminPendingListKey(accountId: string, category: PendingCategory, search: string, page: number) {
+  return ["admin-pending", accountId, "list", category, search, page] as const;
+}
+
 export const pendingCategoryLabels: Record<PendingCategory, string> = {
   ALL: "Todas as pendências", ONBOARDING: "Cadastros", PIX_REVIEW: "Revisões Pix", OWNER_APPROVAL: "Aprovações do titular", WEBHOOK: "Webhooks",
 };

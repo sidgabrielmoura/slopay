@@ -1,0 +1,105 @@
+/* Transitions.dev — Thinking states, adapted for a wrapping panel message. */
+.strip {
+  --think-hold: 12000ms;
+  --think-swap: 150ms;
+  --think-gap: 50ms;
+  --think-distance: 8px;
+  --think-blur: 2px;
+  --think-shimmer: 2000ms;
+  --think-base: var(--primary-foreground);
+  --think-highlight: color-mix(in srgb, var(--primary-foreground) 35%, black);
+  --think-ease: ease-in-out;
+}
+
+.strip[data-notice="true"] {
+  --think-hold: 10000ms;
+}
+
+.t-think {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.strip[data-notice="true"] .t-think {
+  text-align: start;
+}
+
+.t-think-sizer,
+.t-think-text {
+  display: block;
+  grid-area: 1 / 1;
+}
+
+.t-think-sizer {
+  visibility: hidden;
+}
+
+.t-think-text {
+  position: relative;
+  color: var(--think-base);
+}
+
+.t-think-highlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  -webkit-text-fill-color: transparent;
+}
+
+.t-think-highlight::before {
+  content: attr(data-text);
+  display: block;
+  background-image: linear-gradient(90deg,
+    transparent 0%, transparent 40%,
+    var(--think-highlight) 50%,
+    transparent 60%, transparent 100%);
+  background-size: 400% 100%;
+  background-repeat: no-repeat;
+  background-clip: text;
+  color: transparent;
+  animation: t-think-shimmer var(--think-shimmer) linear infinite;
+}
+
+.strip:is(:hover, :focus-within) .t-think-highlight::before {
+  animation-play-state: paused;
+}
+
+.t-think-text.is-enter {
+  animation: t-think-enter var(--think-swap) var(--think-ease) var(--think-gap) backwards;
+}
+
+.t-think-text.is-exit {
+  position: absolute;
+  inset-inline: 0;
+  pointer-events: none;
+  animation: t-think-exit var(--think-swap) var(--think-ease) forwards;
+}
+
+@keyframes t-think-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+
+@keyframes t-think-enter {
+  from { opacity: 0; transform: translateY(var(--think-distance)); filter: blur(var(--think-blur)); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes t-think-exit {
+  from { opacity: 1; transform: translateY(0); filter: blur(0); }
+  to { opacity: 0; transform: translateY(calc(-1 * var(--think-distance))); filter: blur(var(--think-blur)); visibility: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-think-text.is-enter { animation: none; }
+  .t-think-text.is-exit,
+  .t-think-highlight { display: none; }
+}
+
+:global(:root.reduce-motion) .t-think-text.is-enter { animation: none; }
+:global(:root.reduce-motion) .t-think-text.is-exit,
+:global(:root.reduce-motion) .t-think-highlight { display: none; }

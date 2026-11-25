@@ -32,6 +32,18 @@ export type WithdrawalApproval = z.infer<typeof approvalItemSchema>;
 export type WithdrawalApprovalReview = z.infer<typeof approvalReviewSchema>;
 export type ApprovalDecision = z.infer<typeof approvalDecisionSchema>;
 
+export const withdrawalApprovalsPath = "/aprovacoes";
+export const withdrawalApprovalReviewParam = "revisar";
+export const withdrawalApprovalIdSchema = z.uuidv4();
+
+export function withdrawalApprovalReviewHref(id: string) {
+  return `${withdrawalApprovalsPath}?${new URLSearchParams({ [withdrawalApprovalReviewParam]: id })}`;
+}
+
+export function withdrawalApprovalsKey(accountId: string, development: boolean) {
+  return ["withdrawal-approvals", accountId, development] as const;
+}
+
 const unavailable = "As aprovações estão temporariamente indisponíveis.";
 
 export function withdrawalApprovalsGateway(development: boolean) {

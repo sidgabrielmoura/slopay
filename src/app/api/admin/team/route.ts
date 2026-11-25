@@ -8,7 +8,9 @@ export function GET(request: NextRequest) {
   if (!query.success || Array.from(params.keys()).some((key) => params.getAll(key).length > 1)) {
     return integrationResponse({ message: "Confira os filtros da equipe." }, 400);
   }
+  const searchParams = adminTeamParams(query.data);
+  searchParams.set("includeInvitations", "1");
   return forwardIntegrationRequest(request, {
-    path: "/admin/team", output: adminTeamSchema, unavailable: adminTeamUnavailable, searchParams: adminTeamParams(query.data),
+    path: "/admin/team", output: adminTeamSchema, unavailable: adminTeamUnavailable, searchParams,
   });
 }
