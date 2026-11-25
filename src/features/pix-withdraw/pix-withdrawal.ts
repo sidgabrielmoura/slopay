@@ -84,6 +84,10 @@ const withdrawalReasons: Record<string, string> = {
   PROVIDER_REJECTED: "A transferência foi recusada. Confira o saldo e a chave Pix.",
   PROVIDER_FAILED: "A transferência falhou.",
   PROVIDER_ACCESS_DENIED: "A transferência está indisponível para a carteira.",
+  PROVIDER_BALANCE_OR_FEE_CHANGED: "A checagem de saldo e tarifa da carteira de pagamentos impediu o envio do saque.",
+  PROVIDER_INSUFFICIENT_BALANCE: "O saldo da carteira de pagamentos é insuficiente para cobrir o saque e a tarifa.",
+  PROVIDER_FEE_UNAVAILABLE: "A tarifa do saque está temporariamente indisponível.",
+  PROVIDER_FEE_LIMIT_EXCEEDED: "A tarifa do saque ultrapassou o limite configurado para a carteira.",
 };
 
 export const withdrawalSchema = z.object({

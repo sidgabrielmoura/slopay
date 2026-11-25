@@ -54,7 +54,9 @@ export function PixWithdrawalDetails({ withdrawal, heading, inline, animate, onE
           {withdrawalStatusLabel(withdrawal)}
         </PixFlowTitle>
         <p className="text-4xl font-bold tracking-tight tabular-nums"><PanelAmount cents={withdrawal.amountInCents} /></p>
-        <p className="text-sm text-muted-foreground">{withdrawal.simulated ? "Saque simulado · Asaas Sandbox" : "Asaas Sandbox"}</p>
+        {withdrawal.environment === "sandbox" && (
+          <p className="text-sm text-muted-foreground">{withdrawal.simulated ? "Saque simulado · Asaas Sandbox" : "Asaas Sandbox"}</p>
+        )}
         {issue && <p className="max-w-sm text-pretty text-sm">{issue}</p>}
       </div>
       <dl className="grid gap-2 text-sm">
@@ -93,7 +95,7 @@ export function PixWithdrawalDetails({ withdrawal, heading, inline, animate, onE
         {withdrawal.state === "REVIEW" && (
           <div className="grid gap-1">
             <dt className="text-muted-foreground">{withdrawal.asaasTransferId ? "ID no Asaas" : "Referência externa"}</dt>
-            <dd className="break-all font-mono text-xs">{withdrawal.asaasTransferId ?? "slopay-sandbox-withdrawal-" + withdrawal.id}</dd>
+            <dd className="break-all font-mono text-xs">{withdrawal.asaasTransferId ?? `slopay-${withdrawal.environment}-withdrawal-${withdrawal.id}`}</dd>
           </div>
         )}
       </dl>
@@ -124,7 +126,9 @@ export function PixWithdrawalCard({ withdrawal, animate, onEnd, onOpen, onDismis
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">{withdrawalStatusLabel(withdrawal)}</p>
           <p className="mt-0.5 break-words text-lg font-semibold tabular-nums"><PanelAmount cents={withdrawal.amountInCents} /></p>
-          <p className="text-xs text-muted-foreground">{withdrawal.simulated ? "Saque simulado · Asaas Sandbox" : "Asaas Sandbox"}</p>
+          {withdrawal.environment === "sandbox" && (
+            <p className="text-xs text-muted-foreground">{withdrawal.simulated ? "Saque simulado · Asaas Sandbox" : "Asaas Sandbox"}</p>
+          )}
         </div>
         <Button type="button" variant="ghost" size="icon" aria-label="Fechar aviso de saque Pix" onClick={onDismiss}><X /></Button>
       </div>
