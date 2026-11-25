@@ -6,7 +6,7 @@ import { adminPaginationSchema } from "./admin-pending";
 
 export const adminPixFeesPath = "/admin/taxas-e-limites";
 export const adminPixFeesUnavailable = "Não foi possível consultar as tarifas Pix.";
-export const adminPixFeeRefreshUnavailable = "Não foi possível atualizar as tarifas no Asaas.";
+export const adminPixFeeRefreshUnavailable = "Não foi possível atualizar as tarifas no provedor.";
 const api = "/api/admin/pix-fees";
 
 export const pixFeeCoverage = z.enum(["ALL", "RECORDED", "MISSING"]);

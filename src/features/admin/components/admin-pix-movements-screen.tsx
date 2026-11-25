@@ -21,6 +21,7 @@ import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
 import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { adminDatePeriod, adminDatePeriodLabels } from "../admin-date-period";
+import { movementOriginLabel, type MovementOrigin } from "../admin-movement-origin";
 import { fetchGlobalStatement, statementTypeFilter, statementTypeLabels, type GlobalStatementQuery } from "../admin-global-statement";
 import { adminChargeQuery, adminChargeStatusLabels } from "../admin-pix-charges";
 import {
@@ -31,11 +32,13 @@ import { pixKindLabels, pixStatusLabels, pixTransactionQuery, pixTransactionSear
 import { retryAdminRead } from "../admin-query";
 import { AdminCsvExport, downloadAdminCsv } from "./admin-csv-export";
 import { AdminChargeBadge } from "./admin-pix-charge-detail";
+import { MovementPartiesFilter } from "./movement-parties-filter";
 import type { AdminIdentity } from "./layout/admin-panel";
 import { PixTransactionDialog, PixTransactionStatus } from "./pix-transaction-detail";
 import { PixTransactionExport } from "./pix-transaction-export";
 import { useAdminAccess } from "./admin-access-provider";
 import { exportGlobalStatement } from "../admin-global-statement";
+import type { MovementBalance } from "../admin-movement-balance";
 
 const views = {
   all: { label: "Todas", period: "Data da movimentação", firstColumn: "Operação", dateColumn: "Movimentação" },
@@ -55,11 +58,12 @@ const entryTypeOptions = [
 ];
 const count = new Intl.NumberFormat("pt-BR");
 
-function MovementFilters({ query, onChange }: { query: PixMovementQuery; onChange: (value: PixMovementQuery) => void }) {
+function MovementFilters({ adminId, query, onChange }: { adminId: string; query: PixMovementQuery; onChange: (value: PixMovementQuery) => void }) {
   const searchInput = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState({ previous: query.search, value: query.search });
+  const [resetParties, setResetParties] = useState(0);
   const search = draft.previous === query.search ? draft.value : query.search;
-  const filtered = query.search || query.companyId || query.accountId || query.period !== "LAST_30_DAYS" ||
+  const filtered = query.search || query.companyId || query.accountId || query.merchantId || query.provider || query.period !== "LAST_30_DAYS" ||
     ("type" in query && query.type !== "ALL") || ("status" in query && query.status !== "ALL");
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -111,6 +115,9 @@ function MovementFilters({ query, onChange }: { query: PixMovementQuery; onChang
           </div>
         )}
       </div>
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <MovementPartiesFilter key={resetParties} adminId={adminId} query={query} onChange={onChange} />
+      </div>
       {filtered && <div className="flex min-w-0 flex-wrap items-center gap-2">
         {(["companyId", "accountId"] as const).map((scope) => query[scope] && (
           <Button key={scope} type="button" variant="outline" size="sm" className="min-h-11"
@@ -121,6 +128,7 @@ function MovementFilters({ query, onChange }: { query: PixMovementQuery; onChang
         <Button type="button" variant="ghost" size="sm" className="min-h-11" onClick={() => {
           searchInput.current?.focus();
           setDraft({ previous: "", value: "" });
+          setResetParties(value => value + 1);
           onChange(pixMovementViewQuery(query.view, pixMovementQueryFrom(new URLSearchParams())));
         }}>Limpar filtros</Button>
       </div>}
@@ -195,6 +203,8 @@ type MovementRow = {
   amount: number;
   fee?: number | null;
   signed?: boolean;
+  balance?: MovementBalance | null;
+  origin: MovementOrigin;
 };
 const icons = { RECEIVE: ArrowDownLeft, WITHDRAW: ArrowUpRight, BATCH: Layers2, REFUND: Undo2 };
 const entryIcons = { CREDIT: ArrowDownLeft, DEBIT: ArrowUpRight, FEE_DEBIT: Receipt };
@@ -203,7 +213,7 @@ function movementRows(report: PixMovementReport): MovementRow[] {
   if (report.view === "charges") return report.items.map(item => ({
     key: item.id, detail: { kind: "RECEIVE", id: item.id }, title: "Cobrança Pix", subtitle: item.description || item.id.slice(0, 8),
     icon: QrCode, company: item.company, companyId: item.companyId, walletSuffix: item.walletSuffix, accountId: item.accountId,
-    date: item.createdAt, due: item.dueDate,
+    date: item.createdAt, due: item.dueDate, origin: item.origin,
     status: <AdminChargeBadge status={item.status} />, amount: item.amountInCents,
   }));
   if (report.view === "statement") return report.items.map(item => ({
@@ -211,14 +221,14 @@ function movementRows(report: PixMovementReport): MovementRow[] {
     title: statementTypeLabels[item.type], subtitle: pixKindLabels[item.kind], icon: entryIcons[item.type], company: item.company,
     companyId: item.companyId, walletSuffix: item.walletSuffix, accountId: item.accountId,
     date: item.occurredAt, dateOnly: item.dateOnly, registeredDate: item.dateSource === "RECORDED",
-    amount: item.amountInCents, signed: true,
+    amount: item.amountInCents, signed: true, origin: item.origin,
   }));
   return report.items.map(item => ({
     key: item.kind + ":" + item.id, detail: { kind: item.kind, id: item.id }, title: pixKindLabels[item.kind], subtitle: item.id.slice(0, 8),
     icon: icons[item.kind], company: item.company, companyId: item.companyId, walletSuffix: item.walletSuffix, accountId: item.accountId,
     date: item.occurredAt, dateOnly: item.dateOnly,
     status: <><PixTransactionStatus item={item} />{item.simulated && <p className="text-xs text-muted-foreground">Simulação</p>}</>,
-    amount: item.amountInCents, fee: item.feeInCents,
+    amount: item.amountInCents, fee: item.feeInCents, balance: item.balance, origin: item.origin,
   }));
 }
 
@@ -231,6 +241,9 @@ function MovementTable({ report, open, filter }: { report: PixMovementReport; op
   const columns = [view.firstColumn, "Empresa e carteira", view.dateColumn];
   if (report.view === "charges") columns.push("Vencimento");
   if (report.view !== "statement") columns.push("Situação");
+  columns.push("Origem");
+  const showBalance = report.view === "all" && report.environment === "live";
+  if (showBalance) columns.push("Saldo antes e depois");
   return (
     <>
       <div className="hidden min-w-0 xl:block">
@@ -249,6 +262,8 @@ function MovementTable({ report, open, filter }: { report: PixMovementReport; op
               <TableCell>{parts.date}</TableCell>
               {report.view === "charges" && <TableCell>{parts.due}</TableCell>}
               {report.view !== "statement" && <TableCell>{row.status}</TableCell>}
+              <TableCell className="whitespace-normal text-sm">{movementOriginLabel(row.origin)}</TableCell>
+              {showBalance && <TableCell>{row.balance ? parts.balance : <span className="text-xs text-muted-foreground">—</span>}</TableCell>}
               <TableCell>{parts.amount}</TableCell><TableCell className="text-right">{parts.open}</TableCell>
             </TableRow>;
           })}</TableBody>
@@ -260,9 +275,11 @@ function MovementTable({ report, open, filter }: { report: PixMovementReport; op
           return <li key={row.key} className="grid min-w-0 gap-3 px-4 py-3 sm:px-5">
             <div className="flex min-w-0 items-center justify-between gap-2">{parts.identity}{parts.open}</div>
             <div className="grid min-w-0 grid-cols-2 items-start gap-3">{parts.company}{parts.amount}</div>
+            {showBalance && row.balance && parts.balance}
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-x-3 gap-y-1">
                 <span>{parts.date}</span>
+                <span className="text-xs text-muted-foreground">Origem {movementOriginLabel(row.origin)}</span>
                 {report.view === "charges" && <span className="text-xs text-muted-foreground">Vencimento {parts.due}</span>}
               </div>
               {row.status}
@@ -278,6 +295,14 @@ function movementCells(row: MovementRow, open: OpenMovement, filter: FilterBySco
   const Icon = row.icon;
   const date = formatDateTime(row.date, "date-only");
   return {
+    balance: row.balance && <dl className="grid min-w-0 gap-1 tabular-nums">
+      <div className="flex flex-wrap items-baseline gap-x-1.5">
+        <dt className="text-xs text-muted-foreground">Antes</dt><dd><PanelAmount cents={BigInt(row.balance.beforeInCents)} /></dd>
+      </div>
+      <div className="flex flex-wrap items-baseline gap-x-1.5">
+        <dt className="text-xs text-muted-foreground">Depois</dt><dd><PanelAmount cents={BigInt(row.balance.afterInCents)} /></dd>
+      </div>
+    </dl>,
     identity: <div className="flex min-w-0 items-center gap-3">
       <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-muted-foreground"><Icon aria-hidden="true" className="size-4" /></span>
       <div className="min-w-0">
@@ -316,9 +341,9 @@ function ScopeFilter({ label, id, onFilter, secondary = false }: {
 async function exportStatement(query: GlobalStatementQuery) {
   const { pagination, items } = await exportGlobalStatement(query);
   if (pagination.page !== query.page || !items.length) throw new Error("A página mudou. Confira os resultados antes de exportar.");
-  const columns = ["ID da transação", "Lançamento", "Operação Pix", "Empresa", "Carteira (final)", "Data e hora (Brasília)", "Origem da data", "Valor (BRL)"];
+  const columns = ["ID da transação", "Lançamento", "Operação Pix", "Empresa", "Carteira (final)", "Origem", "Data e hora (Brasília)", "Origem da data", "Valor (BRL)"];
   downloadAdminCsv("extrato-global-pagina-" + query.page + ".csv", columns, items.map(item => [
-    item.transactionId, statementTypeLabels[item.type], pixKindLabels[item.kind], item.company, item.walletSuffix,
+    item.transactionId, statementTypeLabels[item.type], pixKindLabels[item.kind], item.company, item.walletSuffix, movementOriginLabel(item.origin),
     formatDateTime(item.occurredAt, item.dateOnly ? "date-only" : "medium"),
     item.dateSource === "SETTLED" ? "Efetivação" : "Registro no Slopay", { cents: item.amountInCents },
   ]));
@@ -395,7 +420,7 @@ export function AdminPixMovementsScreen({ user }: { user: AdminIdentity }) {
                 description="O CSV inclui os lançamentos desta página com os filtros atuais."
                 onExport={() => exportStatement(displayed)} onRefresh={() => void result.refetch()} />}
             </div>
-            <MovementFilters query={query} onChange={navigate} />
+            <MovementFilters adminId={user.id} query={query} onChange={navigate} />
             {result.isPending && <p role="status" className="sr-only">Carregando movimentações</p>}
             <ToastNotice message={result.error?.message} />
             <SkeletonReveal flow revealed={!result.isPending} skeleton={<div className="divide-y divide-border">

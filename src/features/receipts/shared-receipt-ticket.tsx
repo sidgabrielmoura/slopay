@@ -152,7 +152,7 @@ function ReceiptDocument({ data: { receipt, expiresAt } }: { data: SharedReceipt
         <h1 className="text-balance text-xl font-semibold">Comprovante Pix</h1>
         <p className="text-sm text-muted-foreground">{receipt.kind === "refund" ? "Estorno Pix confirmado" : incoming ? "Recebimento confirmado" : "Saque confirmado"}</p>
         {receipt.environment === "sandbox" && <p className="text-sm text-muted-foreground">
-          {receipt.simulated ? "Simulação de saque · Asaas Sandbox" : "Operação de teste · Asaas Sandbox"}
+          {receipt.simulated ? "Simulação de saque · Sandbox" : "Operação de teste · Sandbox"}
         </p>}
       </header>
 
@@ -196,7 +196,7 @@ function ReceiptDocument({ data: { receipt, expiresAt } }: { data: SharedReceipt
           <section aria-labelledby="receipt-party" className="flex min-w-0 items-start gap-3 rounded-lg bg-muted p-3">
             <Landmark className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
             <div className="grid min-w-0 gap-1">
-              <h2 id="receipt-party" className={styles.label}>{incoming ? "Contraparte informada pelo Asaas" : "Beneficiário"}</h2>
+              <h2 id="receipt-party" className={styles.label}>{incoming ? "Contraparte informada pelo provedor" : "Beneficiário"}</h2>
               {party.name && <p className="wrap-anywhere text-sm font-semibold">{party.name}</p>}
               {party.document && <p className="text-sm tabular-nums">{party.document}</p>}
               {party.institution && <p className="wrap-anywhere text-sm text-muted-foreground">{party.institution}</p>}
@@ -211,7 +211,7 @@ function ReceiptDocument({ data: { receipt, expiresAt } }: { data: SharedReceipt
       <footer className={receiptFooter}>
         <dl className="grid min-w-0 gap-3">
           <div>
-            <dt className={styles.label}>{incoming ? "ID da cobrança no Asaas" : "ID da transferência no Asaas"}</dt>
+            <dt className={styles.label}>{incoming ? "ID da cobrança no provedor" : "ID da transferência no provedor"}</dt>
             <dd className="wrap-anywhere font-mono text-sm">{receipt.providerId}</dd>
           </div>
           {receipt.endToEndId && (
@@ -230,7 +230,7 @@ function ReceiptDocument({ data: { receipt, expiresAt } }: { data: SharedReceipt
         {receipt.officialUrl && (
           <Button asChild className={styles.action}>
             <a href={receipt.officialUrl} target="_blank" rel="noreferrer">
-              Ver comprovante oficial do Asaas <ArrowUpRight aria-hidden="true" />
+              Ver comprovante oficial do provedor <ArrowUpRight aria-hidden="true" />
             </a>
           </Button>
         )}

@@ -135,22 +135,22 @@ function WalletSettingsForm({ poolId, data, onReview, onCancel }: {
             <div className="flex items-center gap-1">
               <label htmlFor={id + "-fee"} className="text-sm font-medium">Tarifa máxima por saque</label>
               <WalletFieldHelp label="Sobre a tarifa máxima por saque">
-                O Slopay reserva o valor do saque mais este teto. Na liquidação, desconta a tarifa efetiva do Asaas e libera a diferença.
-                Se a tarifa do Asaas ultrapassar o teto, o saque é recusado.
+                O Slopay reserva o valor do saque mais este teto. Na liquidação, desconta a tarifa efetiva do provedor e libera a diferença.
+                Se a tarifa do provedor ultrapassar o teto, o saque é recusado.
               </WalletFieldHelp>
             </div>
             <CurrencyInput id={id + "-fee"} valueInCents={feeLimit} maxInCents={100000} onValueChange={setFeeLimit} />
           </div>}
         </fieldset>
-        <p className="text-pretty text-sm text-muted-foreground">Use a URL pública do backend, seguida dos caminhos abaixo, na configuração da carteira no Asaas.</p>
+        <p className="text-pretty text-sm text-muted-foreground">Use a URL pública do backend, seguida dos caminhos abaixo, na configuração da carteira no provedor.</p>
         <WalletTokenField id={id + "-events"} name="eventsToken" label="Token do webhook de eventos" tokenLabel="do webhook de eventos"
           path={data.eventsPath} configured={data.eventsConfigured} required={(receives || withdraws) && !data.eventsConfigured} onGenerate={() => setError("")}>
-          No Asaas, abra <strong>Integrações → Webhooks → Criar Webhook</strong>. Use a URL pública do backend com o caminho deste campo.
+          No provedor, abra <strong>Integrações → Webhooks → Criar Webhook</strong>. Use a URL pública do backend com o caminho deste campo.
           Cole o mesmo valor em <strong>Token de autenticação</strong>. Esse webhook avisa o Slopay sobre pagamentos, estornos e transferências.
         </WalletTokenField>
         <WalletTokenField id={id + "-validation"} name="validationToken" label="Token da validação de saques" tokenLabel="da validação de saques"
           path={data.validationPath} configured={data.validationConfigured} required={withdraws && !data.validationConfigured} onGenerate={() => setError("")}>
-          No Asaas, abra <strong>Integrações → Mecanismos de segurança</strong> e configure a validação de saques.
+          No provedor, abra <strong>Integrações → Mecanismos de segurança</strong> e configure a validação de saques.
           Use o caminho deste campo e cole o mesmo valor em <strong>Token de autenticação</strong>. Use um token diferente do webhook de eventos.
         </WalletTokenField>
         <ToastNotice message={error} />
@@ -197,7 +197,7 @@ function WalletTokenField({ id, name, label, tokenLabel, path, configured, requi
       // Separate hexadecimal pairs so a generated token has no long runs of digits or repeated letters.
       setValue(Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("-"));
       onGenerate();
-      toast.success("Token gerado. Use o botão de cópia para configurar no Asaas.", { id: toastId });
+      toast.success("Token gerado. Use o botão de cópia para configurar no provedor.", { id: toastId });
     } catch {
       toast.error("Não foi possível gerar o token neste navegador.", { id: toastId });
     }
@@ -218,7 +218,7 @@ function WalletTokenField({ id, name, label, tokenLabel, path, configured, requi
     <div className="grid min-w-0 gap-2">
       <div className="flex min-w-0 items-center gap-1">
         <label htmlFor={id} className="text-sm font-medium">{label}</label>
-        <WalletFieldHelp label={"Como configurar o token " + tokenLabel + " no Asaas"}>{children}</WalletFieldHelp>
+        <WalletFieldHelp label={"Como configurar o token " + tokenLabel + " no provedor"}>{children}</WalletFieldHelp>
       </div>
       <code id={id + "-path"} className="select-all wrap-anywhere text-xs text-muted-foreground">{path}</code>
       <InputGroup>

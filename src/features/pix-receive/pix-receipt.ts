@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const MAX_PIX_AMOUNT_IN_CENTS = 2_147_483_647;
 export const MIN_ASAAS_PIX_AMOUNT_IN_CENTS = 500;
-export const asaasPixMinimumMessage = "O valor mínimo para receber Pix no Asaas é R$ 5,00.";
+export const asaasPixMinimumMessage = "O valor mínimo para receber Pix no provedor é R$ 5,00.";
 
 export const pixAmountSchema = z.int().min(1).max(MAX_PIX_AMOUNT_IN_CENTS);
 export const pixPaymentIdSchema = z.uuidv4();

@@ -91,7 +91,7 @@ function exportPage(data: StatementPage) {
   const demo = data.environment === "demo";
   const headers = [
     "Referência Slopay",
-    demo ? "EndToEnd ID" : "ID Asaas",
+    demo ? "EndToEnd ID" : "ID no provedor",
     "Data de criação",
     "Data de liquidação",
     "Tipo",
@@ -115,7 +115,7 @@ function exportPage(data: StatementPage) {
     csvAmount(tx.netInCents),
     csvAmount(tx.feeInCents),
     transactionStatusLabel(tx.status, tx.direction),
-    demo ? "Demonstração" : data.environment === "sandbox" ? "Asaas Sandbox" : "Produção",
+    demo ? "Demonstração" : data.environment === "sandbox" ? "Sandbox" : "Produção",
   ]);
   const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
@@ -204,7 +204,7 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
           <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{outflow ? "Saídas Pix" : "Movimentações Pix"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {outflow ? "Consulte seus saques Pix, status e tarifas." : "Histórico de recebimentos, saídas e tarifas da conta."}
-            {data?.environment === "sandbox" && " · Asaas Sandbox"}
+            {data?.environment === "sandbox" && " · Sandbox"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -249,7 +249,7 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
             maxLength={transactionSearchLimit}
             onChange={(event) => setSearchTerm(event.target.value)}
             aria-label="Buscar movimentações"
-            placeholder={live ? "Buscar por referência, ID Asaas ou descrição..." : "Buscar por ID, EndToEnd ID, favorecido ou descrição..."}
+            placeholder={live ? "Buscar por referência, ID no provedor ou descrição..." : "Buscar por ID, EndToEnd ID, favorecido ou descrição..."}
             className="h-10 bg-card/80 pl-9"
           />
         </div>

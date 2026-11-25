@@ -441,7 +441,7 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
             </PixFlowTitle>
             <div className="grid gap-2 text-center">
               <p className="text-4xl font-bold tracking-tight tabular-nums"><PanelAmount cents={draft.data.amountInCents} /></p>
-              <p className="text-sm text-muted-foreground">{draft.data.simulate ? "Chave de teste · Asaas Sandbox" : "Destino · " + pixKeyLabels[draft.data.pixKeyType]}</p>
+              <p className="text-sm text-muted-foreground">{draft.data.simulate ? "Chave de teste · Sandbox" : "Destino · " + pixKeyLabels[draft.data.pixKeyType]}</p>
               <p className="break-all text-sm font-medium">{draft.destination}</p>
               {draft.data.expenseCategory && (
                 <p className="text-sm text-muted-foreground">{expenseCategoryPresentation[draft.data.expenseCategory].label}</p>

@@ -38,7 +38,7 @@ export function OperationalAccountKeys({ adminId, accountId }: Props) {
               </ul>
             : <p className="p-5 text-pretty text-sm text-muted-foreground">A consulta retornou uma carteira sem chaves Pix cadastradas.</p>}
         </>
-      ) : <p className="p-5 text-pretty text-sm text-muted-foreground">Use Atualizar dados do Asaas para consultar as chaves desta carteira.</p>}
+      ) : <p className="p-5 text-pretty text-sm text-muted-foreground">Use Atualizar dados do provedor para consultar as chaves desta carteira.</p>}
     </AdminRecordActivity>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDateTime } from "@/lib/dates";
+import { movementOriginLabel } from "../admin-movement-origin";
 import { adminPixTransactions, pixKindLabels, pixStatusLabels, type PixTransactionsQuery } from "../admin-pix-transactions";
 import { AdminCsvExport, downloadAdminCsv } from "./admin-csv-export";
 
@@ -9,9 +10,9 @@ async function exportPage(query: PixTransactionsQuery) {
   if (pagination.page !== query.page || !items.length) {
     throw new Error("A página mudou. Confira os resultados antes de exportar.");
   }
-  const columns = ["ID Slopay", "Operação", "Empresa", "Carteira (final)", "Data", "Situação", "Valor (BRL)", "Tarifa (BRL)"];
+  const columns = ["ID Slopay", "Operação", "Empresa", "Carteira (final)", "Origem", "Data", "Situação", "Valor (BRL)", "Tarifa (BRL)"];
   const rows = items.map((item) => [
-    item.id, pixKindLabels[item.kind], item.company, item.walletSuffix,
+    item.id, pixKindLabels[item.kind], item.company, item.walletSuffix, movementOriginLabel(item.origin),
     formatDateTime(item.occurredAt, item.dateOnly ? "date-only" : "medium"), pixStatusLabels[item.status],
     { cents: item.amountInCents }, item.feeInCents === null ? "" : { cents: item.feeInCents },
   ]);

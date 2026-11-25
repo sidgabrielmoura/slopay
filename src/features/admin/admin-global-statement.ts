@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
 import { adminPaginationSchema } from "./admin-pending";
+import { movementOrigin } from "./admin-movement-origin";
 import { pixQueryFrom, pixQueryString, pixTransactionKind, pixTransactionQuery } from "./admin-pix-transactions";
 
 const api = "/api/admin/global-statement";
@@ -16,6 +17,7 @@ const row = z.object({
   companyId: z.uuid().nullable(), accountId: z.uuid().nullable(), walletSuffix: z.string().max(8),
   occurredAt: z.iso.datetime({ offset: true }), dateOnly: z.boolean(), dateSource: z.enum(["SETTLED", "RECORDED"]),
   amountInCents: z.int(),
+  origin: movementOrigin,
 }).refine(({ type, amountInCents }) => type === "CREDIT" ? amountInCents > 0 : amountInCents < 0);
 const positiveCents = z.int().nonnegative();
 export const globalStatementReport = z.object({
@@ -32,8 +34,8 @@ export const statementTypeLabels = {
 } as const;
 
 export function globalStatementQueryFrom(params: Pick<URLSearchParams, "get">): GlobalStatementQuery {
-  const { page, period, search, companyId, accountId } = pixQueryFrom(params);
-  return { page, period, search, companyId, accountId, type: statementTypeFilter.catch("ALL").parse(params.get("type")) };
+  const { page, period, search, companyId, accountId, merchantId, provider } = pixQueryFrom(params);
+  return { page, period, search, companyId, accountId, merchantId, provider, type: statementTypeFilter.catch("ALL").parse(params.get("type")) };
 }
 
 export function globalStatementParams(query: GlobalStatementQuery) {

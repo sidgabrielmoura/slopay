@@ -55,7 +55,7 @@ export function PixWithdrawalDetails({ withdrawal, heading, inline, animate, onE
         </PixFlowTitle>
         <p className="text-4xl font-bold tracking-tight tabular-nums"><PanelAmount cents={withdrawal.amountInCents} /></p>
         {withdrawal.environment === "sandbox" && (
-          <p className="text-sm text-muted-foreground">{withdrawal.simulated ? "Saque simulado · Asaas Sandbox" : "Asaas Sandbox"}</p>
+          <p className="text-sm text-muted-foreground">{withdrawal.simulated ? "Saque simulado · Sandbox" : "Sandbox"}</p>
         )}
         {issue && <p className="max-w-sm text-pretty text-sm">{issue}</p>}
       </div>
@@ -94,7 +94,7 @@ export function PixWithdrawalDetails({ withdrawal, heading, inline, animate, onE
         )}
         {withdrawal.state === "REVIEW" && (
           <div className="grid gap-1">
-            <dt className="text-muted-foreground">{withdrawal.asaasTransferId ? "ID no Asaas" : "Referência externa"}</dt>
+            <dt className="text-muted-foreground">{withdrawal.asaasTransferId ? "ID no provedor" : "Referência externa"}</dt>
             <dd className="break-all font-mono text-xs">{withdrawal.asaasTransferId ?? `slopay-${withdrawal.environment}-withdrawal-${withdrawal.id}`}</dd>
           </div>
         )}
@@ -127,7 +127,7 @@ export function PixWithdrawalCard({ withdrawal, animate, onEnd, onOpen, onDismis
           <p className="text-sm font-semibold">{withdrawalStatusLabel(withdrawal)}</p>
           <p className="mt-0.5 break-words text-lg font-semibold tabular-nums"><PanelAmount cents={withdrawal.amountInCents} /></p>
           {withdrawal.environment === "sandbox" && (
-            <p className="text-xs text-muted-foreground">{withdrawal.simulated ? "Saque simulado · Asaas Sandbox" : "Asaas Sandbox"}</p>
+            <p className="text-xs text-muted-foreground">{withdrawal.simulated ? "Saque simulado · Sandbox" : "Sandbox"}</p>
           )}
         </div>
         <Button type="button" variant="ghost" size="icon" aria-label="Fechar aviso de saque Pix" onClick={onDismiss}><X /></Button>

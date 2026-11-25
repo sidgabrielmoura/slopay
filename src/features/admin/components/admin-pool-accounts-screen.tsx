@@ -26,6 +26,7 @@ import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 import { PoolPolicyDialog, PoolRegistrationDialog, PoolStatusDialog } from "./pool-account-dialogs";
 import { livePoolControls } from "../admin-live-pool-accounts";
 import { AdminLiveBalancePositions } from "./admin-live-balance-positions";
+import { AdminPaymentProviders } from "./admin-payment-providers";
 import { AdminBalancePositionsScreen } from "./admin-balance-positions-screen";
 import { AdminOperationalAccountsScreen } from "./admin-operational-accounts-screen";
 import { AdminApprovalRulesScreen } from "./admin-approval-rules-screen";
@@ -39,6 +40,7 @@ const tableHead = "border-t border-border bg-muted/50 text-xs font-medium text-m
 const walletViews = [
   { value: "saldos", label: "Saldos e configuração" },
   { value: "roteamento", label: "Roteamento" },
+  { value: "provedores", label: "Provedores" },
 ] as const;
 const sandboxViews = [
   { value: "bolsao", label: "Contas bolsão" },
@@ -100,6 +102,8 @@ export function AdminWalletsScreen({ user, development }: { user: AdminIdentity;
         <TabsContent value={view} className="mt-0 grid min-w-0 gap-4">
           {view === "saldos" && (development ? <AdminBalancePositionsScreen user={user} /> : <AdminLiveBalancePositions adminId={user.id} />)}
           {view === "roteamento" && <PoolOwnerList adminId={user.id} filter={ownerFilter} setFilter={updateOwnerFilter} show={show} development={development} />}
+          {view === "provedores" && <AdminPaymentProviders adminId={user.id} page={pageNumber}
+            onPage={page => navigate("provedores", new URLSearchParams(page > 1 ? { page: String(page) } : undefined))} />}
           {view === "bolsao" && <PoolAccountList adminId={user.id} page={pageNumber} show={show} development={development}
             setPage={page => navigate("bolsao", new URLSearchParams(page > 1 ? { page: String(page) } : undefined))} />}
           {view === "vinculos" && <AdminOperationalAccountsScreen user={user} />}
@@ -138,7 +142,7 @@ function PoolAccountList({ adminId, page, setPage, show, development }: {
         <Card className="min-w-0 gap-0 overflow-hidden">
           <CardHeader className="items-start justify-between gap-3 p-5 sm:flex-row sm:flex-wrap sm:items-center">
             <div className="min-w-0">
-              <h2 className="text-balance text-lg font-semibold">Contas operacionais Asaas</h2>
+              <h2 className="text-balance text-lg font-semibold">Contas operacionais</h2>
               <p className="mt-1 text-pretty text-sm text-muted-foreground">
                 {development
                   ? "Recebimentos Pix em ambiente de desenvolvimento. Saques e operações reais estão indisponíveis."

@@ -98,7 +98,7 @@ function AppliedLimits({ limits, loading }: { limits?: PixFeeLimits; loading: bo
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="space-y-1">
           <h2 id="pix-fee-limits" className="text-balance text-lg font-semibold">Limites de operação</h2>
-          <p className="text-pretty text-sm text-muted-foreground">Os valores por horário e por transação ficam em Pix → Meus limites no Asaas.</p>
+          <p className="text-pretty text-sm text-muted-foreground">Os valores por horário e por transação ficam em Pix → Meus limites no provedor.</p>
         </div>
         <Button asChild variant="ghost" className="h-11">
           <a href={asaasPixLimitsHelp} target="_blank" rel="noreferrer">Como consultar <ArrowUpRight aria-hidden="true" /></a>
@@ -268,7 +268,7 @@ export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
         <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-5">
           <div className="space-y-1">
             <h2 id="pix-fees-wallets" className="text-balance text-lg font-semibold">Tarifas por carteira</h2>
-            <p className="text-pretty text-sm text-muted-foreground">Abra uma carteira para consultar o Asaas ou ver descontos e franquias registrados.</p>
+            <p className="text-pretty text-sm text-muted-foreground">Abra uma carteira para consultar o provedor ou ver descontos e franquias registrados.</p>
           </div>
           {data && (
             <p className="text-xs text-muted-foreground tabular-nums">

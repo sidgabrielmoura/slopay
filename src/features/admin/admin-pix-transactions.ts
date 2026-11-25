@@ -2,6 +2,10 @@ import { z } from "zod";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
 import { adminDatePeriod as period } from "./admin-date-period";
 import { adminPaginationSchema } from "./admin-pending";
+import { movementBalance } from "./admin-movement-balance";
+import { movementOrigin } from "./admin-movement-origin";
+import { adminPixPayer } from "./admin-pix-payer";
+import { movementScope, movementScopeFrom, setMovementScope } from "./admin-movement-filters";
 
 export const pixTransactionsPath = "/admin/operacoes";
 const api = "/api/admin/pix-transactions";
@@ -22,6 +26,7 @@ const pageNumber = z.coerce.number().int().min(1).max(10_000);
 export const pixTransactionSearch = z.string().max(120).regex(/^[^\p{Cc}\p{Cf}]*$/u).trim();
 
 export const pixTransactionQuery = z.strictObject({
+  ...movementScope,
   type: typeFilter.default("ALL"), status: statusFilter.default("ALL"), period: period.default("LAST_30_DAYS"),
   companyId: uid.optional(), accountId: uid.optional(), search: pixTransactionSearch.default(""), page: pageNumber.default(1),
 });
@@ -31,6 +36,8 @@ const row = pixTransactionIdentifier.extend({
   status, company: z.string(), companyId: uid.nullable(), accountId: uid.nullable(), walletSuffix: z.string().max(8),
   amountInCents: cents, feeInCents: cents.nullable(), occurredAt: date, dateOnly: z.boolean(),
   dateSource: z.enum(["CREATED", "SETTLED", "RECORDED"]), simulated: z.boolean(),
+  balance: movementBalance.nullish(),
+  origin: movementOrigin,
 });
 export const pixTransactionsReport = z.object({
   environment: z.enum(["sandbox", "live"]),
@@ -41,6 +48,7 @@ export const pixTransactionsReport = z.object({
   }),
 });
 export const pixTransactionDetail = row.extend({
+  payer: adminPixPayer.nullish(),
   createdAt: date, cnpj: z.string().nullable(), description: z.string().nullable(),
   providerReference: z.string().max(64).nullable(), endToEndId: z.string().max(32).nullable(),
   destination: z.string().max(80).nullable(), pixKeyType: z.string().max(5).nullable(),
@@ -64,6 +72,7 @@ export const pixStatusLabels: Record<PixTransactionRow["status"], string> = {
 };
 export function pixQueryFrom(params: Pick<URLSearchParams, "get">): PixTransactionsQuery {
   return {
+    ...movementScopeFrom(params),
     type: typeFilter.catch("ALL").parse(params.get("type")), status: statusFilter.catch("ALL").parse(params.get("status")),
     period: period.catch("LAST_30_DAYS").parse(params.get("period")), page: pageNumber.catch(1).parse(params.get("page")),
     search: pixTransactionSearch.catch("").parse(params.get("search")),
@@ -74,6 +83,7 @@ export function pixQueryFrom(params: Pick<URLSearchParams, "get">): PixTransacti
 
 export function pixQueryString(query: PixTransactionsQuery, detail?: PixTransactionId) {
   const params = new URLSearchParams();
+  setMovementScope(params, query);
   if (query.search) params.set("search", query.search);
   if (query.period !== "LAST_30_DAYS") params.set("period", query.period);
   if (query.type !== "ALL") params.set("type", query.type);

@@ -29,7 +29,7 @@ export function LiveWalletDialog({ wallet, onClose, restoreFocus, onCreated }: {
     if (!result.success) {
       const field = result.error.issues[0]?.path[0];
       setFailure(field === "walletId" ? "Confira o ID da carteira." : field === "apiKey"
-        ? "Informe uma chave de produção do Asaas." : "Confira o nome da carteira.");
+        ? "Informe uma chave de produção do provedor." : "Confira o nome da carteira.");
       if (typeof field === "string") event.currentTarget.querySelector<HTMLInputElement>(`input[name="${field}"]`)?.focus();
       return;
     }
@@ -66,7 +66,7 @@ export function LiveWalletDialog({ wallet, onClose, restoreFocus, onCreated }: {
         }
       }}
       onClose={onClose} restoreFocus={restoreFocus} onSuccess={onCreated}
-      resultContent={<p className="text-pretty text-sm text-muted-foreground">{wallet ? "A nova chave já está registrada para esta carteira. A chave anterior pode ser revogada no Asaas." : "A credencial foi verificada. A carteira aguarda habilitação para movimentar valores."}</p>}>
+      resultContent={<p className="text-pretty text-sm text-muted-foreground">{wallet ? "A nova chave já está registrada para esta carteira. A chave anterior pode ser revogada no provedor." : "A credencial foi verificada. A carteira aguarda habilitação para movimentar valores."}</p>}>
       <div className="min-w-0 rounded-lg border border-border bg-muted/40 p-4">
         <p className="wrap-anywhere text-sm font-semibold">{review.name}</p>
         <p className="mt-1 wrap-anywhere text-xs tabular-nums text-muted-foreground">{review.walletId}</p>
@@ -90,7 +90,7 @@ export function LiveWalletDialog({ wallet, onClose, restoreFocus, onCreated }: {
         }}>
         <DialogHeader className="text-left">
           <DialogTitle className="text-balance">{wallet ? "Trocar chave da carteira" : "Cadastrar carteira"}</DialogTitle>
-          <DialogDescription className="text-pretty">{wallet ? "Informe a nova chave de produção da carteira " + wallet.name + "." : "Informe os dados de uma conta Asaas aprovada para produção."}</DialogDescription>
+          <DialogDescription className="text-pretty">{wallet ? "Informe a nova chave de produção da carteira " + wallet.name + "." : "Informe os dados de uma conta do provedor aprovada para produção."}</DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={submit} onChange={() => setFailure("")}>
           {!wallet && <>
@@ -99,12 +99,12 @@ export function LiveWalletDialog({ wallet, onClose, restoreFocus, onCreated }: {
             <Input id={id + "-name"} name="name" className="h-11" required maxLength={100} autoFocus />
           </div>
           <div className="grid gap-2">
-            <label htmlFor={id + "-wallet"} className="text-sm font-medium">ID da carteira Asaas</label>
+            <label htmlFor={id + "-wallet"} className="text-sm font-medium">ID da carteira do provedor</label>
             <Input id={id + "-wallet"} name="walletId" className="h-11 font-mono" required maxLength={36} spellCheck={false} autoComplete="off" />
           </div>
           </>}
           <div className="grid gap-2">
-            <label htmlFor={id + "-key"} className="text-sm font-medium">Chave de API do Asaas</label>
+            <label htmlFor={id + "-key"} className="text-sm font-medium">Chave de API do provedor</label>
             <Input id={id + "-key"} name="apiKey" type="password" className="h-11 font-mono" autoFocus={Boolean(wallet)} required maxLength={511} spellCheck={false} autoComplete="off" />
           </div>
           <ToastNotice message={failure} />

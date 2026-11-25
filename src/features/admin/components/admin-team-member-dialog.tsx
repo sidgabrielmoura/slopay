@@ -163,10 +163,10 @@ export function AdminTeamMemberDialog({ userId, memberId, open, onOpenChange, on
                     changeButton.current = event.currentTarget;
                     setSelected({ member, action: "EDIT_ACCESS" });
                   }}>Editar membro</Button>
-                  <Button type="button" variant="ghost" className="h-11 text-destructive" aria-haspopup="dialog" onClick={event => {
+                  {!member.removalProtected && <Button type="button" variant="ghost" className="h-11 text-destructive" aria-haspopup="dialog" onClick={event => {
                     changeButton.current = event.currentTarget;
                     setSelected({ member, action: "REMOVE" });
-                  }}>Excluir membro</Button>
+                  }}>Excluir membro</Button>}
                 </div>}
                 {self && <Button asChild variant="outline" className="h-11">
                   <Link href="/conta/seguranca" prefetch={false}>Minha segurança <ArrowUpRight aria-hidden="true" /></Link>

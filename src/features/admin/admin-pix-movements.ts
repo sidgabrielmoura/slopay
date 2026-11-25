@@ -41,8 +41,8 @@ export function pixMovementHref(query: PixMovementQuery, detail?: PixTransaction
 }
 
 export function pixMovementViewQuery(view: PixMovementView, query: PixMovementQuery): PixMovementQuery {
-  const { search, period, companyId, accountId } = query;
-  const shared = { search, period, companyId, accountId, page: 1 };
+  const { search, period, companyId, accountId, merchantId, provider } = query;
+  const shared = { search, period, companyId, accountId, merchantId, provider, page: 1 };
   if (view === "charges") return { ...shared, view, status: "ALL" };
   if (view === "statement") return { ...shared, view, type: "ALL" };
   return { ...shared, view, status: "ALL", type: "ALL" };

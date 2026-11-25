@@ -13,10 +13,13 @@ import { ToastNotice } from "@/components/ui/toast-notice";
 import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
 import { formatCNPJ } from "@/lib/validators";
+import { movementOriginLabel } from "../admin-movement-origin";
 import { adminChargeStatusLabels, adminPixCharges, type AdminCharge, type AdminChargeStatus } from "../admin-pix-charges";
 import { retryAdminRead } from "../admin-query";
 import { AdminChargePixCode } from "./admin-charge-pix-code";
 import { CompanyField } from "./company-display";
+import { MovementBalanceFields } from "./movement-balance-fields";
+import { PixPayerFields } from "./pix-payer-fields";
 
 const variants: Record<AdminChargeStatus, BadgeProps["variant"]> = {
   PENDING: "info", OVERDUE: "warning", PROCESSING: "secondary", COMPLETED: "success",
@@ -56,6 +59,7 @@ function ChargeFacts({ adminId, charge, qrAllowed, onScope }: {
         </div>
         <dl className="grid min-w-0 grid-cols-2 gap-4 tabular-nums">
           <CompanyField label="Criada em">{formatDateTime(charge.createdAt)}</CompanyField>
+          <CompanyField label="Origem">{movementOriginLabel(charge.origin)}</CompanyField>
           <CompanyField label="Vencimento">{charge.dueDate ? formatDateTime(charge.dueDate, "date-only") : "Aguardando emissão"}</CompanyField>
           {settled && (charge.paidAt || charge.paidDate) &&
             <CompanyField label="Pagamento">{charge.paidAt ? formatDateTime(charge.paidAt) : formatDateTime(charge.paidDate!, "date-only")}</CompanyField>}
@@ -63,12 +67,15 @@ function ChargeFacts({ adminId, charge, qrAllowed, onScope }: {
             <CompanyField label="Confirmação registrada">{formatDateTime(charge.recordedAt)}</CompanyField>}
           {settled && charge.netInCents !== null && <CompanyField label="Valor líquido"><PanelAmount cents={charge.netInCents} /></CompanyField>}
           {settled && charge.feeInCents !== null && <CompanyField label="Tarifa registrada"><PanelAmount cents={charge.feeInCents} /></CompanyField>}
+          {charge.slopayFeeInCents != null && <CompanyField label="Tarifa Slopay"><PanelAmount cents={charge.slopayFeeInCents} /></CompanyField>}
           {charge.refundedInCents > 0 && <CompanyField label="Total estornado"><PanelAmount cents={charge.refundedInCents} /></CompanyField>}
           {charge.refundPending && <CompanyField label="Estorno"><Badge variant="warning">Em processamento</Badge></CompanyField>}
         </dl>
       </section>
 
       {qrAllowed && charge.qrAvailable && <AdminChargePixCode adminId={adminId} chargeId={charge.id} />}
+      {charge.balance && <MovementBalanceFields balance={charge.balance} />}
+      {settled && <PixPayerFields payer={charge.payer} />}
 
       <section className="grid min-w-0 gap-3">
         <h3 className="text-balance text-sm font-semibold">Empresa e conta</h3>

@@ -12,7 +12,7 @@ import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { IntegrationConfirmationDialog } from "@/features/integrations/components/integration-confirmation-dialog";
 import { formatCentsToBrl } from "@/lib/money";
 import { toast } from "sonner";
-import { adminPixPricing, defaultPixPricingDraft, maxFixedPixFee, maxMonthlyPix, pixPricingTerms,
+import { adminPixPricing, maxFixedPixFee, maxMonthlyPix, pixPricingTerms,
   type PixPricingDraft, type PixPricingView } from "../admin-pix-pricing";
 import { retryAdminRead } from "../admin-query";
 import { CompanyReadError } from "./company-display";
@@ -56,21 +56,19 @@ function PixPricingForm({ view, companyId, onSaved }: { view: PixPricingView; co
   const id = useId();
   const review = useRef<HTMLButtonElement>(null);
   const [fixedCents, setFixed] = useState(view.fixedCents);
+  const [minimumCents, setMinimum] = useState(view.minimumCents);
   const [percent, setPercent] = useState(view.percentageUnits ? percentageFormat.format(view.percentageUnits / 10_000) : "");
   const [free, setFree] = useState(String(view.monthlyFreePix));
-  const [wallet, setWallet] = useState(view.revenueWalletId ?? "");
   const [draft, setDraft] = useState<PixPricingDraft | null>(null);
   const saved = useRef(false);
   const percentageUnits = Math.round(Number(percent.replace(",", ".")) * 10_000);
-  const activeAmount = fixedCents > 0 || percentageUnits > 0;
 
   function preview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const terms = { fixedCents, percentageUnits, monthlyFreePix: Number(free), version: view.version };
-    const input = companyId ? terms : { ...terms, revenueWalletId: wallet.trim().toLowerCase() || null };
-    const parsed = (companyId ? pixPricingTerms : defaultPixPricingDraft).safeParse(input);
-    if (!parsed.success || (!companyId && activeAmount && !wallet.trim())) {
-      toast.error("Confira a tarifa, a franquia mensal e a carteira de receita.");
+    const terms = { fixedCents, minimumCents, percentageUnits, monthlyFreePix: Number(free), version: view.version };
+    const parsed = pixPricingTerms.safeParse(terms);
+    if (!parsed.success) {
+      toast.error("Confira a tarifa e a franquia mensal.");
       return;
     }
     setDraft(parsed.data);
@@ -79,13 +77,13 @@ function PixPricingForm({ view, companyId, onSaved }: { view: PixPricingView; co
   return (
     <>
       <form onSubmit={preview} className="grid min-w-0 gap-4">
-        <div className="grid min-w-0 gap-4 sm:grid-cols-3">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
           <div className="grid min-w-0 content-start gap-2">
             <label className="text-sm font-medium" htmlFor={id + "-fixed"}>Valor fixo por Pix</label>
             <CurrencyInput id={id + "-fixed"} valueInCents={fixedCents} onValueChange={setFixed} maxInCents={maxFixedPixFee} />
           </div>
           <div className="grid min-w-0 content-start gap-2">
-            <label className="text-sm font-medium" htmlFor={id + "-percentage"}>Percentual sobre o líquido</label>
+            <label className="text-sm font-medium" htmlFor={id + "-percentage"}>Percentual sobre o valor bruto</label>
             <div className="relative">
               <Input id={id + "-percentage"} type="text" inputMode="decimal" placeholder="0" className="h-11 pr-10 tabular-nums"
                 value={percent} onChange={(event) => { if (/^\d{0,3}(?:[.,]\d{0,4})?$/.test(event.target.value)) setPercent(event.target.value); }} />
@@ -93,17 +91,18 @@ function PixPricingForm({ view, companyId, onSaved }: { view: PixPricingView; co
             </div>
           </div>
           <div className="grid min-w-0 content-start gap-2">
+            <label className="text-sm font-medium" htmlFor={id + "-minimum"}>Tarifa mínima por Pix</label>
+            <CurrencyInput id={id + "-minimum"} valueInCents={minimumCents} onValueChange={setMinimum} maxInCents={maxFixedPixFee} />
+          </div>
+          <div className="grid min-w-0 content-start gap-2">
             <label className="text-sm font-medium" htmlFor={id + "-free"}>Pix sem tarifa por mês</label>
             <Input id={id + "-free"} className="h-11 tabular-nums" type="text" inputMode="numeric" value={free}
               onChange={(event) => { if (/^\d{0,7}$/.test(event.target.value) && Number(event.target.value) <= maxMonthlyPix) setFree(event.target.value); }} />
           </div>
         </div>
-        {!companyId && <div className="grid max-w-xl gap-2">
-          <label className="text-sm font-medium" htmlFor={id + "-wallet"}>Wallet ID da carteira de receita no Asaas</label>
-          <Input id={id + "-wallet"} className="h-11" type="text" autoComplete="off" spellCheck={false}
-            maxLength={40} required={activeAmount} value={wallet} onChange={(event) => setWallet(event.target.value)} />
-        </div>}
-        <p className="text-sm text-muted-foreground">A franquia cobre a tarifa do Slopay. As tarifas do Asaas seguem as condições da carteira emissora.</p>
+        <p className="text-sm text-muted-foreground">
+          Fora da franquia, vale o maior valor entre a tarifa mínima e a soma do valor fixo com o percentual. A tarifa do provedor é cobrada à parte.
+        </p>
         <Button ref={review} type="submit" variant="outline" className="h-11 justify-self-start">Revisar tarifa</Button>
       </form>
       {draft && <IntegrationConfirmationDialog
@@ -123,9 +122,9 @@ function PixPricingForm({ view, companyId, onSaved }: { view: PixPricingView; co
         preventOutsideClose
       >
         <div className="grid min-w-0 gap-2 rounded-lg border border-border bg-background p-4 text-sm">
-          <p><strong>{formatCentsToBrl(draft.fixedCents)} + {percentageFormat.format(draft.percentageUnits / 10_000)}%</strong> por Pix</p>
+          <p><strong>{formatCentsToBrl(draft.fixedCents)} + {percentageFormat.format(draft.percentageUnits / 10_000)}%</strong> do valor bruto por Pix</p>
+          {Boolean(draft.minimumCents) && <p>Tarifa mínima de {formatCentsToBrl(draft.minimumCents ?? 0)} por Pix fora da franquia</p>}
           <p>{draft.monthlyFreePix} Pix sem tarifa por mês</p>
-          {draft.revenueWalletId && <p className="wrap-anywhere text-muted-foreground">Carteira {draft.revenueWalletId}</p>}
         </div>
       </IntegrationConfirmationDialog>}
     </>

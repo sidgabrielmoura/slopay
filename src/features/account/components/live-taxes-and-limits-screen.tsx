@@ -78,7 +78,7 @@ function AccountLimits({ data }: { data: PixTerms }) {
               ) : (
                 <>
                   <p className="wrap-break-word text-2xl font-semibold tabular-nums"><PanelAmount cents={data.availableBalanceInCents} /></p>
-                  <p className="mt-1 text-sm text-muted-foreground">{data.environment === "sandbox" ? "Saldo da carteira Asaas Sandbox." : "Saldo disponível do titular."}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{data.environment === "sandbox" ? "Saldo da carteira de teste." : "Saldo disponível do titular."}</p>
                 </>
               )}
             </CardContent>
@@ -87,7 +87,7 @@ function AccountLimits({ data }: { data: PixTerms }) {
       </div>
       {data.environment === "sandbox" && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5">
         <div className="space-y-1">
-          <h2 className="text-balance text-base font-semibold">Limites da conta Asaas</h2>
+          <h2 className="text-balance text-base font-semibold">Limites da conta do provedor</h2>
           <p className="text-pretty text-sm text-muted-foreground">
             Consulte os valores diurnos e noturnos por período e por transação em Pix → Meus limites.
           </p>

@@ -64,9 +64,10 @@ function WalletPositionRow({ item, writable, canRotate, refreshingId, refreshBal
   const nextDialog = useRef<WalletChange["type"] | null>(null);
   const withdrawalStatus = item.withdrawalStatus && ruleStatusLabels[item.withdrawalStatus];
   const balances = [
-    { label: "Contabilizado", value: item.bookedCents },
+    { label: "Saldo dos clientes", value: item.bookedCents },
     { label: "Reservado", value: item.reservedCents },
-    { label: "Saldo Asaas", value: item.providerCents },
+    { label: "Tarifas Slopay", value: item.platformRevenueCents },
+    { label: "Saldo do provedor", value: item.providerCents },
     { label: "Diferença", value: item.differenceCents },
   ];
 
@@ -86,7 +87,7 @@ function WalletPositionRow({ item, writable, canRotate, refreshingId, refreshBal
         </div>}
       </div>
       <div className="col-span-2 col-start-1 row-start-2 grid min-w-0 gap-1.5 xl:col-span-1 xl:col-start-2 xl:row-start-1">
-        <dl className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <dl className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-3 2xl:grid-cols-5">
           {balances.map(({ label, value }) => <div key={label} className="min-w-0">
             <dt className="text-xs text-muted-foreground">{label}</dt>
             <dd className="wrap-anywhere font-medium tabular-nums"><Balance value={value} /></dd>
@@ -217,7 +218,7 @@ export function AdminLiveBalancePositions({ adminId }: { adminId: string }) {
       <header className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border p-4 sm:px-5">
         <div className="min-w-0 space-y-1">
           <h2 id="admin-wallet-positions" ref={heading} tabIndex={-1} className="text-balance text-lg font-semibold outline-none">Saldos e configuração</h2>
-          <p className="text-pretty text-sm text-muted-foreground">A diferença compara o saldo contabilizado com a última consulta ao Asaas.</p>
+          <p className="text-pretty text-sm text-muted-foreground">A diferença compara o saldo no provedor com a soma dos saldos dos clientes e das tarifas Slopay.</p>
         </div>
         {data?.available && can("admin.wallets.register") && <Button type="button" className="min-h-11" disabled={!writable}
           onClick={event => open({ type: "register" }, event.currentTarget)}><Plus aria-hidden="true" />Cadastrar carteira</Button>}

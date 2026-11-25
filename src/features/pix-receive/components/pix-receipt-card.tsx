@@ -77,7 +77,7 @@ export function PixReceiptCard({ receipt, environment, checkingError, onOpen, on
           <p className="mt-0.5 break-words text-lg font-semibold tabular-nums">
             <PanelAmount cents={receipt.amountInCents} />
           </p>
-          <p className="text-xs text-muted-foreground">{environment === "demo" ? "Demonstração" : "Asaas Sandbox"}</p>
+          <p className="text-xs text-muted-foreground">{environment === "demo" ? "Demonstração" : "Sandbox"}</p>
         </div>
         <Button type="button" variant="ghost" size="icon" aria-label="Fechar aviso de recebimento Pix" onClick={onDismiss}>
           <X />

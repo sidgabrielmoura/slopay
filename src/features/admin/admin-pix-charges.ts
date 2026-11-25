@@ -1,4 +1,8 @@
 import { z } from "zod";
+import { movementBalance } from "./admin-movement-balance";
+import { movementOrigin } from "./admin-movement-origin";
+import { adminPixPayer } from "./admin-pix-payer";
+import { movementScope, movementScopeFrom, setMovementScope } from "./admin-movement-filters";
 import { pixPaymentIdSchema, pixQrCodeSchema } from "@/features/pix-receive/pix-receipt";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
 import { adminDatePeriod } from "./admin-date-period";
@@ -19,6 +23,7 @@ const page = z.coerce.number().int().min(1).max(10_000);
 export const adminChargeSearch = z.string().max(120).regex(/^[^\p{Cc}\p{Cf}]*$/u).trim();
 
 export const adminChargeQuery = z.strictObject({
+  ...movementScope,
   search: adminChargeSearch.default(""), status: statusFilter.default("ALL"), period: adminDatePeriod.default("LAST_30_DAYS"),
   accountId: uuid.optional(), companyId: uuid.optional(), page: page.default(1),
 });
@@ -26,6 +31,7 @@ const row = z.object({
   id: adminChargeId, status: chargeStatus, company: z.string(), companyId: uuid.nullable(), accountId: uuid.nullable(),
   walletSuffix: z.string().max(8), description: z.string().nullable(), amountInCents: cents,
   createdAt: dateTime, dueDate: z.iso.date().nullable(),
+  origin: movementOrigin,
 });
 export const adminPixChargesSchema = z.object({
   environment: z.enum(["sandbox", "live"]), items: z.array(row).max(8),
@@ -36,6 +42,9 @@ export const adminPixChargesSchema = z.object({
   }),
 });
 export const adminPixChargeSchema = row.extend({
+  balance: movementBalance.nullish(),
+  payer: adminPixPayer.nullish(),
+  slopayFeeInCents: cents.nullish(),
   cnpj: z.string().nullable(), providerReference: z.string().max(64).nullable(), qrAvailable: z.boolean(),
   netInCents: cents.nullable(), feeInCents: cents.nullable(), refundedInCents: cents, refundPending: z.boolean(),
   paidAt: dateTime.nullable(), paidDate: z.iso.date().nullable(), recordedAt: dateTime.nullable(),
@@ -55,6 +64,7 @@ export const adminChargeStatusLabels: Record<AdminChargeStatus, string> = {
 
 export function adminChargeQueryFrom(params: Pick<URLSearchParams, "get">): AdminChargeQuery {
   return {
+    ...movementScopeFrom(params),
     search: adminChargeSearch.catch("").parse(params.get("search")), status: statusFilter.catch("ALL").parse(params.get("status")),
     period: adminDatePeriod.catch("LAST_30_DAYS").parse(params.get("period")), page: page.catch(1).parse(params.get("page")),
     companyId: uuid.safeParse(params.get("companyId")).data, accountId: uuid.safeParse(params.get("accountId")).data,
@@ -63,6 +73,7 @@ export function adminChargeQueryFrom(params: Pick<URLSearchParams, "get">): Admi
 
 export function adminChargeParams(query: AdminChargeQuery, id?: string) {
   const params = new URLSearchParams();
+  setMovementScope(params, query);
   if (query.search) params.set("search", query.search);
   if (query.period !== "LAST_30_DAYS") params.set("period", query.period);
   if (query.status !== "ALL") params.set("status", query.status);

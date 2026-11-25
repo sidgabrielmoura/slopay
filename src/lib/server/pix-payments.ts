@@ -70,9 +70,9 @@ export async function forwardPixRequest(
       if (simulation && response.status === 409) {
         const data = await response.json().catch(() => null);
         const message = data?.code === "ASAAS_WEBHOOK_NOT_CONFIGURED"
-          ? "Configure o token do webhook do Asaas no backend para simular o pagamento."
+          ? "Configure o token do webhook do provedor no backend para simular o pagamento."
           : data?.code === "ASAAS_SIMULATION_REJECTED"
-            ? "O Asaas Sandbox recusou a simulação desta cobrança. Confira a situação no painel do Asaas."
+            ? "O provedor recusou a simulação desta cobrança. Confira a situação no painel do provedor."
             : "A cobrança não está disponível para simulação.";
         return pixResponse({ message }, 409);
       }

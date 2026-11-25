@@ -51,7 +51,7 @@ export const adminMemberSchema = z.object({
   member: member.extend({
     createdAt: date, emailVerified: z.boolean(), passkeyRegistered: z.boolean(), activeSessions: count,
     version: count, availableAction: z.enum(["SUSPEND", "REACTIVATE"]).nullable(),
-    canManage: z.boolean().default(false), grants: adminAccessDraftSchema.shape.grants,
+    canManage: z.boolean().default(false), removalProtected: z.boolean().default(true), grants: adminAccessDraftSchema.shape.grants,
   }),
   history: z.array(z.object({
     id: z.string(), actorName: z.string().nullable(), createdAt: date,

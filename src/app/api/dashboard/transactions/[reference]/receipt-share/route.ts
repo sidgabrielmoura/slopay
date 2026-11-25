@@ -9,7 +9,7 @@ const errors: Readonly<Record<number, string>> = {
   401: "Sua sessão expirou. Entre novamente.",
   403: "O compartilhamento requer uma conta ativa e uma sessão verificada.",
   404: "Comprovante indisponível para esta movimentação.",
-  409: "O comprovante ficará disponível após a confirmação no Asaas.",
+  409: "O comprovante ficará disponível após a confirmação no provedor.",
   429: "Aguarde um instante e tente novamente.",
 };
 

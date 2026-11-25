@@ -6,7 +6,7 @@ import {
 import { adminPaginationSchema } from "./admin-pending";
 
 export const balancePositionsPath = "/admin/saldos";
-export type WalletView = "saldos" | "roteamento" | "vinculos" | "bolsao" | "validacao";
+export type WalletView = "saldos" | "roteamento" | "provedores" | "vinculos" | "bolsao" | "validacao";
 
 export function walletsHref(view: WalletView, search?: URLSearchParams) {
   const params = new URLSearchParams(search);

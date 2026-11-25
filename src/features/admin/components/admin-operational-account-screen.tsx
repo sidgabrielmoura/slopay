@@ -117,7 +117,7 @@ function AccountDetails({ account, adminId }: { account: OperationalAccountDetai
         {(canRefresh || canConfigure) && <div className="flex flex-wrap gap-2">
           {canRefresh && <Button type="button" className="h-11" onClick={() => sync.mutate(account.id)} disabled={sync.isPending}>
             {sync.isPending ? <LoadingIndicator /> : <RefreshCw aria-hidden="true" />}
-            {sync.isPending ? "Consultando Asaas…" : "Atualizar dados do Asaas"}
+            {sync.isPending ? "Consultando…" : "Atualizar dados do provedor"}
           </Button>}
           {canConfigure && <Button type="button" ref={action} variant="outline" className="h-11" onClick={() => setDialogOpen(true)}>
             {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
@@ -128,7 +128,7 @@ function AccountDetails({ account, adminId }: { account: OperationalAccountDetai
 
       <div className="grid min-w-0 gap-4 sm:grid-cols-3">
         <BalanceCard label="Saldo disponível" amount={account.balanceInCents}>
-          {account.balanceCheckedAt ? <>Asaas · {formatDateTime(account.balanceCheckedAt, "medium")}</> : "Aguardando primeira consulta ao Asaas"}
+          {account.balanceCheckedAt ? <>Provedor · {formatDateTime(account.balanceCheckedAt, "medium")}</> : "Aguardando primeira consulta ao provedor"}
         </BalanceCard>
         <BalanceCard label="Saques em aberto" amount={account.openWithdrawals.amountInCents}>
           {count.format(account.openWithdrawals.count)} {account.openWithdrawals.count === 1 ? "solicitação sem desfecho" : "solicitações sem desfecho"}

@@ -92,9 +92,9 @@ export function PoolRegistrationDialog({ onClose, restoreFocus, onChange }: Dial
     const data = poolAccountInput.safeParse(Object.fromEntries(form));
     if (!data.success) {
       const field = String(data.error.issues[0]?.path[0] ?? "name");
-      const message = field === "walletId" ? "Informe o ID da carteira Asaas no formato UUID."
+      const message = field === "walletId" ? "Informe o ID da carteira do provedor no formato UUID."
         : field === "customerId" ? "Informe o ID do pagador com o prefixo cus_."
-        : field === "apiKey" ? "Confira o formato da chave de API Asaas."
+        : field === "apiKey" ? "Confira o formato da chave de API do provedor."
         : "Informe um nome válido para a conta.";
       setError({ field, message });
       (event.currentTarget.elements.namedItem(field) as HTMLInputElement | null)?.focus();
@@ -107,7 +107,7 @@ export function PoolRegistrationDialog({ onClose, restoreFocus, onChange }: Dial
   if (draft) return (
     <IntegrationConfirmationDialog
       scope={`pool-account:create:${draft.walletId}`}
-      title="Confirmar cadastro da conta bolsão" description="Após a verificação no Asaas, a conta será habilitada para o roteamento."
+      title="Confirmar cadastro da conta bolsão" description="Após a verificação no provedor, a conta será habilitada para o roteamento."
       completed="Conta bolsão cadastrada" preventOutsideClose
       options={() => poolAccounts.registrationOptions({ ...draft, apiKey: secret.current })}
       apply={(proof) => attempt(() => poolAccounts.register({ ...draft, apiKey: secret.current }, proof))}
@@ -129,7 +129,7 @@ export function PoolRegistrationDialog({ onClose, restoreFocus, onChange }: Dial
 
   return (
     <EditDialog open={open} close={() => setOpen(false)} title="Cadastrar conta bolsão"
-      description="Informe a carteira, o pagador de teste e a chave de API da conta operacional do Slopay no Asaas."
+      description="Informe a carteira, o pagador de teste e a chave de API da conta operacional do Slopay."
       review={review} finishClose={() => {
         const value = prepared.current;
         prepared.current = null;
@@ -143,7 +143,7 @@ export function PoolRegistrationDialog({ onClose, restoreFocus, onChange }: Dial
         <Input id={`${id}-name`} className="h-11" name="name" maxLength={100} placeholder="Ex. Operação Norte" required {...invalid("name")} />
       </div>
       <div className="grid gap-2">
-        <label htmlFor={`${id}-wallet`} className="text-sm font-medium">ID da carteira Asaas</label>
+        <label htmlFor={`${id}-wallet`} className="text-sm font-medium">ID da carteira do provedor</label>
         <Input id={`${id}-wallet`} className="h-11 font-mono" name="walletId" maxLength={36} autoComplete="off" spellCheck={false}
           required {...invalid("walletId")} />
       </div>
@@ -151,10 +151,10 @@ export function PoolRegistrationDialog({ onClose, restoreFocus, onChange }: Dial
         <label htmlFor={`${id}-customer`} className="text-sm font-medium">ID do pagador de teste</label>
         <Input id={`${id}-customer`} className="h-11 font-mono" name="customerId" maxLength={64} placeholder="cus_…" autoComplete="off" spellCheck={false}
           required aria-describedby={`${id}-payer-help`} {...invalid("customerId")} />
-        <p id={`${id}-payer-help`} className="text-pretty text-sm text-muted-foreground">Use um pagador fictício desta conta Asaas com notificações desativadas.</p>
+        <p id={`${id}-payer-help`} className="text-pretty text-sm text-muted-foreground">Use um pagador fictício desta conta do provedor com notificações desativadas.</p>
       </div>
       <div className="grid gap-2">
-        <label htmlFor={`${id}-key`} className="text-sm font-medium">Chave de API Asaas Sandbox</label>
+        <label htmlFor={`${id}-key`} className="text-sm font-medium">Chave de API Sandbox</label>
         <Input id={`${id}-key`} className="h-11 font-mono" name="apiKey" type="password" maxLength={512} autoComplete="off" spellCheck={false}
           required {...invalid("apiKey")} />
       </div>
@@ -177,11 +177,11 @@ function WebhookCredentials({ result }: { result: PoolCreateResult }) {
 
   return (
     <div className="grid w-full min-w-0 gap-3 rounded-lg border border-border p-4">
-      <h3 className="text-balance font-medium">Configurar webhook no Asaas</h3>
+      <h3 className="text-balance font-medium">Configurar webhook no provedor</h3>
       <p className="text-pretty text-sm text-muted-foreground">
-        No Sandbox do Asaas, abra Integrações → Webhooks. Use o endereço público do backend com o caminho abaixo e informe o token de autenticação.
+        No ambiente de testes do provedor, abra Integrações → Webhooks. Use o endereço público do backend com o caminho abaixo e informe o token de autenticação.
       </p>
-      <p className="text-pretty text-sm text-muted-foreground">O Asaas envia o token no cabeçalho <code>asaas-access-token</code>. Este token aparece uma única vez.</p>
+      <p className="text-pretty text-sm text-muted-foreground">O provedor envia o token no cabeçalho <code>asaas-access-token</code>. Este token aparece uma única vez.</p>
       <dl className="grid min-w-0 gap-3">
         <CompanyField label="Caminho do webhook"><code className="wrap-anywhere">{result.account.webhookPath}</code></CompanyField>
         <CompanyField label="Token do webhook">

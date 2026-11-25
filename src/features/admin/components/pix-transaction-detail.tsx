@@ -23,6 +23,9 @@ import { retryAdminRead } from "../admin-query";
 import { adminBatchesPath } from "../admin-withdrawal-batches";
 import { PixChargeDetails } from "./admin-pix-charge-detail";
 import { CompanyField } from "./company-display";
+import { MovementBalanceFields } from "./movement-balance-fields";
+import { PixPayerFields } from "./pix-payer-fields";
+import { movementOriginLabel } from "../admin-movement-origin";
 
 const statusVariants: Record<PixTransactionRow["status"], BadgeProps["variant"]> = {
   COMPLETED: "success", PARTIALLY_REFUNDED: "warning", REFUNDED: "secondary", PENDING: "warning",
@@ -80,11 +83,15 @@ function TransactionFacts({ item, onOpen, onScope }: {
           {item.refundedInCents !== null && item.refundedInCents > 0 &&
             <CompanyField label="Total estornado"><span className="tabular-nums"><PanelAmount cents={item.refundedInCents} /></span></CompanyField>}
           <CompanyField label={dateLabels[item.dateSource]}>{formatDateTime(item.occurredAt, item.dateOnly ? "date-only" : "medium")}</CompanyField>
+          <CompanyField label="Origem">{movementOriginLabel(item.origin)}</CompanyField>
           {item.dateSource !== "CREATED" && item.kind !== "REFUND" && <CompanyField label="Criação">{formatDateTime(item.createdAt)}</CompanyField>}
           {item.requestedAt && <CompanyField label="Solicitação do estorno">{formatDateTime(item.requestedAt)}</CompanyField>}
           {item.refundPending && <CompanyField label="Estorno"><Badge variant="warning">Em processamento</Badge></CompanyField>}
         </dl>
       </section>
+      {item.balance && <MovementBalanceFields balance={item.balance} />}
+      {(item.kind === "RECEIVE" || item.kind === "REFUND") && item.dateSource !== "CREATED" && !item.simulated &&
+        <PixPayerFields payer={item.payer} />}
       <section className="grid min-w-0 gap-3">
         <h3 className="text-balance text-sm font-semibold">Empresa e conta</h3>
         <dl className="grid min-w-0 grid-cols-2 gap-4 [&>div:first-child]:col-span-2">

@@ -5,24 +5,26 @@ import { requestPixGateway } from "@/lib/pix-gateway-client";
 
 export const maxFixedPixFee = 2_000_000_000;
 export const maxMonthlyPix = 1_000_000;
+const minimumFee = z.int().min(0).max(maxFixedPixFee);
 export const pixPricingTerms = z.strictObject({
   fixedCents: z.int().min(0).max(maxFixedPixFee),
+  minimumCents: minimumFee.optional(),
   percentageUnits: z.int().min(0).max(1_000_000),
   monthlyFreePix: z.int().min(0).max(maxMonthlyPix),
   version: z.int().min(0).max(2_000_000_000),
 });
-export const defaultPixPricingDraft = pixPricingTerms.extend({ revenueWalletId: z.uuid().nullable() });
+export const defaultPixPricingDraft = pixPricingTerms.extend({ revenueWalletId: z.uuid().nullable().optional() });
 export const companyPixPricingProof = pixPricingTerms.extend({ proof: integrationProofSchema });
 export const defaultPixPricingProof = defaultPixPricingDraft.extend({ proof: integrationProofSchema });
 export const pixPricingView = pixPricingTerms.strip().extend({
+  minimumCents: minimumFee.default(0),
   environment: z.enum(["LIVE", "SANDBOX"]),
   source: z.enum(["NONE", "DEFAULT", "CUSTOM"]),
   updatedAt: z.iso.datetime().nullable(),
-  revenueWalletId: z.uuid().nullable().optional(),
 });
 export const pixPricingSaved = z.object({ saved: z.literal(true) });
 export type PixPricingView = z.infer<typeof pixPricingView>;
-export type PixPricingDraft = z.infer<typeof pixPricingTerms> & { revenueWalletId?: string | null };
+export type PixPricingDraft = z.infer<typeof pixPricingTerms>;
 
 export const pixPricingUnavailable = "Não foi possível consultar a tarifa do Slopay.";
 const pricingPath = (companyId?: string) => companyId

@@ -40,6 +40,7 @@ export const liveWalletPositionsSchema = z.object({
     receives: z.boolean().default(false), withdraws: z.boolean().default(false),
     withdrawalStatus: ruleStatusFilter.exclude(["ALL"]).optional(),
     bookedCents: balanceInCents, reservedCents: balanceInCents, providerCents: balanceInCents.nullable(),
+    platformRevenueCents: balanceInCents.default("0"),
     differenceCents: balanceInCents.nullable(), checkedAt: z.iso.datetime({ offset: true }).nullable(),
   })).max(8),
 });

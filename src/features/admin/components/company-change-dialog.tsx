@@ -110,7 +110,7 @@ export function CompanyAccessDialog({ company, onChange, onClose, restoreFocus }
           <AlertDialogTitle className="text-balance">{title}</AlertDialogTitle>
           <AlertDialogDescription className="text-pretty">
             {suspending
-              ? "As sessões do titular serão encerradas, e o login e as chaves de API serão bloqueados no Slopay. Operações já enviadas ao Asaas podem ser concluídas."
+              ? "As sessões do titular serão encerradas, e o login e as chaves de API serão bloqueados no Slopay. Operações já enviadas ao provedor podem ser concluídas."
               : "O titular poderá entrar novamente, e as chaves válidas voltarão a ser aceitas no Slopay."}
           </AlertDialogDescription>
         </AlertDialogHeader>
