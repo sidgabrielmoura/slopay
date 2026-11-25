@@ -225,7 +225,7 @@ function movementRows(report: PixMovementReport): MovementRow[] {
     key: item.kind + ":" + item.id, detail: { kind: item.kind, id: item.id }, title: pixKindLabels[item.kind], subtitle: item.id.slice(0, 8),
     icon: icons[item.kind], company: item.company, companyId: item.companyId, walletSuffix: item.walletSuffix, accountId: item.accountId,
     date: item.occurredAt, dateOnly: item.dateOnly,
-    status: <><PixTransactionStatus item={item} />{item.simulated && <p className="text-xs text-muted-foreground">Simulação</p>}</>,
+    status: <><PixTransactionStatus item={item} compact />{item.simulated && <p className="text-xs text-muted-foreground">Simulação</p>}</>,
     amount: item.amountInCents, fee: item.feeInCents, balance: item.balance, origin: item.origin,
   }));
 }
@@ -246,6 +246,7 @@ function MovementTable({ report, open, filter }: { report: PixMovementReport; op
   columns.push({ title: "Origem", width: "w-32" });
   const showBalance = report.view === "all" && report.environment === "live";
   if (showBalance) columns.push({ title: "Saldo antes e depois", width: "w-48" });
+
   return (
     <>
       <div className="hidden min-w-0 xl:block">

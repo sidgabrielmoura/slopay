@@ -159,7 +159,6 @@ body {
   }
 }
 
-/* Suporte de Impressão para Comprovantes */
 @media print {
   body {
     background-color: #ffffff !important;
@@ -177,6 +176,7 @@ body {
 
 ::-webkit-scrollbar {
   width: 4px;
+  height: 4px;
   background-color: var(--accent);
 }
 

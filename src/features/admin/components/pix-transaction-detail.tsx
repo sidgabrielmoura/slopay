@@ -35,8 +35,9 @@ const statusVariants: Record<PixTransactionRow["status"], BadgeProps["variant"]>
 const dateLabels = { CREATED: "Criação", SETTLED: "Efetivação", RECORDED: "Registro no Slopay" };
 const keyLabels: Record<string, string> = { CPF: "CPF", CNPJ: "CNPJ", EMAIL: "E-mail", PHONE: "Telefone", EVP: "Chave aleatória" };
 
-export function PixTransactionStatus({ item }: { item: PixTransactionRow }) {
-  return <Badge className="max-w-full whitespace-normal" variant={statusVariants[item.status]}>{pixStatusLabels[item.status]}</Badge>;
+export function PixTransactionStatus({ item, compact }: { item: PixTransactionRow; compact?: boolean }) {
+  const label = compact && item.status === "PENDING" ? "Aguardando" : pixStatusLabels[item.status];
+  return <Badge className="max-w-full whitespace-normal" variant={statusVariants[item.status]}>{label}</Badge>;
 }
 
 function CopyReference({ label, value }: { label: string; value: string }) {
