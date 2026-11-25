@@ -3,10 +3,9 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Settings, Shield } from "lucide-react";
-import { BrandImage } from "@/components/shared/brand-image";
-import { PanelFrame, PanelTopbarFrame } from "@/components/layout/panel-frame";
-import { PanelProfileIdentity } from "@/components/layout/header-motion";
+import { PanelFrame } from "@/components/layout/panel-frame";
 import { PanelPrivacyToggle } from "@/components/layout/panel-privacy";
+import { PanelTopbar } from "@/components/layout/panel-topbar";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/features/auth/components/live-auth-forms";
 import type { SessionUser } from "@/lib/server/auth-backend";
@@ -26,22 +25,17 @@ export function AdminPanel({ user, children, pendingSummary }: {
   return <PanelFrame kind="admin" className="admin-panel" sidebar={<AdminSidebar live pendingSummary={summary ? {
     pendingApplicationsCount: summary.onboarding, pendingFinancialApprovalsCount: summary.ownerApproval, totalUrgentTasks: summary.total,
   } : pendingSummary} />} topbar={(
-    <PanelTopbarFrame>
-      <div className="flex min-w-0 items-center gap-2">
-        <BrandImage variant="symbol" className="h-5 lg:hidden" />
-        <PanelProfileIdentity profileKey={user.id} name={user.fullName} email={user.email} />
-      </div>
-      <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
+    <PanelTopbar user={user} actions={(
+      <>
         <PanelPrivacyToggle className="size-11 text-muted-foreground" />
         <AdminNotifications />
-        <Button asChild variant="ghost" size="icon" className="size-11 text-muted-foreground">
+        <Button asChild variant="ghost" size="icon" className="hidden size-11 text-muted-foreground sm:inline-flex">
           <Link href={adminPreferencesPath} aria-label="Preferências" prefetch={false}><Settings aria-hidden="true" /></Link>
         </Button>
         <Button asChild variant="ghost" size="icon" className="hidden size-11 text-muted-foreground sm:inline-flex">
           <Link href="/conta/seguranca" aria-label="Segurança da conta"><Shield aria-hidden="true" /></Link>
         </Button>
-        <div className="ml-1 border-l border-border pl-2"><LogoutButton compact /></div>
-      </div>
-    </PanelTopbarFrame>
+      </>
+    )} sessionAction={<LogoutButton compact />} />
   )} bottomNav={<AdminBottomNav live />}>{children}</PanelFrame>;
 }

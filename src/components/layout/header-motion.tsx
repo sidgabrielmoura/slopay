@@ -56,7 +56,7 @@ export function PanelProfileIdentity({ profileKey, name, email }: {
 
   return (
     <SkeletonReveal
-      className="h-11 w-full min-w-0 max-w-72"
+      className="h-11 min-w-0 max-w-72 flex-1"
       layerClassName="flex items-center gap-2.5 sm:gap-3"
       revealed={revealed}
       pulsing={hydrated && !revealed}
@@ -77,7 +77,7 @@ export function PanelProfileIdentity({ profileKey, name, email }: {
       <Avatar aria-hidden="true" className="size-9 border-border sm:size-10">
         <AvatarFallback className="bg-accent text-accent-foreground">{initials}</AvatarFallback>
       </Avatar>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold" title={heading}>{heading}</p>
         {fullName && <p className="truncate text-xs text-muted-foreground" title={email}>{email}</p>}
       </div>
