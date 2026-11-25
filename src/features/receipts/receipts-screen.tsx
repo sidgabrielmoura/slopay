@@ -3,9 +3,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ChevronRight, ReceiptText } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ReceiptText } from "lucide-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { TablePagination } from "@/components/shared/table-pagination";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
@@ -28,16 +29,14 @@ const actionCell = "col-span-2 min-w-0 lg:col-span-1 lg:justify-self-end";
 export function ReceiptsScreen({ merchantId }: { merchantId: string }) {
   const [page, setPage] = useState(1);
   const query = useQuery({
-    queryKey: ["pix-receipts", merchantId, page],
-    queryFn: ({ signal }) => fetchLiveTransactions({ status: "COMPLETED", page }, signal),
+    queryKey: ["pix-statement", merchantId, "receipts", page],
+    queryFn: ({ signal }) => fetchLiveTransactions({ status: "COMPLETED", receipts: true, page }, signal),
     placeholderData: keepPreviousData,
     retry: false,
   });
   const data = query.data;
   const rows = data?.data.filter((operation) => canSharePixReceipt(data.environment, operation)) ?? [];
   const pending = query.isLoading || query.isPlaceholderData;
-  const previousDisabled = pending || !data || data.page <= 1;
-  const nextDisabled = pending || !data || data.page >= data.totalPages;
 
   return (
     <section aria-label="Comprovantes Pix" className="min-w-0">
@@ -78,17 +77,8 @@ export function ReceiptsScreen({ merchantId }: { merchantId: string }) {
           ))}
         </SkeletonReveal>
         {data && data.totalPages > 1 && (
-          <nav aria-label="Paginação dos comprovantes" className="flex items-center justify-end gap-3 border-t border-border px-4 py-3 sm:px-5">
-            <Button type="button" variant="outline" size="icon" className="size-11 aria-disabled:opacity-50" aria-label="Página anterior"
-              aria-disabled={previousDisabled} onClick={() => { if (!previousDisabled) setPage(data.page - 1); }}>
-              <ChevronLeft aria-hidden="true" />
-            </Button>
-            <span className="text-sm tabular-nums">{pending ? page : data.page} de {data.totalPages}</span>
-            <Button type="button" variant="outline" size="icon" className="size-11 aria-disabled:opacity-50" aria-label="Próxima página"
-              aria-disabled={nextDisabled} onClick={() => { if (!nextDisabled) setPage(data.page + 1); }}>
-              <ChevronRight aria-hidden="true" />
-            </Button>
-          </nav>
+          <TablePagination page={data.page} pageSize={data.pageSize} total={data.total}
+            busy={pending || query.isFetching} label="Paginação dos comprovantes" onPageChange={setPage} />
         )}
       </Card>
     </section>
@@ -106,7 +96,7 @@ function ReceiptRow({ operation }: { operation: LiveTransaction }) {
           incoming ? "bg-success-surface text-success" : "bg-info-surface text-info")}>
           <Icon className="size-5" aria-hidden="true" />
         </span>
-        <Link prefetch={false} href={"/movimentacoes/" + encodeURIComponent(operation.reference)}
+        <Link prefetch={false} href={"/movimentacoes/" + encodeURIComponent(operation.reference) + "?origem=RECEIPTS"}
           className="grid min-h-11 min-w-0 content-center gap-0.5 rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
           <span className="text-sm font-semibold">{operation.reference.startsWith("estorno-") ? "Estorno Pix" : operation.simulated ? "Saque Pix simulado" : transactionName(operation.direction)}</span>
           {operation.providerId && (

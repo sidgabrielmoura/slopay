@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
-  FileCheck2,
   RotateCcw,
   Search,
 } from "lucide-react";
@@ -23,11 +22,11 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToastNotice } from "@/components/ui/toast-notice";
-import { receiptsPath } from "@/features/receipts/pix-receipt-share";
 import { formatDateTime } from "@/lib/dates";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { StatementExportDialog } from "./statement-export-dialog";
+import { StatementNavigation } from "./statement-navigation";
 import { usePreferences } from "@/providers/preferences-provider";
 import type { TransactionDirection } from "@/types/domain";
 import { liveTransactionStatuses, statementUnavailableMessage, transactionSearchLimit } from "../live-transactions";
@@ -35,7 +34,6 @@ import {
   statusPresentation,
   transactionName,
   transactionStatusLabel,
-  transactionTabs,
   type StatementStatus,
   type TransactionTab,
 } from "../transaction-presentation";
@@ -209,14 +207,6 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {live && owner && (
-            <Button asChild variant="outline" size="sm" className="gap-1.5">
-              <Link href={receiptsPath} prefetch={false}>
-                <FileCheck2 className="size-3.5" aria-hidden="true" />
-                Comprovantes
-              </Link>
-            </Button>
-          )}
           <Button type="button" variant="outline" size="sm" onClick={() => void refetch()} disabled={!available || isFetching || searching} className="gap-1.5">
             <RotateCcw className="size-3.5" aria-hidden="true" />
             Atualizar
@@ -236,21 +226,7 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
         </div>
       </header>
 
-      <nav aria-label="Movimentações Pix" className="flex gap-2 overflow-x-auto border-b border-border text-sm font-medium sm:gap-6">
-        {Object.entries(transactionTabs).map(([tab, { path, label }]) => (
-          <Link
-            key={tab}
-            href={path}
-            prefetch={live ? false : undefined}
-            aria-current={initialTab === tab ? "page" : undefined}
-            className={cn("whitespace-nowrap border-b-2 px-1 pb-3 transition-colors",
-              initialTab === tab ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
+      <StatementNavigation tab={initialTab} receipts={live && owner} />
 
       <div className={cn("grid grid-cols-1 gap-4", outflow ? "sm:grid-cols-2" : "sm:grid-cols-3")}>
         {totals.map(({ label, amount, color, showSign }) => (

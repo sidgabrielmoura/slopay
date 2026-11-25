@@ -51,10 +51,10 @@ function chartDays(timeline: ExpenseSummary["timeline"]) {
   return weeks;
 }
 
-function ChartPlaceholder({ hidden, children }: { hidden: boolean; children: string }) {
+function ChartPlaceholder({ hidden, children, className }: { hidden: boolean; children: string; className?: string }) {
   const Icon = hidden ? EyeOff : ChartNoAxesColumn;
   return (
-    <div className="grid h-full min-h-40 place-content-center justify-items-center gap-2 rounded-lg border border-dashed border-border px-4 text-center text-sm text-muted-foreground">
+    <div className={cn("grid h-full min-h-40 place-content-center justify-items-center gap-2 rounded-lg border border-dashed border-border px-4 text-center text-sm text-muted-foreground", className)}>
       <Icon aria-hidden="true" className="size-5" />
       {hidden ? "Valores ocultos" : children}
     </div>
@@ -94,7 +94,7 @@ function SpendingChart({ data, hidden, preview }: { data: ExpenseSummary; hidden
         <p className="wrap-break-word text-[28px] font-semibold tracking-tight tabular-nums"><PanelAmount cents={data.spentInCents} /></p>
       </CardHeader>
       <CardContent className="px-5 pb-5">
-        <div className={preview ? "h-44 min-w-0" : "h-56 min-w-0"}>
+        <div className={preview ? "h-40 min-w-0" : "h-56 min-w-0"}>
           {hidden || data.spentInCents === 0 ? (
             <ChartPlaceholder hidden={hidden}>Nenhum gasto neste período.</ChartPlaceholder>
           ) : (
@@ -119,9 +119,10 @@ function SpendingChart({ data, hidden, preview }: { data: ExpenseSummary; hidden
   );
 }
 
-function CategoryChart({ data, hidden, selected, onSelect }: {
+function CategoryChart({ data, hidden, preview, selected, onSelect }: {
   data: ExpenseSummary;
   hidden: boolean;
+  preview: boolean;
   selected?: ExpenseCategoryFilter | null;
   onSelect?: (category: ExpenseCategoryFilter) => void;
 }) {
@@ -129,6 +130,8 @@ function CategoryChart({ data, hidden, selected, onSelect }: {
     const category: ExpenseCategoryFilter = group.category ?? "UNCATEGORIZED";
     return { ...group, category, ...expenseCategoryPresentation[category], fill: expenseCategoryPresentation[category].color };
   });
+  const displayedCategories = preview ? categories.slice(0, 3) : categories;
+  const remainingCategories = categories.length - displayedCategories.length;
   return (
     <Card className="min-w-0">
       <CardHeader className="gap-1 p-5 pb-4">
@@ -140,9 +143,9 @@ function CategoryChart({ data, hidden, selected, onSelect }: {
           <ChartPlaceholder hidden={hidden}>As saídas confirmadas aparecerão aqui.</ChartPlaceholder>
         ) : (
           <div className="grid items-center gap-4 sm:grid-cols-[minmax(112px,0.8fr)_minmax(0,1.2fr)]">
-            <div className="relative mx-auto aspect-square w-full max-w-44 min-w-0">
+            <div className={cn("relative mx-auto aspect-square w-full min-w-0", preview ? "max-w-28" : "max-w-44")}>
               {hidden ? (
-                <ChartPlaceholder hidden>Valores ocultos</ChartPlaceholder>
+                <ChartPlaceholder hidden className={preview ? "min-h-0 px-2 text-xs" : undefined}>Valores ocultos</ChartPlaceholder>
               ) : (
                 <>
                   <ResponsiveContainer width="100%" height="100%">
@@ -172,8 +175,8 @@ function CategoryChart({ data, hidden, selected, onSelect }: {
                 </>
               )}
             </div>
-            <ul className="min-w-0 divide-y divide-border" aria-label="Categorias das saídas">
-              {categories.map(({ category, amountInCents }) => {
+            <ul className="min-w-0 divide-y divide-border" aria-label={preview ? "Principais categorias das saídas" : "Categorias das saídas"}>
+              {displayedCategories.map(({ category, amountInCents }) => {
                 const active = selected === category;
                 const content = (
                   <>
@@ -184,7 +187,7 @@ function CategoryChart({ data, hidden, selected, onSelect }: {
                     </span>
                   </>
                 );
-                const classes = "flex min-h-11 w-full items-center justify-between gap-2 text-left text-sm";
+                const classes = cn("flex w-full items-center justify-between gap-2 text-left text-sm", preview ? "min-h-9" : "min-h-11");
                 return (
                   <li key={category}>
                     {onSelect ? (
@@ -196,6 +199,9 @@ function CategoryChart({ data, hidden, selected, onSelect }: {
                   </li>
                 );
               })}
+              {remainingCategories > 0 && <li className="pt-2 text-xs text-muted-foreground">
+                Mais {remainingCategories} {remainingCategories === 1 ? "categoria no relatório" : "categorias no relatório"}
+              </li>}
             </ul>
           </div>
         )}
@@ -239,8 +245,8 @@ export function ExpenseCharts({ merchantId, period = defaultExpensePeriod, previ
           <>
             {!preview && <Skeleton className="mb-4 h-25 animate-none" />}
             <div className={chartGrid}>
-              <Skeleton className="h-62 animate-none" />
-              <Skeleton className="h-62 animate-none" />
+              <Skeleton className={cn("animate-none", preview ? "h-44" : "h-62")} />
+              <Skeleton className={cn("animate-none", preview ? "h-44" : "h-62")} />
             </div>
           </>
         )}>
@@ -249,7 +255,7 @@ export function ExpenseCharts({ merchantId, period = defaultExpensePeriod, previ
             {!preview && <SummaryTotals data={report.data} />}
             <div className={chartGrid}>
               <SpendingChart data={report.data} hidden={hidden} preview={preview} />
-              <CategoryChart data={report.data} hidden={hidden} selected={selected} onSelect={onSelect} />
+              <CategoryChart data={report.data} hidden={hidden} preview={preview} selected={selected} onSelect={onSelect} />
             </div>
           </div>
         ) : report.isError ? (

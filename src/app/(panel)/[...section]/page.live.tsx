@@ -8,8 +8,10 @@ import { panelSections } from "@/components/layout/panel-sections";
 import { Button } from "@/components/ui/button";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { PreferencesScreen } from "@/features/preferences/components/preferences-screen";
+import { ReceiptsScreen } from "@/features/receipts/receipts-screen";
 import { LiveTransactionDetail } from "@/features/transactions/components/live-transaction-detail";
 import { LiveTransactionsScreen } from "@/features/transactions/components/live-transactions-screen";
+import { StatementNavigation } from "@/features/transactions/components/statement-navigation";
 import { transactionReferencePattern, transactionSearchLimit } from "@/features/transactions/live-transactions";
 import { transactionTabs, type TransactionTab } from "@/features/transactions/transaction-presentation";
 import { formatDateTime } from "@/lib/dates";
@@ -25,6 +27,11 @@ export default async function PanelPage({
 }) {
   const { section } = await params;
   const returnTo = "/" + section.map(encodeURIComponent).join("/");
+  const { referencia, origem } = await searchParams;
+  const initialSearch = typeof referencia === "string" ? referencia.slice(0, transactionSearchLimit) : "";
+  const searchQuery = initialSearch ? "?" + new URLSearchParams({ referencia: initialSearch }) : "";
+  if (returnTo === "/movimentacoes/buscar") redirect(transactionTabs.ALL.path + searchQuery);
+
   const page = Object.hasOwn(panelSections, returnTo) ? panelSections[returnTo] : undefined;
   const tab = (Object.keys(transactionTabs) as TransactionTab[]).find((key) => transactionTabs[key].path === returnTo);
   const reference = !tab && section[0] === "movimentacoes" && section.length === 2 && transactionReferencePattern.test(section[1])
@@ -32,15 +39,26 @@ export default async function PanelPage({
     : undefined;
   if (!page && !tab && !reference) notFound();
 
-  const user = await requireSession(returnTo, { operations: true });
+  const user = await requireSession(returnTo + (tab ? searchQuery : ""), { operations: true });
   if (user.role === "ADMIN") redirect("/admin");
   const merchant = user.role === "MERCHANT";
   const panelNavigation = merchantNavigation(!merchant);
   const hasAccess = merchant || Boolean(user.merchantId);
 
+  if (tab === "RECEIPTS") {
+    if (!merchant) redirect(transactionTabs.ALL.path);
+    return (
+      <MerchantPanel user={user}>
+        <div className="grid min-w-0 gap-6">
+          <PanelHeading title="Comprovantes" description="Consulte e compartilhe os comprovantes de recebimentos e saques Pix confirmados." />
+          <StatementNavigation tab={tab} receipts />
+          <ReceiptsScreen key={user.id} merchantId={user.id} />
+        </div>
+      </MerchantPanel>
+    );
+  }
+
   if (tab) {
-    const { referencia } = await searchParams;
-    const initialSearch = typeof referencia === "string" ? referencia.slice(0, transactionSearchLimit) : "";
     return (
       <MerchantPanel user={user}>
         {hasAccess ? (
@@ -60,8 +78,7 @@ export default async function PanelPage({
 
   if (reference) {
     if (!hasAccess) notFound();
-    const { origem } = await searchParams;
-    const backTo = typeof origem === "string" && Object.hasOwn(transactionTabs, origem)
+    const backTo = typeof origem === "string" && (origem !== "RECEIPTS" || merchant) && Object.hasOwn(transactionTabs, origem)
       ? transactionTabs[origem as TransactionTab].path
       : transactionTabs.ALL.path;
     const result = await loadDashboardTransaction(reference);

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
 import type { LiveTransactionDetail } from "@/features/transactions/live-transactions";
 
-export const receiptsPath = "/comprovantes";
+export const receiptsPath = "/movimentacoes/comprovantes";
 export const sharedReceiptPath = "/comprovante";
 export const shareTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const receiptUnavailable = "Não foi possível preparar o comprovante. Tente novamente.";

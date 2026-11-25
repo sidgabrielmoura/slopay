@@ -1,10 +1,10 @@
 import {
   ArrowDownLeft, ArrowUpRight, BarChart3, ChartPie, CheckCircle2, GitBranch,
-  FileCheck2, Layers, LayoutDashboard, Percent, ReceiptText, ShieldCheck, User, Users2,
+  Layers, LayoutDashboard, Percent, ReceiptText, ShieldCheck, User, Users2,
 } from "lucide-react";
 import { financialControlPath } from "@/features/expenses/expenses";
 import { integrationsItem } from "@/features/integrations/navigation";
-import { receiptsPath } from "@/features/receipts/pix-receipt-share";
+import { approvalRulesPath } from "@/features/approval-rules/approval-rules";
 
 export const panelNavigation = [
   {
@@ -12,7 +12,6 @@ export const panelNavigation = [
     items: [
       { title: "Início", path: "/inicio", icon: LayoutDashboard },
       { title: "Movimentações", path: "/movimentacoes", icon: ReceiptText },
-      { title: "Comprovantes", path: receiptsPath, icon: FileCheck2 },
     ],
   },
   {
@@ -38,18 +37,19 @@ export const panelNavigation = [
       { title: "Perfil", path: "/conta/perfil", icon: User },
       { title: "Segurança", path: "/conta/seguranca", icon: ShieldCheck },
       { title: "Usuários", path: "/conta/usuarios", icon: Users2 },
-      { title: "Regras de aprovação", path: "/conta/regras-de-aprovacao", icon: GitBranch },
+      { title: "Regras de aprovação", path: approvalRulesPath, icon: GitBranch },
       integrationsItem,
     ],
   },
 ];
 
-const ownerPaths = new Set(["/comprovantes", "/controle-financeiro", "/conta/taxas-e-limites", "/conta/regras-de-aprovacao", "/integracoes"]);
+const ownerPaths = new Set([financialControlPath, "/conta/taxas-e-limites", approvalRulesPath, "/integracoes"]);
 
-export function merchantNavigation(member = false) {
-  if (!member) return panelNavigation;
+export function merchantNavigation(member = false, demo = false) {
   return panelNavigation.map(({ label, items }) => ({
-    label: label === "Conta & Integrações" ? "Conta" : label,
-    items: items.filter(({ path }) => !path.startsWith("/pix") && path !== "/aprovacoes" && !ownerPaths.has(path)),
+    label: member && label === "Conta & Integrações" ? "Conta" : label,
+    items: items.filter(({ path }) =>
+      (demo || path !== approvalRulesPath) &&
+      (!member || (!path.startsWith("/pix") && path !== "/aprovacoes" && !ownerPaths.has(path)))),
   })).filter(({ items }) => items.length > 0);
 }

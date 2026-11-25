@@ -29,22 +29,20 @@ const chargeStates = [
   { key: "closed", label: "Encerradas", color: "var(--muted-foreground)" },
 ] as const;
 
-export function AnalyticsScreen({ scope, load, available = true }: {
+export function AnalyticsScreen({ scope, load }: {
   scope: string;
-  available?: boolean;
   load: (period: IndicatorPeriod, signal: AbortSignal) => Promise<IndicatorReport>;
 }) {
   const [period, setPeriod] = useState<IndicatorPeriod>(defaultIndicatorPeriod);
   const [measure, setMeasure] = useState<IndicatorMeasure>("value");
   const report = useQuery({
-    enabled: available,
     queryKey: queryKeys.analytics(scope, period),
     queryFn: ({ signal }) => load(period, signal),
     retry: false,
     staleTime: 15_000,
     refetchOnWindowFocus: true,
   });
-  const data = available ? report.data : undefined;
+  const data = report.data;
   const environment = data?.environment === "sandbox" ? "Sandbox" : data?.environment === "demo" ? "Demonstração" : null;
 
   return (
@@ -58,7 +56,7 @@ export function AnalyticsScreen({ scope, load, available = true }: {
           <p className="text-pretty text-sm text-muted-foreground">Acompanhe recebimentos, saques e a conversão das suas cobranças.</p>
         </div>
         <div className="flex w-full gap-2 sm:w-auto">
-          <Select disabled={!available} value={period} onValueChange={(value) => setPeriod(indicatorPeriodSchema.parse(value))}>
+          <Select value={period} onValueChange={(value) => setPeriod(indicatorPeriodSchema.parse(value))}>
             <SelectTrigger aria-label="Período dos indicadores" className="h-11 min-w-0 flex-1 sm:w-44">
               <SelectValue />
             </SelectTrigger>
@@ -67,7 +65,7 @@ export function AnalyticsScreen({ scope, load, available = true }: {
             </SelectContent>
           </Select>
           <Button type="button" variant="outline" size="icon" aria-label="Atualizar indicadores" className="size-11"
-            onClick={() => void report.refetch()} disabled={!available || report.isFetching}>
+            onClick={() => void report.refetch()} disabled={report.isFetching}>
             <RotateCw aria-hidden="true" />
           </Button>
         </div>
@@ -76,8 +74,7 @@ export function AnalyticsScreen({ scope, load, available = true }: {
       <ToastNotice message={report.isError ? report.error.message || indicatorsUnavailable : null} />
       {report.isLoading && <p role="status" className="sr-only">Carregando indicadores</p>}
       <SkeletonReveal key={period} flow revealed={!report.isLoading} skeleton={<IndicatorsSkeleton />}>
-        {!available ? <IndicatorVolumeChart days={[]} measure={measure} onMeasureChange={setMeasure}
-          unavailableMessage="Os indicadores estarão disponíveis quando a integração estiver ativa." /> : data ? <IndicatorData report={data} measure={measure} onMeasureChange={setMeasure} /> : report.isError && (
+        {data ? <IndicatorData report={data} measure={measure} onMeasureChange={setMeasure} /> : report.isError && (
           <Card className="grid min-h-52 content-center justify-items-center gap-3 p-5 text-center">
             <h2 className="text-balance text-base font-semibold">Indicadores indisponíveis</h2>
             <Button type="button" variant="outline" className="h-11" disabled={report.isFetching}

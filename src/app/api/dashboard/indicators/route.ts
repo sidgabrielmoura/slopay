@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { developmentFeaturesEnabled } from "@/config/development";
 import { defaultIndicatorPeriod, indicatorPeriodSchema, indicatorReportSchema, indicatorsUnavailable } from "@/features/analytics/indicators";
 import { requestBackend } from "@/lib/server/auth-backend";
 import { accessCookie } from "@/lib/server/session";
@@ -31,7 +32,8 @@ export async function GET(request: NextRequest) {
     });
     if (backend.ok) {
       const result = indicatorReportSchema.safeParse(await backend.json());
-      if (result.success && result.data.period === period.data && result.data.environment !== "demo") {
+      if (result.success && result.data.period === period.data && (result.data.environment === "live" ||
+          (result.data.environment === "sandbox" && developmentFeaturesEnabled()))) {
         return response(result.data);
       }
     } else {

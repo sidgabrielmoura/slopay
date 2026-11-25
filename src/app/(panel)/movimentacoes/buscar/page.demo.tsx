@@ -1,10 +1,6 @@
-import { TransactionsScreen } from "@/features/transactions/components/transactions-screen";
-import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Buscar Movimentações",
-};
+import { redirect } from "next/navigation";
+import { transactionTabs } from "@/features/transactions/transaction-presentation";
 
 export default function BuscarPage() {
-  return <TransactionsScreen initialTab="SEARCH" />;
+  redirect(transactionTabs.ALL.path);
 }

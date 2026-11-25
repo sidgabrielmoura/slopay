@@ -3,7 +3,6 @@
 import { HelpCircle, Settings } from "lucide-react";
 import { brandConfig } from "@/config/brand.config";
 import { financialControlPath } from "@/features/expenses/expenses";
-import { receiptsPath } from "@/features/receipts/pix-receipt-share";
 import { merchantNavigation, panelNavigation } from "./panel-navigation";
 import { PanelSidebar } from "./panel-sidebar";
 
@@ -20,10 +19,10 @@ export function Sidebar({ pendingApprovals = 0, restricted = false, demo = false
 }) {
   const groups = restricted
     ? [{ ...panelNavigation[0], items: panelNavigation[0].items.slice(0, 1) }]
-    : merchantNavigation(member).map(({ label, items }) => ({
+    : merchantNavigation(member, demo).map(({ label, items }) => ({
       label,
       items: items
-        .filter(({ path }) => !demo || (path !== financialControlPath && path !== receiptsPath))
+        .filter(({ path }) => !demo || path !== financialControlPath)
         .map((item) => item.path === "/aprovacoes" ? { ...item, badgeCount: pendingApprovals } : item),
     }));
 

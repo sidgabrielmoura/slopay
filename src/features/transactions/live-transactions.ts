@@ -4,6 +4,7 @@ import { requestPixGateway } from "@/lib/pix-gateway-client";
 export const liveTransactionStatuses = ["PENDING", "PROCESSING", "COMPLETED", "REVIEW", "BLOCKED", "FAILED", "CANCELLED"] as const;
 export const transactionReferencePattern = /^[A-Za-z0-9_-]{1,64}$/;
 export const transactionSearchLimit = 120;
+const statementPageSize = 10;
 export const statementUnavailableMessage = "O extrato está temporariamente indisponível. Tente novamente.";
 
 export const liveTransactionFilterSchema = z.object({
@@ -11,9 +12,10 @@ export const liveTransactionFilterSchema = z.object({
   status: z.enum(liveTransactionStatuses).optional(),
   search: z.string().max(transactionSearchLimit).refine((value) => !value.includes("\0")).optional(),
   page: z.string().regex(/^[1-9]\d{0,8}$/).optional(),
+  receipts: z.literal("true").optional(),
 });
 
-export const statementExportRequest = liveTransactionFilterSchema.omit({ page: true }).extend({
+export const statementExportRequest = liveTransactionFilterSchema.omit({ page: true, receipts: true }).extend({
   fromDate: z.iso.date(),
   throughDate: z.iso.date(),
 }).refine(({ fromDate, throughDate }) => {
@@ -47,9 +49,10 @@ const transactionSchema = z.object({
 
 export const liveTransactionsSchema = z.object({
   environment: environmentSchema,
-  data: z.array(transactionSchema).max(10),
+  data: z.array(transactionSchema).max(statementPageSize),
   total: z.int().nonnegative(),
   page: z.int().positive(),
+  pageSize: z.int().positive().max(statementPageSize).default(statementPageSize),
   totalPages: z.int().positive(),
   totalInflowInCents: z.int().nonnegative(),
   totalOutflowInCents: z.int().nonnegative(),
@@ -69,10 +72,12 @@ export function fetchLiveTransactions(filters: {
   status?: string;
   search?: string;
   page?: number;
+  receipts?: true;
 }, signal: AbortSignal) {
   const query = new URLSearchParams({ page: String(filters.page ?? 1) });
   if (filters.direction) query.set("direction", filters.direction);
   if (filters.status) query.set("status", filters.status);
   if (filters.search) query.set("search", filters.search);
+  if (filters.receipts) query.set("receipts", "true");
   return requestPixGateway("/api/dashboard/transactions?" + query, liveTransactionsSchema, statementUnavailableMessage, { signal });
 }

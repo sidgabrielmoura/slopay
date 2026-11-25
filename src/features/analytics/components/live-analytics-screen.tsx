@@ -1,7 +1,5 @@
 "use client";
 
-import { useDevelopmentFeatures } from "@/providers/app-providers";
-
 import { requestPixGateway } from "@/lib/pix-gateway-client";
 import { indicatorReportSchema, indicatorsUnavailable, type IndicatorPeriod } from "../indicators";
 import { AnalyticsScreen } from "./analytics-screen";
@@ -12,6 +10,5 @@ function loadIndicators(period: IndicatorPeriod, signal: AbortSignal) {
 }
 
 export function LiveAnalyticsScreen({ merchantId }: { merchantId: string }) {
-  const available = useDevelopmentFeatures();
-  return <AnalyticsScreen scope={"merchant:" + merchantId} load={loadIndicators} available={available} />;
+  return <AnalyticsScreen scope={"merchant:" + merchantId} load={loadIndicators} />;
 }

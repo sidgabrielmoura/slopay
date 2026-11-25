@@ -214,7 +214,7 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
             </button>
           </div>
 
-          <div className="pt-2 border-t border-border">
+          {demo && <div className="pt-2 border-t border-border">
             <button
               onClick={() => navigateTo("/pix")}
               className="flex items-center justify-center gap-1.5 w-full py-2 text-xs font-semibold text-primary hover:underline"
@@ -222,7 +222,7 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
               <span>Ver Hub e Visão Geral do Pix</span>
               <ExternalLink className="size-3.5" />
             </button>
-          </div>
+          </div>}
         </SheetContent>
       </Sheet>}
 
@@ -275,7 +275,7 @@ export function BottomNav({ pendingApprovals = 0, demoControls, member = false }
                 <Users2 className="size-4 text-muted-foreground" />
                 <span>Gestão de Usuários</span>
               </button>
-              {!member && <button
+              {!member && demo && <button
                 onClick={() => navigateTo("/conta/regras-de-aprovacao")}
                 className="flex items-center gap-3 w-full p-2.5 rounded-lg text-sm text-foreground hover:bg-accent text-left"
               >

@@ -5,15 +5,6 @@ type PanelSection = {
 };
 
 export const panelSections: Readonly<Record<string, PanelSection>> = {
-  "/pix": {
-    title: "Pix",
-    description: "Consulte as opções de recebimento e saque.",
-    links: [
-      { path: "/pix/receber", title: "Receber Pix" },
-      { path: "/pix/saque-direto", title: "Saque direto" },
-      { path: "/pix/saques-em-lote", title: "Saques em lote" },
-    ],
-  },
   "/pix/receber": { title: "Receber Pix", description: "A emissão de cobranças depende da conexão com o provedor Pix." },
   "/pix/saque-direto": { title: "Saque direto", description: "Os saques Pix aguardam a integração financeira." },
   "/pix/saques-em-lote": { title: "Saques em lote", description: "O envio de lotes aguarda a liberação de saques." },
@@ -26,7 +17,6 @@ export const panelSections: Readonly<Record<string, PanelSection>> = {
       { path: "/conta/seguranca", title: "Segurança" },
       { path: "/conta/usuarios", title: "Usuários" },
       { path: "/conta/taxas-e-limites", title: "Taxas e limites" },
-      { path: "/conta/regras-de-aprovacao", title: "Regras de aprovação" },
     ],
   },
   "/preferencias": { title: "Preferências", description: "Ajustes locais do painel." },
@@ -45,7 +35,7 @@ export const panelSections: Readonly<Record<string, PanelSection>> = {
     description: "Encontre as opções de segurança e de consulta de operações.",
     links: [
       { path: "/conta/seguranca", title: "Gerenciar meu autenticador" },
-      { path: "/movimentacoes/buscar", title: "Encontrar uma operação" },
+      { path: "/movimentacoes", title: "Encontrar uma operação" },
     ],
   },
 };

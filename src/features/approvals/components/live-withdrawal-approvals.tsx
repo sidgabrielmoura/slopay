@@ -2,7 +2,7 @@
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListChecks, RotateCw } from "lucide-react";
@@ -31,7 +31,7 @@ const status: Record<WithdrawalApproval["state"], [string, BadgeProps["variant"]
   CANCELLED: ["Cancelado", "secondary"], REVIEW: ["Em revisão", "warning"],
 };
 
-export function LiveWithdrawalApprovals({ accountId }: { accountId: string }) {
+export function LiveWithdrawalApprovals({ accountId, rule }: { accountId: string; rule: ReactNode }) {
   const development = useDevelopmentFeatures();
   const client = useQueryClient();
   const [group, setGroup] = useState<ApprovalGroup>("pending");
@@ -57,8 +57,9 @@ export function LiveWithdrawalApprovals({ accountId }: { accountId: string }) {
     <div className="grid min-w-0 gap-5">
       <header className="grid gap-1">
         <h1 ref={heading} tabIndex={-1} className="text-balance text-2xl font-semibold sm:text-3xl">Aprovações</h1>
-        <p className="text-sm text-muted-foreground">Revise os saques que a integração solicitou e acompanhe as decisões do titular.</p>
+        <p className="text-pretty text-sm text-muted-foreground">Revise os saques solicitados pela API e acompanhe as decisões registradas.</p>
       </header>
+      {rule}
       <Card className="min-w-0 gap-0 py-0">
         <Tabs value={group} onValueChange={(value) => {
           const parsed = approvalGroupSchema.safeParse(value);

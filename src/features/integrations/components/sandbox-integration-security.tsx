@@ -105,9 +105,9 @@ export function SandboxIntegrationSecurity({ accountId }: { accountId: string })
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Autorização de saques</CardTitle>
-              <CardDescription>{data.withdrawalsEnabled ? "O titular revisa e autoriza solicitações de saque enviadas pela API."
-                : "A equipe do Slopay precisa habilitar a validação de saques da empresa."}</CardDescription>
+              <CardTitle>Saques pela API</CardTitle>
+              <CardDescription>{data.withdrawalsEnabled ? "Solicitações de saque habilitadas."
+                : "A validação de saques aguarda habilitação pela equipe do Slopay."}</CardDescription>
             </CardHeader>
             <CardContent><Button asChild variant="outline"><Link href="/aprovacoes">Ver aprovações</Link></Button></CardContent>
           </Card>

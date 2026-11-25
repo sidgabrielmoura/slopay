@@ -1,4 +1,5 @@
 import type { BadgeProps } from "@/components/ui/badge";
+import { receiptsPath } from "@/features/receipts/pix-receipt-share";
 import type { TransactionDirection, TransactionStatus } from "@/types/domain";
 import type { LiveTransaction } from "./live-transactions";
 
@@ -6,7 +7,7 @@ export const transactionTabs = {
   ALL: { path: "/movimentacoes", label: "Extrato Consolidado" },
   IN: { path: "/movimentacoes/recebimentos", label: "Recebimentos Pix" },
   OUT: { path: "/movimentacoes/saidas", label: "Saídas Pix" },
-  SEARCH: { path: "/movimentacoes/buscar", label: "Busca Avançada" },
+  RECEIPTS: { path: receiptsPath, label: "Comprovantes" },
 } as const;
 
 export type TransactionTab = keyof typeof transactionTabs;
