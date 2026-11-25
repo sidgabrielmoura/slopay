@@ -6,6 +6,14 @@ import {
 import { adminPaginationSchema } from "./admin-pending";
 
 export const balancePositionsPath = "/admin/saldos";
+export type WalletView = "saldos" | "roteamento" | "vinculos" | "bolsao" | "validacao";
+
+export function walletsHref(view: WalletView, search?: URLSearchParams) {
+  const params = new URLSearchParams(search);
+  params.delete("aba");
+  if (view !== "saldos") params.set("aba", view);
+  return balancePositionsPath + (params.size ? "?" + params : "");
+}
 const api = "/api/admin/balance-positions";
 export const balancePositionsUnavailable = "Não foi possível consultar os saldos das carteiras.";
 export const balancePositionsQueryKey = (adminId: string) => ["admin-balance-positions", adminId] as const;

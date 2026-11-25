@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { connection } from "next/server";
 import "./globals.css";
@@ -14,6 +14,7 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.SLOPAY_APP_ORIGIN?.trim() || "https://app.slopay.com.br"),
   title: {
     default: `${brandConfig.name} · ${brandConfig.tagline}`,
     template: `%s · ${brandConfig.name}`,
@@ -21,6 +22,8 @@ export const metadata: Metadata = {
   description:
     "Painel operacional de pagamentos Pix de alta fidelidade para empresas e operadores financeiros.",
 };
+
+export const viewport: Viewport = { themeColor: brandConfig.backgroundColor };
 
 export default async function RootLayout({
   children,

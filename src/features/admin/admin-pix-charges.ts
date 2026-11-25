@@ -4,7 +4,6 @@ import { requestPixGateway } from "@/lib/pix-gateway-client";
 import { adminDatePeriod } from "./admin-date-period";
 import { adminPaginationSchema } from "./admin-pending";
 
-export const adminPixChargesPath = "/admin/cobrancas";
 const api = "/api/admin/pix-charges";
 export const adminChargesUnavailable = "As cobranças Pix estão temporariamente indisponíveis.";
 export const adminChargeUnavailable = "Não foi possível consultar esta cobrança Pix.";

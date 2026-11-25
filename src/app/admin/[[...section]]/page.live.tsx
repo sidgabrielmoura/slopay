@@ -7,12 +7,11 @@ import { AdminAccountOpeningsScreen } from "@/features/admin/components/admin-ac
 import { AdminAccountOpeningDetail } from "@/features/admin/components/admin-account-opening-detail";
 import { AdminCompaniesScreen } from "@/features/admin/components/admin-companies-screen";
 import { AdminCompanyScreen } from "@/features/admin/components/admin-company-screen";
-import { AdminLiveBalancePositions } from "@/features/admin/components/admin-live-balance-positions";
-import { AdminOperationalAccountsScreen } from "@/features/admin/components/admin-operational-accounts-screen";
 import { AdminOperationalAccountScreen } from "@/features/admin/components/admin-operational-account-screen";
-import { AdminPoolAccountsScreen } from "@/features/admin/components/admin-pool-accounts-screen";
-import { AdminPixTransactionsScreen } from "@/features/admin/components/admin-pix-transactions-screen";
-import { AdminPixChargesScreen } from "@/features/admin/components/admin-pix-charges-screen";
+import { walletsHref } from "@/features/admin/admin-balance-positions";
+import { adminPageSearchParams } from "@/features/admin/admin-navigation";
+import { pixMovementHref, pixMovementQueryFrom, pixMovementSelection } from "@/features/admin/admin-pix-movements";
+import { AdminPixMovementsScreen } from "@/features/admin/components/admin-pix-movements-screen";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { LivePanel } from "@/features/auth/components/live-panel";
@@ -21,9 +20,14 @@ import { loadAdminPending } from "@/lib/server/admin-pending";
 import type { SessionUser } from "@/lib/server/auth-backend";
 import { requireSession } from "@/lib/server/session";
 
-export default async function AdminPage({ params }: { params: Promise<{ section?: string[] }> }) {
+export default async function AdminPage({ params, searchParams }: {
+  params: Promise<{ section?: string[] }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { section = [] } = await params;
-  const returnTo = ["/admin", ...section.map(encodeURIComponent)].join("/");
+  const filters = adminPageSearchParams(await searchParams);
+  const path = ["/admin", ...section.map(encodeURIComponent)].join("/");
+  const returnTo = path + (filters.size ? "?" + filters : "");
   const development = developmentFeaturesEnabled();
   const user = await requireSession(returnTo, { admin: true });
   const identity = { id: user.id, fullName: user.fullName, email: user.email };
@@ -57,25 +61,30 @@ export default async function AdminPage({ params }: { params: Promise<{ section?
   }
 
   if (section[0] === "contas") {
-    if (section.length === 1) {
-      return <AdminActivityProvider accountId={user.id}>{development ? <AdminOperationalAccountsScreen user={identity} /> : <AdminLiveBalancePositions user={identity} operationalAccounts />}</AdminActivityProvider>;
-    }
+    if (section.length === 1) redirect(walletsHref(development ? "vinculos" : "saldos", filters));
     const accountId = z.uuid().safeParse(section[1]);
     if (section.length !== 2 || !accountId.success) notFound();
     const id = accountId.data.toLowerCase();
-    return <AdminActivityProvider accountId={user.id}>{development ? <AdminOperationalAccountScreen key={id} user={identity} accountId={id} /> : <AdminLiveBalancePositions key={id} user={identity} operationalAccounts accountId={id} />}</AdminActivityProvider>;
+    if (!development) {
+      filters.set("search", id);
+      filters.delete("page");
+      filters.delete("status");
+      redirect(walletsHref("saldos", filters));
+    }
+    return <AdminOperationalAccountScreen key={id} user={identity} accountId={id} />;
   }
 
   if (section.length === 1 && section[0] === "contas-bolsao") {
-    return <AdminActivityProvider accountId={user.id}><AdminPoolAccountsScreen user={identity} development={development} /></AdminActivityProvider>;
+    redirect(walletsHref(filters.get("aba") === "roteamento" ? "roteamento" : development ? "bolsao" : "saldos", filters));
   }
 
   if (section.length === 1 && section[0] === "operacoes") {
-    return <AdminActivityProvider accountId={user.id}><AdminPixTransactionsScreen user={identity} /></AdminActivityProvider>;
+    return <AdminPixMovementsScreen user={identity} />;
   }
 
   if (section.length === 1 && section[0] === "cobrancas") {
-    return <AdminActivityProvider accountId={user.id}><AdminPixChargesScreen user={identity} /></AdminActivityProvider>;
+    filters.set("view", "charges");
+    redirect(pixMovementHref(pixMovementQueryFrom(filters), pixMovementSelection(filters)));
   }
 
   if (section.length === 2 && section[0] === "equipe") redirect("/admin/equipe");

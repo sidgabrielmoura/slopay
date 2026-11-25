@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Asterisk, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { BrandImage } from "@/components/shared/brand-image";
 import { Button } from "@/components/ui/button";
 import { LoadingConfirmation, LoadingIndicator, OperationFailure } from "@/components/ui/loading-indicator";
 import { AuthFormMotion, AuthMotionSurface } from "@/features/auth/components/auth-motion";
@@ -103,10 +104,7 @@ export function MobileDocumentCapture({ returnToApplication }: { returnToApplica
     <AuthMotionSurface className="min-h-dvh bg-background text-foreground">
       <div className="mx-auto grid w-full max-w-md gap-5 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5 text-lg font-semibold tracking-tight">
-            <Asterisk aria-hidden="true" className="size-6 text-primary" strokeWidth={2.5} />
-            SloPay
-          </span>
+          <BrandImage />
           {returnToApplication && (!progress || side || error) && <Button asChild variant="ghost" className="min-h-11 px-2">
             <Link href={accountOpeningPath} prefetch={false}><ArrowLeft aria-hidden="true" />Voltar ao cadastro</Link>
           </Button>}

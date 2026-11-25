@@ -44,7 +44,7 @@ export default async function SecurityPage() {
 
   return (
     <MerchantPanel user={user}>
-      <LiveSecurityScreen key={user.id} userId={user.id} email={user.email} />
+      <LiveSecurityScreen key={user.id} userId={user.id} email={user.email} ownerConfirmationRequired={Boolean(user.support)} />
     </MerchantPanel>
   );
 }

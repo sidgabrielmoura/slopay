@@ -4,7 +4,7 @@ import { useId, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import NextLink from "next/link";
 import { ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react";
-import { brandConfig } from "@/config/brand.config";
+import { BrandImage } from "@/components/shared/brand-image";
 import { integrationsPath, isIntegrationRoute } from "@/features/integrations/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -25,10 +25,16 @@ const badgeColors = {
 type SidebarLink = { title: string; path: string; icon: LucideIcon };
 type SidebarItem = SidebarLink & {
   exact?: boolean;
+  aliases?: readonly string[];
   badgeCount?: number;
   badgeTone?: keyof typeof badgeColors;
 };
 export type PanelSidebarGroup = { label: string; items: readonly SidebarItem[] };
+
+export function isPanelSidebarItemActive(pathname: string | null, item: Pick<SidebarItem, "path" | "exact" | "aliases">) {
+  if (pathname === item.path) return true;
+  return !item.exact && [item.path, ...(item.aliases ?? [])].some(path => pathname === path || pathname?.startsWith(path + "/"));
+}
 
 const sidebarPositions = new Map<string, { collapsed: boolean; scrollTop: number }>();
 
@@ -112,13 +118,16 @@ export function PanelSidebar({
           <div className={cn(styles.header, "flex h-16 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border px-4")}>
             <NextLink href={homePath} prefetch={false} scroll={false} aria-label={homeLabel}
               className="flex min-w-0 items-center gap-2.5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-              <div aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-primary/40 bg-primary/20 text-base font-bold text-primary">
-                G
-              </div>
-              <div aria-hidden="true" className={cn(styles.label, "flex min-w-0 flex-col")}>
-                <span className="text-sm font-semibold tracking-tight text-foreground">{brandConfig.name}</span>
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{subtitle}</span>
-              </div>
+              {isCollapsed ? (
+                <span className="flex size-8 shrink-0 items-center justify-center">
+                  <BrandImage variant="symbol" className="h-5" decorative />
+                </span>
+              ) : (
+                <div aria-hidden="true" className={cn(styles.label, "flex min-w-0 flex-col gap-0.5")}>
+                  <BrandImage className="h-5 self-start" decorative />
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{subtitle}</span>
+                </div>
+              )}
             </NextLink>
             <button
               ref={collapseTrigger}
@@ -147,7 +156,7 @@ export function PanelSidebar({
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const badgeCount = item.badgeCount ?? 0;
-                  const isActive = pathname === item.path || (!item.exact && pathname?.startsWith(item.path + "/"));
+                  const isActive = isPanelSidebarItemActive(pathname, item);
                   const itemClass = cn(panelNavItemClass, isActive
                     ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground"
                     : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-foreground");

@@ -3,7 +3,8 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Asterisk, ImageOff } from "lucide-react";
+import { ImageOff } from "lucide-react";
+import { BrandImage } from "@/components/shared/brand-image";
 import { ImageLoadingSurface } from "@/components/ui/image-loading";
 import { AuthFormMotion, AuthMotionSurface } from "@/features/auth/components/auth-motion";
 import { accountOpeningSteps, identityOpeningSteps } from "../account-opening-application";
@@ -34,10 +35,7 @@ export function AccountOpeningLayout({ step, action, children, documents = false
     <AuthMotionSurface className={`${styles.shell} min-h-dvh bg-background text-foreground`}>
       <div className={styles.inner}>
         <header className={styles.header}>
-          <span className="inline-flex items-center gap-1.5 text-lg font-semibold tracking-tight">
-            <Asterisk aria-hidden="true" className="size-6 text-primary" strokeWidth={2.5} />
-            SloPay
-          </span>
+          <BrandImage />
           {action}
         </header>
         <div className={styles.workspace}>

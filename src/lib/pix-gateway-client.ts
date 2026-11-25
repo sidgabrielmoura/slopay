@@ -1,5 +1,6 @@
 import type { ZodType } from "zod";
 import { ApiError } from "@/lib/api-client";
+import { supportContextChanged, supportRequestHeaders, supportSessionUnavailable } from "@/lib/support-scope";
 
 export async function requestPixGateway<T>(
   path: string,
@@ -17,6 +18,7 @@ export async function requestPixGateway<T>(
   try {
     const response = await fetch(path, {
       ...request,
+      headers: supportRequestHeaders(path, request.headers),
       cache: "no-store",
       credentials: "same-origin",
       signal: controller.signal,
@@ -33,6 +35,9 @@ export async function requestPixGateway<T>(
         ? data.message : unavailable;
       const code = data && typeof data === "object" && "code" in data && typeof data.code === "string"
         ? data.code : undefined;
+      if (typeof window !== "undefined" && (code === supportContextChanged || code === supportSessionUnavailable)) {
+        window.dispatchEvent(new Event("slopay:support-ended"));
+      }
       throw new ApiError(message, response.status, code);
     }
     const parsed = schema.safeParse(data);

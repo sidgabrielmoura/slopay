@@ -1,110 +1,34 @@
 "use client";
 
-import {
-  LayoutDashboard,
-  AlertOctagon,
-  FileCheck2,
-  Building2,
-  Wallet,
-  WalletCards,
-  ArrowDownUp,
-  QrCode,
-  Layers,
-  ShieldAlert,
-  BookOpenCheck,
-  Coins,
-  FileSpreadsheet,
-  Sliders,
-  GitBranch,
-  Webhook,
-  UserCog,
-  History,
-  Users2,
-  SlidersHorizontal,
-  ExternalLink,
-  Shield,
-} from "lucide-react";
+import { AlertOctagon, ArrowDownUp, Building2, Coins, ExternalLink, LayoutDashboard, Shield, ShieldCheck, SlidersHorizontal, Webhook } from "lucide-react";
 import { PanelSidebar, type PanelSidebarGroup } from "@/components/layout/panel-sidebar";
+import { adminSections, type AdminSectionId } from "../../admin-navigation";
 
 type AdminNavigationOptions = {
   pendingSummary?: { pendingApplicationsCount?: number; pendingFinancialApprovalsCount?: number; totalUrgentTasks?: number };
   live?: boolean;
 };
 
-export function adminNavigationGroups({ pendingSummary, live = false }: AdminNavigationOptions): PanelSidebarGroup[] {
-  const pendingAppsCount = pendingSummary?.pendingApplicationsCount ?? 0;
-  const pendingApprovalsCount = pendingSummary?.pendingFinancialApprovalsCount ?? 0;
-  const totalUrgent = pendingSummary?.totalUrgentTasks ?? 0;
+const icons = {
+  overview: LayoutDashboard, pending: AlertOctagon, clients: Building2, pix: ArrowDownUp,
+  treasury: Coins, webhooks: Webhook, governance: ShieldCheck, settings: SlidersHorizontal,
+};
+
+export function adminNavigationGroups({ pendingSummary }: AdminNavigationOptions): PanelSidebarGroup[] {
+  const badges: Partial<Record<AdminSectionId, { count?: number; tone: "destructive" | "primary" }>> = {
+    pending: { count: pendingSummary?.totalUrgentTasks, tone: "destructive" },
+    clients: { count: pendingSummary?.pendingApplicationsCount, tone: "primary" },
+    pix: { count: pendingSummary?.pendingFinancialApprovalsCount, tone: "destructive" },
+  };
+  const items = adminSections.map(section => ({
+    title: section.title, path: section.path, icon: icons[section.id], exact: section.id === "overview",
+    aliases: section.pages?.flatMap(page => [page.path, ...(page.aliases ?? [])]).filter(path => path !== section.path),
+    badgeCount: badges[section.id]?.count, badgeTone: badges[section.id]?.tone,
+  }));
 
   return [
-    {
-      label: "Visão Geral",
-      items: [
-        { title: "Dashboard Global", path: "/admin", icon: LayoutDashboard, exact: true },
-        {
-          title: "Fila de Pendências",
-          path: "/admin/pendencias",
-          icon: AlertOctagon,
-          badgeCount: totalUrgent,
-          badgeTone: "destructive",
-        },
-      ],
-    },
-    {
-      label: "Credenciamento & Contas",
-      items: [
-        {
-          title: "Abertura de Contas",
-          path: "/admin/abertura-de-contas",
-          icon: FileCheck2,
-          badgeCount: pendingAppsCount,
-          badgeTone: "primary",
-        },
-        { title: "Empresas", path: "/admin/empresas", icon: Building2 },
-        { title: "Contas Operacionais", path: "/admin/contas", icon: Wallet },
-        ...(live ? [{ title: "Contas bolsão", path: "/admin/contas-bolsao", icon: WalletCards }] : []),
-      ],
-    },
-    {
-      label: "Operações Globais",
-      items: [
-        { title: "Transações Pix", path: "/admin/operacoes", icon: ArrowDownUp },
-        { title: "Cobranças Dinâmicas", path: "/admin/cobrancas", icon: QrCode },
-        { title: "Lotes de Saída", path: "/admin/lotes", icon: Layers },
-        {
-          title: "Aprovações Extraordinárias",
-          path: "/admin/aprovacoes-financeiras",
-          icon: ShieldAlert,
-          badgeCount: pendingApprovalsCount,
-          badgeTone: "destructive",
-        },
-      ],
-    },
-    {
-      label: "Tesouraria & Conciliação",
-      items: [
-        { title: "Extrato Global", path: "/admin/extrato", icon: BookOpenCheck },
-        { title: "Saldos e Posições", path: "/admin/saldos", icon: Coins },
-        { title: "Relatórios e Fechamentos", path: "/admin/relatorios", icon: FileSpreadsheet },
-      ],
-    },
-    {
-      label: "Políticas & Integrações",
-      items: [
-        { title: "Taxas e Limites", path: "/admin/taxas-e-limites", icon: Sliders },
-        { title: "Regras de Alçada", path: "/admin/regras-de-aprovacao", icon: GitBranch },
-        { title: "Webhooks Globais", path: "/admin/webhooks", icon: Webhook },
-      ],
-    },
-    {
-      label: "Governança & Segurança",
-      items: [
-        { title: "Equipe Administrativa", path: "/admin/equipe", icon: UserCog },
-        { title: "Trilha de Auditoria", path: "/admin/auditoria", icon: History },
-        { title: "Usuários Credenciados", path: "/admin/usuarios", icon: Users2 },
-        { title: "Preferências", path: "/admin/preferencias", icon: SlidersHorizontal },
-      ],
-    },
+    { label: "Operação", items: items.slice(0, 6) },
+    { label: "Administração", items: items.slice(6) },
   ];
 }
 
@@ -116,7 +40,7 @@ export function adminNavigationFooter(live: boolean) {
 
 export function AdminSidebar({ pendingSummary, live = false }: AdminNavigationOptions) {
   return <PanelSidebar
-    groups={adminNavigationGroups({ pendingSummary, live })}
+    groups={adminNavigationGroups({ pendingSummary })}
     homePath="/admin"
     homeLabel="Início do superadmin"
     subtitle="Superadmin"

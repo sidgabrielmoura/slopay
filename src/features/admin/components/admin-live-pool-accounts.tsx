@@ -1,108 +1,18 @@
 "use client";
 
 import { useId, useRef, useState, type FormEvent } from "react";
-import { KeyRound, Plus, Settings2, Wallet } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
-import { TablePagination } from "@/components/shared/table-pagination";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Empty } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { OperationFailure } from "@/components/ui/loading-indicator";
-import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { IntegrationConfirmationDialog } from "@/features/integrations/components/integration-confirmation-dialog";
 import { ApiError } from "@/lib/api-client";
-import { formatDateTime } from "@/lib/dates";
 import { livePoolAccounts, livePoolDraftSchema, type LivePoolDraft } from "../admin-live-pool-accounts";
-import { retryAdminRead } from "../admin-query";
-import { CompanyReadError, CompanyRowsSkeleton } from "./company-display";
-import { LiveWalletControlsDialog } from "./live-wallet-controls-dialog";
 
 type WalletIdentity = { id: string; name: string; walletId: string };
 
-export function AdminLivePoolAccountList({ adminId }: { adminId: string }) {
-  const [page, setPage] = useState(1);
-  const [register, setRegister] = useState(false);
-  const [rotation, setRotation] = useState<WalletIdentity | null>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const walletTrigger = useRef<HTMLButtonElement>(null);
-  const [managedWallet, setManagedWallet] = useState<{ id: string; name: string } | null>(null);
-  const title = useRef<HTMLHeadingElement>(null);
-  const client = useQueryClient();
-  const key = ["admin-live-pool-accounts", adminId] as const;
-  const result = useQuery({
-    queryKey: [...key, page],
-    queryFn: ({ signal }) => livePoolAccounts.list(page, signal),
-    placeholderData: (previous, request) => request?.queryKey[1] === adminId ? previous : undefined,
-    staleTime: 15_000, retry: retryAdminRead,
-  });
-  const data = result.data;
-
-  return (
-    <SkeletonReveal flow revealed={!result.isPending} skeleton={<CompanyRowsSkeleton />}>
-      {data ? <Card className="min-w-0 gap-0 overflow-hidden">
-        <CardHeader className="items-start justify-between gap-3 p-5 sm:flex-row sm:flex-wrap sm:items-center">
-          <div className="min-w-0">
-            <h2 ref={title} tabIndex={-1} className="text-balance text-lg font-semibold outline-none">Contas operacionais Asaas</h2>
-            <p className="mt-1 text-pretty text-sm text-muted-foreground">Cadastre as carteiras e configure quais operações cada uma pode processar.</p>
-          </div>
-          {data.available && !result.isError && !result.isPlaceholderData && (
-            <Button ref={trigger} type="button" className="h-11" onClick={() => setRegister(true)}>
-              <Plus aria-hidden="true" />Cadastrar carteira
-            </Button>
-          )}
-        </CardHeader>
-        <ToastNotice message={result.error?.message} />
-        {data.items.length ? <>
-          <ul aria-busy={result.isPlaceholderData} className="divide-y divide-border border-t border-border">
-            {data.items.map(account => (
-              <li key={account.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-5 py-4">
-                <div className="min-w-0">
-                  <p className="wrap-anywhere text-sm font-medium">{account.name}</p>
-                  <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                    Carteira final {account.walletId.slice(-8)} · verificada em {formatDateTime(account.verifiedAt, "date-only")}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {account.receives && <Badge variant="secondary">Recebimentos</Badge>}
-                  {account.withdraws && <Badge variant="secondary">Saques</Badge>}
-                  {!account.receives && !account.withdraws && <Badge variant="secondary">Pausada</Badge>}
-                  <Button type="button" variant="outline" className="min-h-11" disabled={result.isError || result.isPlaceholderData}
-                    onClick={event => { walletTrigger.current = event.currentTarget; setManagedWallet(account); }}>
-                    <Settings2 aria-hidden="true" />Configurar
-                  </Button>
-                  {data.canRotate && <Button type="button" variant="ghost" className="min-h-11" disabled={result.isError || result.isPlaceholderData}
-                    onClick={event => { walletTrigger.current = event.currentTarget; setRotation(account); }}>
-                    <KeyRound aria-hidden="true" />Trocar chave
-                  </Button>}
-                </div>
-              </li>
-            ))}
-          </ul>
-          <TablePagination {...data.pagination} busy={result.isPlaceholderData} label="Paginação das carteiras" onPageChange={setPage} />
-        </> : data.available ? (
-          <Empty title="Nenhuma carteira cadastrada" description="Cadastre uma carteira aprovada no Asaas."
-            className="min-h-52 animate-none rounded-none border-0 border-t" icon={<Wallet aria-hidden="true" />} />
-        ) : (
-          <OperationalDataUnavailable title="Cadastro de carteiras indisponível" />
-        )}
-      </Card> : result.isError && <CompanyReadError title="Carteiras indisponíveis" retry={() => void result.refetch()} />}
-      {managedWallet && <LiveWalletControlsDialog poolId={managedWallet.id} name={managedWallet.name} adminId={adminId}
-        onClose={() => setManagedWallet(null)} restoreFocus={() => (walletTrigger.current ?? title.current)?.focus()}
-        onChange={() => { void client.invalidateQueries({ queryKey: key });
-          void client.invalidateQueries({ queryKey: ["admin-pool-accounts", adminId] }); }} />}
-      {(register || rotation) && <LiveWalletDialog wallet={rotation} onClose={() => { setRegister(false); setRotation(null); }}
-        restoreFocus={() => ((rotation ? walletTrigger : trigger).current ?? title.current)?.focus()}
-        onCreated={() => void client.invalidateQueries({ queryKey: key })} />}
-    </SkeletonReveal>
-  );
-}
-
-function LiveWalletDialog({ wallet, onClose, restoreFocus, onCreated }: {
+export function LiveWalletDialog({ wallet, onClose, restoreFocus, onCreated }: {
   wallet: WalletIdentity | null; onClose: () => void; restoreFocus: () => void; onCreated: () => void;
 }) {
   const id = useId();

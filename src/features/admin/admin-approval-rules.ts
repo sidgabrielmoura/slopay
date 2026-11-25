@@ -3,7 +3,6 @@ import { requestPixGateway } from "@/lib/pix-gateway-client";
 import { operationalPage, operationalSearch } from "./admin-operational-accounts";
 import { adminPaginationSchema } from "./admin-pending";
 
-export const adminApprovalRulesPath = "/admin/regras-de-aprovacao";
 export const adminApprovalRulesUnavailable = "Não foi possível consultar as regras de alçada.";
 
 const ruleStatus = z.enum(["READY", "SETUP_REQUIRED", "DISABLED", "PAUSED", "RESTRICTED"]);

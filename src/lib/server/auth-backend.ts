@@ -2,11 +2,12 @@ import "server-only";
 
 import { captureException, flush } from "@sentry/nextjs";
 import { isIP } from "node:net";
-import { headers as requestHeaders } from "next/headers";
+import { cookies, headers as requestHeaders } from "next/headers";
 import { after } from "next/server";
 import { z } from "zod";
 import { sentryDsn } from "@/config/sentry";
 import { backendFailureMessage } from "@/lib/sentry-options";
+import { isSupportBackendPath, supportApiRequestHeader, supportContextChanged, supportPanelSessionSchema, supportScopeCookie, supportScopeHeader } from "@/lib/support-scope";
 
 const requestTimeoutMs = 8_000;
 const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -56,6 +57,7 @@ export const sessionUserSchema = z.object({
   isTwoFactorEnabled: z.boolean(),
   mfaVerified: z.boolean(),
   merchantId: z.string().nullish(),
+  support: supportPanelSessionSchema.optional(),
 });
 
 export const authTokensSchema = z.object({
@@ -78,6 +80,7 @@ type BackendRequest = {
   signal?: AbortSignal;
   stream?: boolean;
   timeoutMs?: number;
+  merchantSupport?: boolean;
 };
 
 export async function requestBackend(path: `/${string}`, options: BackendRequest) {
@@ -102,7 +105,18 @@ export async function requestBackend(path: `/${string}`, options: BackendRequest
 
   if (options.rawBody) headers.set("Content-Type", "application/octet-stream");
   else if (options.body !== undefined) headers.set("Content-Type", "application/json");
-  if (options.accessToken) headers.set("Authorization", `Bearer ${options.accessToken}`);
+  if (options.accessToken) {
+    headers.set("Authorization", `Bearer ${options.accessToken}`);
+    if (options.merchantSupport || isSupportBackendPath(path)) {
+      const incoming = await requestHeaders();
+      const scope = supportPanelSessionSchema.shape.id.safeParse((await cookies()).get(supportScopeCookie)?.value).data;
+      const supplied = incoming.get(supportScopeHeader);
+      if (incoming.get(supportApiRequestHeader) === "1" && (scope ?? null) !== supplied) {
+        return Response.json({ code: supportContextChanged, message: "A conta em suporte mudou. Abra a conta novamente." }, { status: 409 });
+      }
+      if (scope) headers.set(supportScopeHeader, scope);
+    }
+  }
   if (options.idempotencyKey) headers.set("Idempotency-Key", options.idempotencyKey);
 
   const timeout = AbortSignal.timeout(options.timeoutMs ?? (options.stream ? 65_000 : requestTimeoutMs));

@@ -91,7 +91,7 @@ export const companyAuditSchema = z.object({
   pagination: adminPaginationSchema,
   items: z.array(z.object({
     id: z.string(),
-    action: z.enum(["COMPANY_PROFILE_UPDATED", "COMPANY_ACCESS_CHANGED", "ACCOUNT_SUPPORT_ACCESSED", "SLOPAY_PIX_PRICING_CHANGED", "ASAAS_CONNECTION_CREATED",
+    action: z.enum(["COMPANY_PROFILE_UPDATED", "COMPANY_ACCESS_CHANGED", "ACCOUNT_SUPPORT_ACCESSED", "ACCOUNT_SUPPORT_ACTION", "SLOPAY_PIX_PRICING_CHANGED", "ASAAS_CONNECTION_CREATED",
       "ASAAS_CREDENTIAL_ROTATED", "ASAAS_WEBHOOK_TOKEN_ROTATED"]),
     actor: z.string().nullable(), createdAt: date, reason: z.string().nullable(), accessStatus: companyAccessStatus.nullable(),
   })).max(8),

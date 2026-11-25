@@ -15,6 +15,7 @@ import {
   Settings,
 } from "lucide-react";
 import { brandConfig } from "@/config/brand.config";
+import { BrandImage } from "@/components/shared/brand-image";
 import { usePreferences } from "@/providers/preferences-provider";
 import { useGatewayService } from "@/providers/demo-provider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -59,6 +60,7 @@ export function Topbar() {
     <PanelTopbarFrame>
       {/* Esquerda: Identificação da Empresa & Badge de Demonstração */}
       <div className="flex items-center gap-3 min-w-0">
+        <BrandImage variant="symbol" className="h-5 lg:hidden" />
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm sm:text-base text-foreground truncate">

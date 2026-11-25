@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IntegrationConfirmationDialog } from "@/features/integrations/components/integration-confirmation-dialog";
-import { accountSupport, supportHref } from "../account-support";
+import { accountSupport } from "../account-support";
 import { AccountSupportLoading } from "./account-support-loading";
 
 export function CompanySupportAction({ companyId, companyName }: { companyId: string; companyName: string }) {
@@ -34,7 +34,7 @@ export function CompanySupportAction({ companyId, companyName }: { companyId: st
         <IntegrationConfirmationDialog
           scope={`admin-support:${companyId}:${requestId}`}
           title="Acessar conta"
-          description="Confirme sua identidade para abrir uma sessão de suporte. O acesso é somente leitura e fica registrado na auditoria."
+          description="Confirme sua identidade para abrir o painel do cliente. A sessão e as ações ficam registradas na auditoria."
           completed="Acesso autorizado"
           options={() => accountSupport.options(companyId, requestId)}
           apply={async (proof) => {
@@ -46,7 +46,7 @@ export function CompanySupportAction({ companyId, companyName }: { companyId: st
               throw error;
             }
           }}
-          onSuccess={({ id }) => window.location.assign(supportHref(id))}
+          onSuccess={() => window.location.assign("/inicio")}
           onClose={() => setRequestId(undefined)}
           restoreFocus={() => trigger.current?.focus()}
           preventOutsideClose

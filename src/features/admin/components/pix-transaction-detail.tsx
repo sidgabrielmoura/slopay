@@ -21,6 +21,7 @@ import {
 } from "../admin-pix-transactions";
 import { retryAdminRead } from "../admin-query";
 import { adminBatchesPath } from "../admin-withdrawal-batches";
+import { PixChargeDetails } from "./admin-pix-charge-detail";
 import { CompanyField } from "./company-display";
 
 const statusVariants: Record<PixTransactionRow["status"], BadgeProps["variant"]> = {
@@ -177,16 +178,17 @@ export function PixTransactionDialog({ adminId, selection, onClose, onRestoreFoc
   const title = useRef<HTMLHeadingElement>(null);
   return (
     <Dialog open={Boolean(selection)} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[min(38rem,calc(100%-2rem))] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0"
+      <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0"
         onCloseAutoFocus={(event) => { event.preventDefault(); onRestoreFocus(); }}
         onOpenAutoFocus={(event) => { event.preventDefault(); title.current?.focus({ preventScroll: true }); }}>
         <DialogHeader className="border-b border-border py-4 pr-12 pl-4 text-left sm:pl-6">
           <DialogTitle ref={title} tabIndex={-1} className="text-balance text-xl outline-none">{selection ? pixKindLabels[selection.kind] : "Detalhes da transação"}</DialogTitle>
-          <DialogDescription>Dados da movimentação registrada no Slopay.</DialogDescription>
+          <DialogDescription>{selection?.kind === "RECEIVE" ? "Dados da cobrança registrada no Slopay." : "Dados da movimentação registrada no Slopay."}</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
-          {selection && <DetailLoad key={`${selection.kind}:${selection.id}`} adminId={adminId} selection={selection} onScope={onScope}
-            onOpen={(reference) => { title.current?.focus(); onOpen(reference); }} />}
+          {selection?.kind === "RECEIVE" ? <PixChargeDetails key={selection.id} adminId={adminId} id={selection.id} onScope={onScope} />
+            : selection && <DetailLoad key={`${selection.kind}:${selection.id}`} adminId={adminId} selection={selection} onScope={onScope}
+              onOpen={(reference) => { title.current?.focus(); onOpen(reference); }} />}
         </div>
       </DialogContent>
     </Dialog>

@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
+import { BrandImage } from "@/components/shared/brand-image";
 import { developmentFeaturesEnabled } from "@/config/development";
 import { LogoutButton } from "@/features/auth/components/live-auth-forms";
+import { SupportAccessControl } from "@/features/admin/components/support-access-control";
 import type { SessionUser } from "@/lib/server/auth-backend";
 import { BottomNav } from "./bottom-nav";
 import { DashboardNotifications } from "./dashboard-notifications";
@@ -29,7 +31,10 @@ export function MerchantPanel({
       sidebar={<Sidebar restricted={restricted} member={member} />}
       topbar={
         <PanelTopbarFrame>
-          <PanelProfileIdentity key={user.id} profileKey={user.id} name={user.fullName} email={user.email} />
+          <div className="flex min-w-0 items-center gap-2">
+            <BrandImage variant="symbol" className="h-5 lg:hidden" />
+            <PanelProfileIdentity key={user.id} profileKey={user.id} name={user.fullName} email={user.email} />
+          </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             {!restricted && (
               <div className="flex items-center gap-0.5 sm:gap-1">
@@ -38,7 +43,7 @@ export function MerchantPanel({
               </div>
             )}
             <div className={restricted ? undefined : "ml-1 border-l border-border pl-2 sm:pl-3"}>
-              <LogoutButton compact />
+              {user.support ? <SupportAccessControl session={user.support} /> : <LogoutButton compact />}
             </div>
           </div>
         </PanelTopbarFrame>

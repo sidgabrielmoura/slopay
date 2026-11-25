@@ -1,4 +1,6 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { setAuthCookie } from "@/lib/server/session";
+import { supportScopeCookie } from "@/lib/support-scope";
 import { z } from "zod";
 import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
 import { supportProofSchema, supportRequestSchema, supportStartedSchema } from "@/features/admin/account-support";
@@ -36,12 +38,17 @@ export async function POST(request: NextRequest, { params }: Context) {
   }
   if (id.success && (action === "support" || action === "support/options")) {
     const options = action === "support/options";
-    return forwardIntegrationRequest(request, {
+    const response = await forwardIntegrationRequest(request, {
       path: `/admin/companies/${id.data}/${action}`,
       input: options ? supportRequestSchema : supportProofSchema,
       output: options ? passkeyOptionsSchema : supportStartedSchema,
       unavailable: "Não foi possível acessar a conta.",
     });
+    if (options || !response.ok) return response;
+    const session = supportStartedSchema.parse(await response.json());
+    const accepted = NextResponse.json(session, { headers: { "Cache-Control": "private, no-store" } });
+    setAuthCookie(accepted, supportScopeCookie, session.id, 30 * 60);
+    return accepted;
   }
   if (!id.success || (action !== "change" && action !== "change/options")) {
     return integrationResponse({ message: "Operação não encontrada." }, 404);

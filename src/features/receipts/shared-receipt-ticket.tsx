@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Landmark } from "lucide-react";
+import { BrandImage } from "@/components/shared/brand-image";
 import { Button } from "@/components/ui/button";
 import { LoadingConfirmation } from "@/components/ui/loading-indicator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
-import { brandConfig } from "@/config/brand.config";
 import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
 import { formatCentsToBrl } from "@/lib/money";
@@ -146,7 +146,8 @@ function ReceiptDocument({ data: { receipt, expiresAt } }: { data: SharedReceipt
   return (
     <>
       <header className={receiptHeader}>
-        <p className="text-sm font-semibold">{brandConfig.name}</p>
+        <BrandImage className="h-5 print:hidden" />
+        <BrandImage variant="graphite" className="hidden h-5 print:block" />
         <LoadingConfirmation size={44} />
         <h1 className="text-balance text-xl font-semibold">Comprovante Pix</h1>
         <p className="text-sm text-muted-foreground">{receipt.kind === "refund" ? "Estorno Pix confirmado" : incoming ? "Recebimento confirmado" : "Saque confirmado"}</p>

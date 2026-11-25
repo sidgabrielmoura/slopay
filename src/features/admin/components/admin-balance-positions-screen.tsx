@@ -10,7 +10,6 @@ import { ChevronRight, Search } from "lucide-react";
 import { toast } from "sonner";
 import { PanelAmount } from "@/components/layout/panel-privacy";
 import { TablePagination } from "@/components/shared/table-pagination";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { GlideSelect } from "@/components/ui/glide-select";
@@ -23,13 +22,13 @@ import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import {
-  balanceCoverage, balancePositionsHref, balancePositionsParams, balancePositionsQuery, balancePositionsQueryFrom,
+  balanceCoverage, balancePositionsHref, balancePositionsParams, balancePositionsQuery, balancePositionsQueryFrom, walletsHref,
   balancePositionsQueryKey, fetchBalancePositions, type BalancePosition, type BalancePositionsQuery, type BalancePositionsReport,
 } from "../admin-balance-positions";
 import { operationalAccountsPath, operationalSearch, operationalStatusFilter, operationalStatusLabels } from "../admin-operational-accounts";
 import { retryAdminRead } from "../admin-query";
 import { OperationalStatusBadge } from "./admin-operational-accounts-screen";
-import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
+import type { AdminIdentity } from "./layout/admin-panel";
 
 const initialQuery = balancePositionsQuery.parse({});
 const count = new Intl.NumberFormat("pt-BR");
@@ -254,14 +253,7 @@ export function AdminBalancePositionsScreen({ user }: { user: AdminIdentity }) {
   }
 
   return (
-    <AdminPanel user={user}>
-      <header className="min-w-0 space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Saldos &amp; Posições</h1>
-          {development && <Badge variant="secondary">Sandbox</Badge>}
-        </div>
-        <p className="text-pretty text-sm text-muted-foreground">Consulte os saldos registrados das carteiras e acompanhe os saques em aberto.</p>
-      </header>
+    <>
       {(result.isLoading || data) && <PositionSummary summary={data?.summary} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="balance-positions">
@@ -290,7 +282,7 @@ export function AdminBalancePositionsScreen({ user }: { user: AdminIdentity }) {
               {filtered ? (
                 <Button type="button" variant="outline" className="h-11" onClick={() => navigate(initialQuery)}>Mostrar todas as carteiras</Button>
               ) : (
-                <Button asChild variant="outline" className="h-11"><Link href={operationalAccountsPath} prefetch={false}>Ver contas operacionais</Link></Button>
+                <Button asChild variant="outline" className="h-11"><Link href={walletsHref("vinculos")} prefetch={false}>Ver contas vinculadas</Link></Button>
               )}
             </div>
           ) : !development ? <OperationalDataUnavailable /> : result.isError && (
@@ -301,6 +293,6 @@ export function AdminBalancePositionsScreen({ user }: { user: AdminIdentity }) {
           )}
         </SkeletonReveal>
       </Card>
-    </AdminPanel>
+    </>
   );
 }

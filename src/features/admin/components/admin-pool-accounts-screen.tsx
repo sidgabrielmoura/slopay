@@ -3,6 +3,7 @@
 import { useId, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Plus, Search, Wallet } from "lucide-react";
 import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { TablePagination } from "@/components/shared/table-pagination";
@@ -15,27 +16,55 @@ import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDateTime } from "@/lib/dates";
 import { openingsPath } from "../account-openings";
+import { walletsHref, type WalletView } from "../admin-balance-positions";
 import {
-  poolAccounts, poolModeLabels, poolOwnerSearch, type PoolAccount, type PoolOwner,
+  poolAccounts, poolModeLabels, poolOwnerSearch, poolPage, type PoolAccount, type PoolOwner,
 } from "../admin-pool-accounts";
 import { retryAdminRead } from "../admin-query";
 import { CompanyField, CompanyReadError, CompanyRowsSkeleton } from "./company-display";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 import { PoolPolicyDialog, PoolRegistrationDialog, PoolStatusDialog } from "./pool-account-dialogs";
 import { livePoolControls } from "../admin-live-pool-accounts";
-import { AdminLivePoolAccountList } from "./admin-live-pool-accounts";
+import { AdminLiveBalancePositions } from "./admin-live-balance-positions";
+import { AdminBalancePositionsScreen } from "./admin-balance-positions-screen";
+import { AdminOperationalAccountsScreen } from "./admin-operational-accounts-screen";
+import { AdminApprovalRulesScreen } from "./admin-approval-rules-screen";
 
 type Dialog = { type: "register" } | { type: "status"; account: PoolAccount } | { type: "policy"; owner: PoolOwner };
 type OpenDialog = (event: MouseEvent<HTMLButtonElement>, dialog: Dialog) => void;
 type OwnerFilter = { page: number; search: string };
 const tableHead = "border-t border-border bg-muted/50 text-xs font-medium text-muted-foreground";
 
-export function AdminPoolAccountsScreen({ user, development }: { user: AdminIdentity; development: boolean }) {
+const walletViews = [
+  { value: "saldos", label: "Saldos e configuração" },
+  { value: "roteamento", label: "Roteamento" },
+] as const;
+const sandboxViews = [
+  { value: "bolsao", label: "Contas bolsão" },
+  { value: "vinculos", label: "Vínculos" },
+  { value: "validacao", label: "Validação de saques" },
+] as const;
+
+export function AdminWalletsScreen({ user, development }: { user: AdminIdentity; development: boolean }) {
   const client = useQueryClient();
   const heading = useRef<HTMLHeadingElement>(null);
   const origin = useRef<HTMLElement>(null);
-  const [page, setPage] = useState(1);
-  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>({ search: "", page: 1 });
+  const params = useSearchParams();
+  const tabs = development ? [...walletViews, ...sandboxViews] : walletViews;
+  const view = tabs.find(tab => tab.value === params.get("aba"))?.value ?? "saldos";
+  const pageNumber = poolPage.catch(1).parse(params.get("page"));
+  const ownerFilter: OwnerFilter = { search: poolOwnerSearch.catch("").parse(params.get("search")), page: pageNumber };
+
+  function navigate(tab: WalletView, filters?: URLSearchParams) {
+    window.history.replaceState(null, "", walletsHref(tab, filters));
+  }
+
+  function updateOwnerFilter(next: OwnerFilter) {
+    const filters = new URLSearchParams();
+    if (next.page > 1) filters.set("page", String(next.page));
+    if (next.search) filters.set("search", next.search);
+    navigate("roteamento", filters);
+  }
   const [dialog, setDialog] = useState<Dialog | null>(null);
 
   function show(event: MouseEvent<HTMLButtonElement>, next: Dialog) {
@@ -52,21 +81,28 @@ export function AdminPoolAccountsScreen({ user, development }: { user: AdminIden
   return (
     <AdminPanel user={user}>
       <header className="grid min-w-0 gap-1">
-        <h1 ref={heading} tabIndex={-1} className="text-balance text-2xl font-semibold outline-none sm:text-3xl">Contas bolsão</h1>
-        <p className="text-pretty text-sm text-muted-foreground">Cadastre as contas Asaas do Slopay e defina quais processam os Pix de cada titular.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 ref={heading} tabIndex={-1} className="text-balance text-2xl font-semibold outline-none sm:text-3xl">Carteiras</h1>
+          {development && <Badge variant="secondary">Sandbox</Badge>}
+        </div>
+        <p className="text-pretty text-sm text-muted-foreground">Acompanhe saldos, habilite operações e defina o roteamento por titular.</p>
       </header>
-      <Tabs defaultValue="accounts" className="grid min-w-0 gap-4">
-        <TabsList aria-label="Gestão das contas bolsão" className="grid h-auto w-full grid-cols-2 sm:w-fit">
-          <TabsTrigger value="accounts" className="min-h-11">Contas</TabsTrigger>
-          <TabsTrigger value="owners" className="min-h-11">Roteamento</TabsTrigger>
+      <Tabs value={view} activationMode="manual" onValueChange={value => {
+        const tab = tabs.find(item => item.value === value);
+        if (!tab || tab.value === view) return;
+        const href = walletsHref(tab.value);
+        if (href !== window.location.pathname + window.location.search) window.history.pushState(null, "", href);
+      }} className="grid min-w-0 gap-4">
+        <TabsList aria-label="Gestão de carteiras" className="flex h-auto w-fit max-w-full flex-wrap justify-start gap-1">
+          {tabs.map(tab => <TabsTrigger key={tab.value} value={tab.value} className="min-h-11 whitespace-normal text-center">{tab.label}</TabsTrigger>)}
         </TabsList>
-        <TabsContent className="mt-0 min-w-0" value="accounts">
-          {development
-            ? <PoolAccountList adminId={user.id} page={page} setPage={setPage} show={show} development={development} />
-            : <AdminLivePoolAccountList adminId={user.id} />}
-        </TabsContent>
-        <TabsContent className="mt-0 min-w-0" value="owners">
-          <PoolOwnerList adminId={user.id} filter={ownerFilter} setFilter={setOwnerFilter} show={show} development={development} />
+        <TabsContent value={view} className="mt-0 grid min-w-0 gap-4">
+          {view === "saldos" && (development ? <AdminBalancePositionsScreen user={user} /> : <AdminLiveBalancePositions adminId={user.id} />)}
+          {view === "roteamento" && <PoolOwnerList adminId={user.id} filter={ownerFilter} setFilter={updateOwnerFilter} show={show} development={development} />}
+          {view === "bolsao" && <PoolAccountList adminId={user.id} page={pageNumber} show={show} development={development}
+            setPage={page => navigate("bolsao", new URLSearchParams(page > 1 ? { page: String(page) } : undefined))} />}
+          {view === "vinculos" && <AdminOperationalAccountsScreen user={user} />}
+          {view === "validacao" && <AdminApprovalRulesScreen user={user} />}
         </TabsContent>
       </Tabs>
       {dialog?.type === "register" && <PoolRegistrationDialog {...dialogCallbacks} />}
@@ -82,7 +118,7 @@ function PoolAccountList({ adminId, page, setPage, show, development }: {
   const result = useQuery({
     queryKey: ["admin-pool-accounts", adminId, "accounts", page],
     queryFn: ({ signal }) => poolAccounts.list(page, signal),
-    placeholderData: (previous) => previous,
+    placeholderData: (previous, prior) => prior?.queryKey[1] === adminId ? previous : undefined,
     staleTime: 15_000, retry: retryAdminRead,
   });
   const data = result.data;
@@ -177,11 +213,12 @@ function PoolOwnerList({ adminId, filter, setFilter, show, development }: {
 }) {
   const searchId = useId();
   const [error, setError] = useState("");
-  const [draft, setDraft] = useState(filter.search);
+  const [draft, setDraft] = useState({ previous: filter.search, value: filter.search });
+  const value = draft.previous === filter.search ? draft.value : filter.search;
   const result = useQuery({
     queryKey: ["admin-pool-accounts", adminId, "owners", development, filter.search, filter.page],
     queryFn: ({ signal }) => (development ? poolAccounts : livePoolControls).owners(filter.page, filter.search, signal),
-    placeholderData: (previous) => previous,
+    placeholderData: (previous, prior) => prior?.queryKey[1] === adminId && prior.queryKey[4] === filter.search ? previous : undefined,
     staleTime: 15_000, retry: retryAdminRead,
   });
   const data = result.data;
@@ -189,15 +226,15 @@ function PoolOwnerList({ adminId, filter, setFilter, show, development }: {
 
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const input = poolOwnerSearch.safeParse(draft);
+    const input = poolOwnerSearch.safeParse(value);
     if (!input.success) { setError("Confira o texto da busca."); return; }
     setError("");
-    setDraft(input.data);
+    setDraft({ previous: input.data, value: input.data });
     setFilter({ search: input.data, page: 1 });
   }
   function clearSearch() {
     setError("");
-    setDraft("");
+    setDraft({ previous: "", value: "" });
     setFilter({ search: "", page: 1 });
   }
 
@@ -215,8 +252,8 @@ function PoolOwnerList({ adminId, filter, setFilter, show, development }: {
             {data.available && <form role="search" aria-label="Buscar titulares" className="flex min-w-0 flex-wrap items-end gap-2" onSubmit={search}>
               <div className="grid w-full min-w-0 gap-2 sm:w-64">
                 <label htmlFor={searchId} className="text-sm font-medium">Titular</label>
-                <Input id={searchId} name="search" type="search" className="h-11" maxLength={120} value={draft}
-                  onChange={(event) => { setDraft(event.target.value); setError(""); }}
+                <Input id={searchId} name="search" type="search" className="h-11" maxLength={120} value={value}
+                  onChange={(event) => { setDraft({ previous: filter.search, value: event.target.value }); setError(""); }}
                   placeholder="Nome ou e-mail" aria-invalid={Boolean(error)} aria-describedby={error ? `${searchId}-error` : undefined} />
               </div>
               <Button type="submit" variant="outline" className="h-11"><Search aria-hidden="true" />Buscar</Button>

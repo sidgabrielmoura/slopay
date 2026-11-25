@@ -1,19 +1,16 @@
-import { developmentFeaturesEnabled } from "@/config/development";
-import { AdminLiveBalancePositions } from "@/features/admin/components/admin-live-balance-positions";
 import type { Metadata } from "next";
+import { developmentFeaturesEnabled } from "@/config/development";
 import { balancePositionsPath } from "@/features/admin/admin-balance-positions";
-import { AdminActivityProvider } from "@/features/admin/components/admin-activity-provider";
-import { AdminBalancePositionsScreen } from "@/features/admin/components/admin-balance-positions-screen";
+import { adminPageSearchParams } from "@/features/admin/admin-navigation";
+import { AdminWalletsScreen } from "@/features/admin/components/admin-pool-accounts-screen";
 import { requireSession } from "@/lib/server/session";
 
-export const metadata: Metadata = { title: "Saldos & Posições" };
+export const metadata: Metadata = { title: "Carteiras" };
 
-export default async function AdminBalancePositionsPage() {
-  const { id, fullName, email } = await requireSession(balancePositionsPath, { admin: true });
-  return (
-    <AdminActivityProvider accountId={id}>
-      {developmentFeaturesEnabled() ? <AdminBalancePositionsScreen user={{ id, fullName, email }} />
-        : <AdminLiveBalancePositions user={{ id, fullName, email }} />}
-    </AdminActivityProvider>
-  );
+export default async function AdminWalletsPage({ searchParams }: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = adminPageSearchParams(await searchParams);
+  const { id, fullName, email } = await requireSession(balancePositionsPath + (query.size ? "?" + query : ""), { admin: true });
+  return <AdminWalletsScreen user={{ id, fullName, email }} development={developmentFeaturesEnabled()} />;
 }

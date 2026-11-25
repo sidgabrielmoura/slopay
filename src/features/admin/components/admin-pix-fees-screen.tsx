@@ -22,7 +22,7 @@ import { asaasPixLimitsHelp } from "@/features/account/pix-conditions";
 import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
 import { formatCNPJ } from "@/lib/validators";
-import { globalStatementPath } from "../admin-global-statement";
+import { pixTransactionsPath } from "../admin-pix-transactions";
 import { operationalAccountsPath, operationalSearch } from "../admin-operational-accounts";
 import {
   adminPixFees, adminPixFeesListKey, adminPixFeesPath, adminPixFeesQuery, pixFeeCoverage, pixFeesParams,
@@ -30,6 +30,7 @@ import {
 } from "../admin-pix-fees";
 import { retryAdminRead } from "../admin-query";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
+import { AdminPixPricingCard } from "./admin-pix-pricing-card";
 
 const defaultQuery = adminPixFeesQuery.parse({});
 const count = new Intl.NumberFormat("pt-BR");
@@ -252,12 +253,13 @@ export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
             <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Taxas e limites</h1>
             {development && <Badge variant="secondary">Sandbox</Badge>}
           </div>
-          <p className="text-pretty text-sm text-muted-foreground">Consulte as tarifas das carteiras vinculadas e as regras de operação do Pix.</p>
+          <p className="text-pretty text-sm text-muted-foreground">Configure a tarifa do Slopay e consulte os limites e tarifas das carteiras.</p>
         </div>
         <Button asChild variant="outline" className="h-11">
-          <Link href={globalStatementPath + "?type=FEE_DEBIT"} prefetch={false}>Extrato de tarifas <ArrowUpRight aria-hidden="true" /></Link>
+          <Link href={pixTransactionsPath + "?view=statement&type=FEE_DEBIT"} prefetch={false}>Extrato de tarifas <ArrowUpRight aria-hidden="true" /></Link>
         </Button>
       </header>
+      <AdminPixPricingCard adminId={user.id} />
       {(result.isLoading || data) && <AppliedLimits limits={data?.limits} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="pix-fees-wallets">

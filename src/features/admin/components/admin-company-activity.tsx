@@ -76,6 +76,7 @@ const eventLabels = {
   COMPANY_PROFILE_UPDATED: "Cadastro atualizado",
   COMPANY_ACCESS_CHANGED: "Acesso atualizado",
   ACCOUNT_SUPPORT_ACCESSED: "Acesso de suporte à conta",
+  ACCOUNT_SUPPORT_ACTION: "Solicitação durante o suporte",
   SLOPAY_PIX_PRICING_CHANGED: "Tarifa Pix do Slopay alterada",
   ASAAS_CONNECTION_CREATED: "Conta Sandbox vinculada",
   ASAAS_CREDENTIAL_ROTATED: "Credencial da conta atualizada",

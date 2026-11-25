@@ -3,7 +3,7 @@
 import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, ChevronRight, Search, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Search } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -21,15 +21,16 @@ import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
 import { formatCNPJ } from "@/lib/validators";
 import { openingsPath } from "../account-openings";
+import { walletsHref } from "../admin-balance-positions";
 import {
-  adminApprovalRulesPath, approvalRulesParams, approvalRulesQuery, approvalRulesQueryFrom,
-  fetchAdminApprovalRules, ruleStatusFilter, ruleStatusLabels, type ApprovalRuleChannels,
+  approvalRulesParams, approvalRulesQuery, approvalRulesQueryFrom,
+  fetchAdminApprovalRules, ruleStatusFilter, ruleStatusLabels,
   type ApprovalRuleWallet, type ApprovalRulesQuery,
 } from "../admin-approval-rules";
 import { operationalAccountsPath, operationalSearch } from "../admin-operational-accounts";
 import { retryAdminRead } from "../admin-query";
-import { adminApprovalHref, adminApprovalQuery, adminApprovalsPath } from "../admin-withdrawal-approvals";
-import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
+import { adminApprovalHref, adminApprovalQuery } from "../admin-withdrawal-approvals";
+import type { AdminIdentity } from "./layout/admin-panel";
 
 const initialQuery = approvalRulesQuery.parse({});
 const pendingApprovals = adminApprovalQuery.parse({});
@@ -37,36 +38,6 @@ const count = new Intl.NumberFormat("pt-BR");
 const statusOptions = ruleStatusFilter.options.map((value) => ({
   value, label: value === "ALL" ? "Todas as situações" : ruleStatusLabels[value].label,
 }));
-
-function OwnerRule({ channels }: { channels?: ApprovalRuleChannels }) {
-  return (
-    <Card className="min-w-0" aria-labelledby="owner-rule-heading">
-      <div className="flex min-w-0 items-start gap-3 px-4 py-4 sm:px-5">
-        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground">
-          <ShieldCheck className="size-5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 space-y-1">
-          <h2 id="owner-rule-heading" className="text-balance text-lg font-semibold">O titular é o único aprovador</h2>
-          <p className="text-pretty text-sm text-muted-foreground">
-            Em qualquer valor, a decisão exige chave de acesso ou código do autenticador.
-          </p>
-        </div>
-      </div>
-      <dl className="grid min-w-0 divide-y divide-border border-t border-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-        <div className="min-w-0 space-y-1 px-4 py-4 sm:px-5">
-          <dt className="text-sm font-semibold">Saques via API</dt>
-          <dd className="text-pretty text-sm text-muted-foreground">O saque fica em espera até o titular aprovar ou recusar.</dd>
-          {channels?.api === false && <dd><Badge variant="warning">Saques via API indisponíveis</Badge></dd>}
-        </div>
-        <div className="min-w-0 space-y-1 px-4 py-4 sm:px-5">
-          <dt className="text-sm font-semibold">Saques e lotes no painel</dt>
-          <dd className="text-pretty text-sm text-muted-foreground">O titular confirma a operação no momento do envio.</dd>
-          {channels?.panelPilot === false && <dd><Badge variant="secondary">Saques pelo painel indisponíveis</Badge></dd>}
-        </div>
-      </dl>
-    </Card>
-  );
-}
 
 function RuleFilters({ query, onChange }: { query: ApprovalRulesQuery; onChange: (next: ApprovalRulesQuery) => void }) {
   const [draft, setDraft] = useState({ submitted: query.search, value: query.search });
@@ -221,24 +192,11 @@ export function AdminApprovalRulesScreen({ user }: { user: AdminIdentity }) {
 
   function navigate(next: ApprovalRulesQuery) {
     const params = approvalRulesParams(next);
-    window.history.replaceState(null, "", adminApprovalRulesPath + (params.size ? "?" + params : ""));
+    window.history.replaceState(null, "", walletsHref("validacao", params));
   }
 
   return (
-    <AdminPanel user={user}>
-      <header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Regras de Alçada</h1>
-            {development && <Badge variant="secondary">Sandbox</Badge>}
-          </div>
-          <p className="text-pretty text-sm text-muted-foreground">Consulte a regra de autorização dos saques e a situação das carteiras vinculadas.</p>
-        </div>
-        <Button asChild variant="outline" className="h-11">
-          <Link href={adminApprovalsPath} prefetch={false}>Ver aprovações <ArrowUpRight aria-hidden="true" /></Link>
-        </Button>
-      </header>
-      <OwnerRule channels={report?.channels} />
+    <>
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="approval-rules-wallets">
         <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-5">
@@ -279,6 +237,6 @@ export function AdminApprovalRulesScreen({ user }: { user: AdminIdentity }) {
             onPageChange={(page) => navigate({ ...query, page })} />
         )}
       </Card>
-    </AdminPanel>
+    </>
   );
 }

@@ -3,6 +3,7 @@
 import React from "react";
 import NextLink from "next/link";
 import { ToastNotice } from "@/components/ui/toast-notice";
+import { BrandImage } from "@/components/shared/brand-image";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useGatewayService } from "@/providers/demo-provider";
@@ -111,8 +112,10 @@ export function TransactionDetailScreen({ transactionId }: { transactionId: stri
         <CardHeader className="border-b border-border/80 pb-6">
           <div className="flex items-start justify-between">
             <div>
+              <BrandImage className="mb-1 h-5 print:hidden" />
+              <BrandImage variant="graphite" className="mb-1 hidden h-5 print:block" />
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {brandConfig.name} • Comprovante de Operação Pix
+                Comprovante de Operação Pix
               </span>
               <h1 className="text-xl sm:text-2xl font-bold text-foreground mt-1">
                 {isReceive ? "Recebimento Pix" : "Saque Pix"}

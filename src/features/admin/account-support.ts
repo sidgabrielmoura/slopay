@@ -2,13 +2,14 @@ import { z } from "zod";
 import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
 import { integrationProofSchema, type IntegrationProof } from "@/features/integrations/integration-proof";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
+import { supportActivitySchema } from "@/lib/support-scope";
 import { companiesPath } from "./admin-companies";
 
 export const supportRequestSchema = z.strictObject({ requestId: z.uuidv4() });
 export const supportProofSchema = supportRequestSchema.extend({ proof: integrationProofSchema });
 export const supportStartedSchema = z.object({ id: z.uuidv4() });
 export const supportEndedSchema = z.object({ ended: z.literal(true) });
-export const supportActivitySchema = z.object({ activeForMs: z.int().min(0).max(120_000) });
+
 
 export const supportHref = (id: string) => `/suporte/conta/${id}`;
 export const supportReturnHref = (companyId: string) => `${companiesPath}/${companyId}`;

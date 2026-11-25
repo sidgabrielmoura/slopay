@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import {
-  livePoolConfirmationSchema, livePoolKeyDraft, livePoolKeyProof, liveRoutingDraft, liveRoutingProof, liveWalletControlDraft, liveWalletControlProof, liveWalletPositionsSchema, walletControlsSchema,
+  livePoolConfirmationSchema, livePoolKeyDraft, livePoolKeyProof, liveRoutingDraft, liveRoutingProof, liveWalletControlDraft, liveWalletControlProof, liveWalletPositionsQuery, liveWalletPositionsSchema, walletControlsSchema,
 } from "@/features/admin/admin-live-pool-accounts";
 import { poolEligibleList, poolOwnersList, poolOwnersQuery, poolUpdated } from "@/features/admin/admin-pool-accounts";
 import { forwardIntegrationRequest, integrationResponse } from "@/lib/server/integration-request";
@@ -15,12 +15,21 @@ export async function GET(request: NextRequest, context: Context) {
   const [section, id] = operation;
   if (operation.length === 1 && (section === "owners" || section === "positions")) {
     const params = request.nextUrl.searchParams;
-    const query = poolOwnersQuery.safeParse(Object.fromEntries(params));
-    if (!query.success || Array.from(params.keys()).some(key => params.getAll(key).length !== 1))
+    if (Array.from(params.keys()).some(key => params.getAll(key).length !== 1))
       return integrationResponse({ message: "Confira os filtros da consulta." }, 400);
-    return forwardIntegrationRequest(request, { path: `${base}/${section}`,
-      searchParams: new URLSearchParams({ search: query.data.search, page: String(query.data.page) }),
-      output: section === "positions" ? liveWalletPositionsSchema : poolOwnersList, unavailable });
+    const filters = Object.fromEntries(params);
+    if (section === "positions") {
+      const query = liveWalletPositionsQuery.safeParse(filters);
+      if (!query.success) return integrationResponse({ message: "Confira os filtros da consulta." }, 400);
+      const { search, page, status } = query.data;
+      const searchParams = new URLSearchParams({ search, page: String(page) });
+      if (status !== "ALL") searchParams.set("status", status);
+      return forwardIntegrationRequest(request, { path: `${base}/positions`, searchParams, output: liveWalletPositionsSchema, unavailable });
+    }
+    const query = poolOwnersQuery.safeParse(filters);
+    if (!query.success) return integrationResponse({ message: "Confira os filtros da consulta." }, 400);
+    return forwardIntegrationRequest(request, { path: `${base}/owners`,
+      searchParams: new URLSearchParams({ search: query.data.search, page: String(query.data.page) }), output: poolOwnersList, unavailable });
   }
   if (operation.length === 1 && section === "eligible")
     return forwardIntegrationRequest(request, { path: "/admin/live-pool-accounts/eligible", output: poolEligibleList, unavailable });

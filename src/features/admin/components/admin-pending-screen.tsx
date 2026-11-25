@@ -22,6 +22,8 @@ import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { formatDateTime } from "@/lib/dates";
 import { openingsPath } from "../account-openings";
 import { adminWebhooksPath } from "../admin-webhooks";
+import { pixTransactionsPath } from "../admin-pix-transactions";
+import { adminApprovalsPath } from "../admin-withdrawal-approvals";
 import {
   fetchAdminPending, fetchPendingDetail, pendingCategories, pendingCategoryLabels, pendingCategorySchema,
   pendingInstructions, pendingKeySchema, pendingKindLabels, pendingResponsibleLabels, pendingStateLabels,
@@ -203,6 +205,17 @@ function PendingBadge({ item }: { item: PendingItem }) {
 }
 
 function PendingDetail({ item }: { item: PendingItem }) {
+  const reference = encodeURIComponent(item.referenceId);
+  const action = item.referenceKind === "ACCOUNT" ? { href: openingsPath + "/" + reference, label: "Abrir cadastro" }
+    : item.referenceKind === "WEBHOOK" ? { href: adminWebhooksPath + "/" + reference, label: "Consultar webhook" }
+    : item.category === "OWNER_APPROVAL" ? { href: adminApprovalsPath + "/" + reference, label: "Ver solicitação de saque" }
+    : {
+      href: pixTransactionsPath + "?" + new URLSearchParams(item.referenceKind === "CHARGE"
+        ? { view: "charges", period: "ALL", detail: "RECEIVE", transaction: item.referenceId }
+        : { period: "ALL", search: item.referenceId }),
+      label: "Ver movimentação",
+    };
+
   return <div className="grid gap-5">
     <div className="grid gap-3"><PendingBadge item={item} />{item.amountInCents !== null && <p className="text-3xl font-semibold tabular-nums"><PanelAmount cents={item.amountInCents} /></p>}</div>
     <p className="text-pretty text-sm leading-relaxed text-muted-foreground">{item.state === "AWAITING_APPROVAL" ? "O titular precisa revisar e autorizar este saque no próprio acesso. A equipe Slopay acompanha a pendência sem substituir essa aprovação." : pendingInstructions[item.referenceKind]}</p>
@@ -212,15 +225,6 @@ function PendingDetail({ item }: { item: PendingItem }) {
       <div className="grid gap-1"><dt className="text-muted-foreground">Registrado em</dt><dd>{formatDateTime(item.createdAt, "medium")}</dd></div>
       <div className="grid gap-1"><dt className="text-muted-foreground">Identificador Slopay</dt><dd className="break-all font-mono text-xs">{item.referenceId}</dd></div>
     </dl>
-    {item.referenceKind === "ACCOUNT" && (
-      <Button asChild className="h-11 w-fit">
-        <Link href={openingsPath + "/" + encodeURIComponent(item.referenceId)}>Abrir cadastro</Link>
-      </Button>
-    )}
-    {item.referenceKind === "WEBHOOK" && (
-      <Button asChild className="h-11 w-fit">
-        <Link href={adminWebhooksPath + "/" + encodeURIComponent(item.referenceId)} prefetch={false}>Consultar webhook</Link>
-      </Button>
-    )}
+    <Button asChild className="h-11 w-fit"><Link href={action.href} prefetch={false}>{action.label}</Link></Button>
   </div>;
 }

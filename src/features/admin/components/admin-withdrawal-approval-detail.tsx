@@ -139,7 +139,7 @@ export function AdminWithdrawalApprovalScreen({ user, approvalId }: { user: Admi
   return (
     <AdminPanel user={user}>
       <Button asChild variant="ghost" className="-ml-2 h-11 w-fit px-2 text-muted-foreground">
-        <Link href={backHref} prefetch={false}><ArrowLeft aria-hidden="true" /> Aprovações extraordinárias</Link>
+        <Link href={backHref} prefetch={false}><ArrowLeft aria-hidden="true" /> Aprovações de saque</Link>
       </Button>
       <ToastNotice message={missing ? null : result.error?.message} />
       {result.isLoading && <p role="status" className="sr-only">Carregando solicitação de saque</p>}

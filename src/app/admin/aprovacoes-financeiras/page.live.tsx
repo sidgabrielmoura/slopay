@@ -4,7 +4,7 @@ import { AdminActivityProvider } from "@/features/admin/components/admin-activit
 import { AdminWithdrawalApprovalsScreen } from "@/features/admin/components/admin-withdrawal-approvals-screen";
 import { requireSession } from "@/lib/server/session";
 
-export const metadata: Metadata = { title: "Aprovações extraordinárias" };
+export const metadata: Metadata = { title: "Aprovações de saque" };
 
 export default async function AdminApprovalsPage() {
   const { id, fullName, email } = await requireSession(adminApprovalsPath, { admin: true });

@@ -28,6 +28,7 @@ import {
   adminWithdrawalApprovals, approvalStates, type AdminApprovalQuery, type AdminApprovalSummary, type AdminWithdrawalApproval,
 } from "../admin-withdrawal-approvals";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
+import { WithdrawalApprovalPolicy } from "./withdrawal-approval-policy";
 import { CompanyReadError } from "./company-display";
 
 const number = new Intl.NumberFormat("pt-BR");
@@ -229,11 +230,12 @@ export function AdminWithdrawalApprovalsScreen({ user }: { user: AdminIdentity }
     <AdminPanel user={user}>
       <header className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Aprovações extraordinárias</h1>
+          <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Aprovações de saque</h1>
           {development && <Badge variant="secondary">Sandbox</Badge>}
         </div>
         <p className="text-pretty text-sm text-muted-foreground">Acompanhe as solicitações de saque via API e as decisões dos titulares.</p>
       </header>
+      <WithdrawalApprovalPolicy channels={data?.channels} />
       {(result.isLoading || data) && <ApprovalSummary summary={data?.summary} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="withdrawal-approvals">

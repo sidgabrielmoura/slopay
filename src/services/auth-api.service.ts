@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api-client";
+import { supportRequestHeaders } from "@/lib/support-scope";
 import type { PasskeyList, PasskeyOptions, PasskeyPair } from "@/features/auth/passkey-contract";
 import type { PasswordChangeChallenge, PasswordChangeGrant } from "@/features/auth/password-change-contract";
 import type { RegistrationEmailChallenge } from "@/features/auth/registration-email-contract";
@@ -22,10 +23,11 @@ export type SessionStatus = SessionTimes & {
 };
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`/api/auth/${path}`, {
+  const url = `/api/auth/${path}`;
+  const response = await fetch(url, {
     method: "POST",
     credentials: "same-origin",
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers: supportRequestHeaders(url, body === undefined ? undefined : { "Content-Type": "application/json" }),
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
     signal: AbortSignal.timeout(authRequestTimeoutMs),

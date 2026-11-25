@@ -4,7 +4,6 @@ import { integrationProofSchema, type IntegrationProof } from "@/features/integr
 import { requestPixGateway } from "@/lib/pix-gateway-client";
 import { adminPaginationSchema } from "./admin-pending";
 
-export const poolAccountsPath = "/admin/contas-bolsao";
 export const poolAccountsUnavailable = "Não foi possível consultar as contas bolsão.";
 export const poolOwnersUnavailable = "Não foi possível consultar o roteamento dos titulares.";
 export const poolOptionsUnavailable = "Não foi possível preparar a confirmação.";

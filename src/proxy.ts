@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { developmentFeaturesEnabled } from "@/config/development";
 import { isDevelopmentRoute } from "@/config/development-routes";
 import { sentryIngestOrigin } from "@/config/sentry";
+import { supportApiRequestHeader } from "@/lib/support-scope";
 
 const legacyCookies = ["slopay_access_token", "slopay_refresh_token", "slopay_user"];
 
@@ -14,6 +15,8 @@ export function proxy(request: NextRequest) {
   }
   const headers = new Headers(request.headers);
   headers.set("x-correlation-id", correlationId);
+  if (pathname.startsWith("/api/")) headers.set(supportApiRequestHeader, "1");
+  else headers.delete(supportApiRequestHeader);
 
   const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("base64");
   const policy = [

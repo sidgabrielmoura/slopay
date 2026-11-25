@@ -31,7 +31,8 @@ const row = z.object({
 });
 
 export const adminApprovalsSchema = z.object({
-  environment: z.enum(["sandbox", "live"]), items: z.array(row).max(8), pagination: adminPaginationSchema,
+  environment: z.enum(["sandbox", "live"]), channels: z.object({ api: z.boolean(), panelPilot: z.boolean() }).optional(),
+  items: z.array(row).max(8), pagination: adminPaginationSchema,
   summary: z.object({ pendingCount: count, pendingCents: cents, approvedCount: count, rejectedCount: count, closedCount: count }),
 });
 

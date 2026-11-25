@@ -6,6 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import type { NextResponse } from "next/server";
 import { authEntry, onboardingDestination } from "@/lib/auth-navigation";
 import { requestAuthBackend, sessionUserSchema, type AuthTokens } from "./auth-backend";
+import { isSupportPanelPath, supportPanelSessionSchema, supportScopeCookie } from "@/lib/support-scope";
 
 const secure = process.env.NODE_ENV === "production";
 const prefix = secure ? "__Host-" : "";
@@ -43,17 +44,23 @@ export function clearSession(response: NextResponse, endedByUser = true) {
   setAuthCookie(response, accessCookie, "", 0);
   setAuthCookie(response, refreshCookie, "", 0);
   setAuthCookie(response, challengeCookie, "", 0);
+  setAuthCookie(response, supportScopeCookie, "", 0);
   if (endedByUser) setAuthCookie(response, sessionMarkerCookie, "", 0);
 }
 
-const loadSession = cache(async () => {
+const loadSession = cache(async (merchantSupport: boolean) => {
   const jar = await cookies();
   const accessToken = jar.get(accessCookie)?.value;
   const canRefresh = Boolean(jar.get(refreshCookie)?.value);
 
   if (!accessToken) return { state: canRefresh ? "renew" : jar.has(sessionMarkerCookie) ? "expired" : "absent" } as const;
   try {
-    const response = await requestAuthBackend("me", { method: "GET", accessToken });
+    const supportId = merchantSupport ? supportPanelSessionSchema.shape.id.safeParse(jar.get(supportScopeCookie)?.value).data : undefined;
+    const support = Boolean(supportId);
+    const response = await requestAuthBackend("me", { method: "GET", accessToken, merchantSupport: support });
+    if (support && (response.status === 403 || response.status === 404 || response.status === 409)) {
+      return { state: "support-ended", supportId } as const;
+    }
     if (response.status === 401) {
       const error = await response.json().catch(() => null);
       const canRenewAccess = ["TOKEN_EXPIRED", "INVALID_SESSION", "SESSION_IDLE"].includes(error?.code);
@@ -63,6 +70,7 @@ const loadSession = cache(async () => {
     if (!response.ok) return { state: "unavailable" } as const;
 
     const profile = sessionUserSchema.safeParse((await response.json()).user);
+    if (support && profile.success && !profile.data.support) return { state: "support-ended", supportId } as const;
     return profile.success
       ? { state: "ready", user: profile.data } as const
       : { state: "unavailable" } as const;
@@ -71,8 +79,8 @@ const loadSession = cache(async () => {
   }
 });
 
-export async function loadPanelUser() {
-  const result = await loadSession();
+export async function loadPanelUser(merchantSupport = false) {
+  const result = await loadSession(merchantSupport);
   return result.state === "ready" && result.user.mfaVerified && !onboardingDestination(result.user)
     ? result.user
     : null;
@@ -82,7 +90,8 @@ export async function requireSession(
   returnTo: string,
   { operations = false, admin = false } = {},
 ) {
-  const result = await loadSession();
+  const result = await loadSession(!admin && isSupportPanelPath(returnTo));
+  if (result.state === "support-ended") redirect(result.supportId ? `/api/admin/support/${result.supportId}/expired` : "/admin/empresas");
   if (result.state === "renew") redirect(authEntry("/renovar", returnTo));
   if (result.state === "expired") redirect(authEntry("/renovar", returnTo) + "&estado=expirada");
   if (result.state === "absent") redirect(authEntry("/entrar", returnTo));

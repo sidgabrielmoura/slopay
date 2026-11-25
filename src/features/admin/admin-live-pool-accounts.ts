@@ -2,6 +2,7 @@ import { z } from "zod";
 import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
 import { integrationProofSchema, type IntegrationProof } from "@/features/integrations/integration-proof";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
+import { approvalRulesParams, approvalRulesQuery, ruleStatusFilter, type ApprovalRulesQuery } from "./admin-approval-rules";
 import { adminPaginationSchema } from "./admin-pending";
 import { poolEligibleList, poolOwnersList, poolUpdated, type PoolPolicyInput } from "./admin-pool-accounts";
 
@@ -23,13 +24,20 @@ export const livePoolListSchema = z.object({ available: z.boolean(), canRotate: 
   pagination: adminPaginationSchema,
 });
 const balanceInCents = z.string().regex(/^-?\d+$/);
+export const liveWalletPositionsQuery = approvalRulesQuery;
 export const liveWalletPositionsSchema = z.object({
+  available: z.boolean().default(false),
+  canRotate: z.boolean().default(false),
   pagination: adminPaginationSchema,
-  items: z.array(account.pick({ id: true, name: true, walletId: true }).extend({
+  items: z.array(account.extend({
+    verifiedAt: account.shape.verifiedAt.optional(),
+    receives: z.boolean().default(false), withdraws: z.boolean().default(false),
+    withdrawalStatus: ruleStatusFilter.exclude(["ALL"]).optional(),
     bookedCents: balanceInCents, reservedCents: balanceInCents, providerCents: balanceInCents.nullable(),
     differenceCents: balanceInCents.nullable(), checkedAt: z.iso.datetime({ offset: true }).nullable(),
   })).max(8),
 });
+export type LiveWalletPosition = z.infer<typeof liveWalletPositionsSchema>["items"][number];
 export const livePoolUnavailable = "Cadastro de carteiras de produção indisponível.";
 export type LivePoolDraft = z.infer<typeof livePoolDraftSchema>;
 
@@ -38,8 +46,6 @@ function post(body: object, timeoutMs?: number) {
 }
 
 export const livePoolAccounts = {
-  list: (page: number, signal: AbortSignal) =>
-    requestPixGateway(`${endpoint}?page=${page}`, livePoolListSchema, livePoolUnavailable, { signal }),
   options: (draft: LivePoolDraft) =>
     requestPixGateway(endpoint + "/options", livePoolConfirmationSchema, livePoolUnavailable, post(draft)),
   register: (draft: LivePoolDraft, confirmation: string, proof: IntegrationProof) =>
@@ -70,9 +76,9 @@ export const liveRoutingProof = liveRoutingDraft.extend({ confirmation, proof: i
 export type LiveWalletControlDraft = z.infer<typeof liveWalletControlDraft>;
 
 export const liveWalletPositions = {
-  list: (page: number, search: string, signal: AbortSignal) =>
-    requestPixGateway(endpoint + "/positions?" + new URLSearchParams({ page: String(page), search }),
-      liveWalletPositionsSchema, "Não foi possível consultar as posições.", { signal }),
+  list: (query: ApprovalRulesQuery, signal: AbortSignal) =>
+    requestPixGateway(endpoint + "/positions?" + approvalRulesParams(query),
+      liveWalletPositionsSchema, "Não foi possível consultar as carteiras.", { signal }),
   refresh: (id: string) =>
     requestPixGateway(endpoint + "/positions/" + id + "/refresh", poolUpdated, "Não foi possível consultar o saldo do provedor.", post({})),
 };

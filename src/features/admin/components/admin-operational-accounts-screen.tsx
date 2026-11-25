@@ -28,7 +28,8 @@ import {
   type OperationalListItem, type OperationalQuery, type OperationalStatus,
 } from "../admin-operational-accounts";
 import { CompanyField, CompanyReadError, CompanyRowsSkeleton } from "./company-display";
-import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
+import type { AdminIdentity } from "./layout/admin-panel";
+import { walletsHref } from "../admin-balance-positions";
 
 const count = new Intl.NumberFormat("pt-BR");
 const statuses = operationalStatusFilter.options.map((value) => ({
@@ -56,7 +57,7 @@ export function AdminOperationalAccountsScreen({ user }: { user: AdminIdentity }
   const filtered = Boolean(search) || status !== "ALL";
 
   function navigate(next: OperationalQuery) {
-    window.history.replaceState(null, "", operationalAccountsPath + operationalParams(next));
+    window.history.replaceState(null, "", walletsHref("vinculos", new URLSearchParams(operationalParams(next))));
   }
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
@@ -72,15 +73,7 @@ export function AdminOperationalAccountsScreen({ user }: { user: AdminIdentity }
   }
 
   return (
-    <AdminPanel user={user}>
-      <header className="min-w-0 space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Contas operacionais</h1>
-          {development && <Badge variant="secondary">Sandbox</Badge>}
-        </div>
-        <p className="text-pretty text-sm text-muted-foreground">Consulte as carteiras Pix vinculadas às empresas e acompanhe cada posição.</p>
-      </header>
-
+    <>
       <form role="search" aria-label="Filtrar contas operacionais" className="flex min-w-0 flex-wrap items-end gap-3" onSubmit={submitSearch}>
         <div className="grid min-w-0 basis-full gap-2 sm:basis-52 sm:grow">
           <label htmlFor="operational-account-search" className="text-sm font-medium">Buscar conta</label>
@@ -140,7 +133,7 @@ export function AdminOperationalAccountsScreen({ user }: { user: AdminIdentity }
           </Card>
         </div> : !development ? <OperationalDataUnavailable /> : result.isError && <CompanyReadError title="Contas indisponíveis" retry={() => void result.refetch()} />}
       </SkeletonReveal>
-    </AdminPanel>
+    </>
   );
 }
 

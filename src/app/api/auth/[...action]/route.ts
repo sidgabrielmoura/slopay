@@ -26,6 +26,7 @@ import {
   setAuthCookie,
 } from "@/lib/server/session";
 import { readJson, RequestBodyError } from "@/lib/server/request-json";
+import { supportOwnerConfirmationMessage, supportScopeCookie } from "@/lib/support-scope";
 
 const maxBodyBytes = 8192;
 const password = z.string().min(1).max(128);
@@ -191,6 +192,11 @@ export async function POST(
     return unavailable();
   }
 
+  if (request.cookies.has(supportScopeCookie) && action.sessionRequired &&
+      path !== "session/activity" && path !== "profile/phone") {
+    return json({ code: "SUPPORT_OWNER_CONFIRMATION_REQUIRED", message: supportOwnerConfirmationMessage }, 403);
+  }
+
   const accessToken = request.cookies.get(accessCookie)?.value;
   const refreshToken = request.cookies.get(refreshCookie)?.value;
   if (action.sessionRequired && !accessToken) {
@@ -271,6 +277,7 @@ export async function POST(
         path === "register" ? { success: true } : { user: loginUser.parse(issued.data.user) },
         backend.status,
       );
+      setAuthCookie(response, supportScopeCookie, "", 0);
       saveSession(response, issued.data.tokens);
       return response;
     }

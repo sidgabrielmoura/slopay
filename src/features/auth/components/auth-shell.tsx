@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BrandImage } from "@/components/shared/brand-image";
 import { AuthBrandImage, AuthFormMotion, AuthMotionSurface } from "./auth-motion";
 import styles from "./auth-shell.module.css";
 
@@ -35,12 +36,8 @@ export function AuthShell({
     <AuthMotionSurface className={`${styles.shell} grid min-h-dvh grid-cols-1 overflow-x-clip bg-background text-foreground lg:grid-cols-2`}>
       <div className="flex min-w-0 flex-col px-6 py-5 sm:px-8">
         {!hideLogo && (
-          <Link href="/" className="inline-flex w-fit items-center gap-2 font-semibold">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
-              strokeLinecap="round" aria-hidden="true" className="size-5.5 text-primary">
-              <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07" />
-            </svg>
-            SloPay
+          <Link href="/" className="inline-flex w-fit items-center">
+            <BrandImage />
           </Link>
         )}
         <AuthFormMotion step={step} className={`mx-auto my-auto w-full py-8 ${contentMaxWidthClass}`}>

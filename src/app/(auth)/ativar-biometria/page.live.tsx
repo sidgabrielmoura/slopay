@@ -1,3 +1,6 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { supportScopeCookie } from "@/lib/support-scope";
 import { AuthShell } from "@/features/auth/components/auth-shell";
 import { RegisterPasskey } from "@/features/auth/components/register-passkey";
 import { SessionMonitor } from "@/features/auth/components/session-monitor";
@@ -7,6 +10,7 @@ import { requireSession } from "@/lib/server/session";
 export default async function AtivarBiometriaPage({ searchParams }: {
   searchParams: Promise<{ returnTo?: string | string[]; modo?: string | string[] }>;
 }) {
+  if ((await cookies()).has(supportScopeCookie)) redirect("/conta/seguranca");
   const { returnTo, modo } = await searchParams;
   const target = typeof returnTo === "string" && returnTo.split("?")[0] !== "/ativar-biometria"
     ? safeReturnTo(returnTo, "") : "";

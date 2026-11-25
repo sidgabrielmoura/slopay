@@ -1,9 +1,8 @@
 import { z } from "zod";
 import { requestPixGateway } from "@/lib/pix-gateway-client";
 import { adminPaginationSchema } from "./admin-pending";
-import { pixQueryFrom, pixQueryString, pixTransactionKind, pixTransactionQuery, type PixTransactionId } from "./admin-pix-transactions";
+import { pixQueryFrom, pixQueryString, pixTransactionKind, pixTransactionQuery } from "./admin-pix-transactions";
 
-export const globalStatementPath = "/admin/extrato";
 const api = "/api/admin/global-statement";
 export const globalStatementUnavailable = "O Extrato Global está temporariamente indisponível.";
 const entryType = z.enum(["CREDIT", "DEBIT", "FEE_DEBIT"]);
@@ -37,15 +36,10 @@ export function globalStatementQueryFrom(params: Pick<URLSearchParams, "get">): 
   return { page, period, search, companyId, accountId, type: statementTypeFilter.catch("ALL").parse(params.get("type")) };
 }
 
-export function globalStatementParams(query: GlobalStatementQuery, detail?: PixTransactionId) {
-  const params = new URLSearchParams(pixQueryString({ ...query, type: "ALL", status: "ALL" }, detail));
+export function globalStatementParams(query: GlobalStatementQuery) {
+  const params = new URLSearchParams(pixQueryString({ ...query, type: "ALL", status: "ALL" }));
   if (query.type !== "ALL") params.set("type", query.type);
   return params;
-}
-
-export function globalStatementHref(query: GlobalStatementQuery, detail?: PixTransactionId) {
-  const params = globalStatementParams(query, detail);
-  return globalStatementPath + (params.size ? "?" + params : "");
 }
 
 export function fetchGlobalStatement(query: GlobalStatementQuery, signal?: AbortSignal) {

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowUpRight, Copy, Filter } from "lucide-react";
@@ -8,7 +7,6 @@ import { toast } from "sonner";
 import { PanelAmount } from "@/components/layout/panel-privacy";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { ToastNotice } from "@/components/ui/toast-notice";
@@ -16,7 +14,6 @@ import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
 import { formatCNPJ } from "@/lib/validators";
 import { adminChargeStatusLabels, adminPixCharges, type AdminCharge, type AdminChargeStatus } from "../admin-pix-charges";
-import { pixTransactionsPath } from "../admin-pix-transactions";
 import { retryAdminRead } from "../admin-query";
 import { AdminChargePixCode } from "./admin-charge-pix-code";
 import { CompanyField } from "./company-display";
@@ -37,7 +34,6 @@ function ChargeFacts({ adminId, charge, qrAllowed, onScope }: {
 }) {
   const { companyId, accountId } = charge;
   const settled = charge.status === "COMPLETED" || charge.status === "PARTIALLY_REFUNDED" || charge.status === "REFUNDED";
-  const movementLink = pixTransactionsPath + "?" + new URLSearchParams({ period: "ALL", search: charge.id, detail: "RECEIVE", transaction: charge.id });
 
   async function copyId() {
     try {
@@ -115,17 +111,13 @@ function ChargeFacts({ adminId, charge, qrAllowed, onScope }: {
           {charge.providerReference && <CompanyField label="ID no provedor"><span className="font-mono text-xs">{charge.providerReference}</span></CompanyField>}
           {charge.description && <CompanyField label="Descrição">{charge.description}</CompanyField>}
         </dl>
-        {settled && (
-          <Button asChild variant="outline" className="h-11 w-fit">
-            <Link href={movementLink}>Ver movimentação <ArrowUpRight aria-hidden="true" /></Link>
-          </Button>
-        )}
+
       </section>
     </div>
   );
 }
 
-function DetailLoad({ adminId, id, onScope }: { adminId: string; id: string; onScope: ScopeCharge }) {
+export function PixChargeDetails({ adminId, id, onScope }: { adminId: string; id: string; onScope: ScopeCharge }) {
   const charge = useQuery({
     queryKey: ["admin-pix-charge", adminId, id],
     queryFn: ({ signal }) => adminPixCharges.detail(id, signal),
@@ -150,26 +142,5 @@ function DetailLoad({ adminId, id, onScope }: { adminId: string; id: string; onS
         )}
       </SkeletonReveal>
     </>
-  );
-}
-
-export function AdminPixChargeDialog({ adminId, id, onClose, onRestoreFocus, onScope }: {
-  adminId: string; id?: string; onClose: () => void; onRestoreFocus: () => void; onScope: ScopeCharge;
-}) {
-  const title = useRef<HTMLHeadingElement>(null);
-  return (
-    <Dialog open={Boolean(id)} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[min(38rem,calc(100%-2rem))] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0"
-        onOpenAutoFocus={(event) => { event.preventDefault(); title.current?.focus({ preventScroll: true }); }}
-        onCloseAutoFocus={(event) => { event.preventDefault(); onRestoreFocus(); }}>
-        <DialogHeader className="border-b border-border py-4 pr-12 pl-4 text-left sm:pl-6">
-          <DialogTitle ref={title} tabIndex={-1} className="text-balance text-xl outline-none">Detalhes da cobrança</DialogTitle>
-          <DialogDescription>Dados da cobrança registrada no Slopay.</DialogDescription>
-        </DialogHeader>
-        <div className="min-h-0 min-w-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
-          {id && <DetailLoad key={id} adminId={adminId} id={id} onScope={onScope} />}
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

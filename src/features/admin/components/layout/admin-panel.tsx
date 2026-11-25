@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Settings, Shield } from "lucide-react";
+import { BrandImage } from "@/components/shared/brand-image";
 import { PanelFrame, PanelTopbarFrame } from "@/components/layout/panel-frame";
 import { PanelProfileIdentity } from "@/components/layout/header-motion";
 import { PanelPrivacyToggle } from "@/components/layout/panel-privacy";
@@ -26,7 +27,10 @@ export function AdminPanel({ user, children, pendingSummary }: {
     pendingApplicationsCount: summary.onboarding, pendingFinancialApprovalsCount: summary.ownerApproval, totalUrgentTasks: summary.total,
   } : pendingSummary} />} topbar={(
     <PanelTopbarFrame>
-      <PanelProfileIdentity profileKey={user.id} name={user.fullName} email={user.email} />
+      <div className="flex min-w-0 items-center gap-2">
+        <BrandImage variant="symbol" className="h-5 lg:hidden" />
+        <PanelProfileIdentity profileKey={user.id} name={user.fullName} email={user.email} />
+      </div>
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
         <PanelPrivacyToggle className="size-11 text-muted-foreground" />
         <AdminNotifications />

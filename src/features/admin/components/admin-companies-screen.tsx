@@ -26,7 +26,7 @@ import {
   companySearch, companyStatusFilter, companyStatusLabels, type CompaniesQuery, type CompanyListItem,
 } from "../admin-companies";
 import { retryAdminRead } from "../admin-query";
-import { poolAccountsPath } from "../admin-pool-accounts";
+import { walletsHref } from "../admin-balance-positions";
 import { CompanyAccessBadge, CompanyField, CompanyReadError, CompanyRowsSkeleton } from "./company-display";
 import { AdminPanel, type AdminIdentity } from "./layout/admin-panel";
 
@@ -79,7 +79,7 @@ export function AdminCompaniesScreen({ user }: { user: AdminIdentity }) {
             <Link href={openingsPath} prefetch={false}>Abertura de contas <ArrowUpRight aria-hidden="true" /></Link>
           </Button>
           <Button asChild variant="outline" className="h-11">
-            <Link href={poolAccountsPath} prefetch={false}>Contas bolsão <ArrowUpRight aria-hidden="true" /></Link>
+            <Link href={walletsHref("roteamento")} prefetch={false}>Roteamento <ArrowUpRight aria-hidden="true" /></Link>
           </Button>
         </div>
       </header>

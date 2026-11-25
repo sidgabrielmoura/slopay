@@ -13,6 +13,7 @@ import { OperationFailure } from "@/components/ui/loading-indicator";
 import { SecurityCard, SecurityMethod } from "@/features/account/components/security-layout";
 import { ApiError } from "@/lib/api-client";
 import { emailVerificationPath } from "@/lib/auth-navigation";
+import { supportOwnerConfirmationMessage } from "@/lib/support-scope";
 import { finishSignIn } from "../finish-sign-in";
 import { AuthActionButton, AuthHeading, AuthSuccessMark } from "./auth-form-controls";
 import { AuthPasswordField } from "./auth-password-field";
@@ -22,13 +23,14 @@ import { LogoutButton } from "./live-auth-forms";
 import { PasskeyActions, usePasskeyConfirmation } from "./passkey-confirmation";
 import { authApiService } from "@/services/auth-api.service";
 
-export function LiveMfa({ userId, enabled, panelPath, needsEmailConfirmation = false, showLogout = true, animateSteps = false, panel }: {
+export function LiveMfa({ userId, enabled, panelPath, needsEmailConfirmation = false, showLogout = true, animateSteps = false, ownerConfirmationRequired = false, panel }: {
   userId: string;
   enabled: boolean;
   panelPath: "/inicio" | "/admin";
   needsEmailConfirmation?: boolean;
   showLogout?: boolean;
   animateSteps?: boolean;
+  ownerConfirmationRequired?: boolean;
   panel?: { biometrics: ReactNode };
 }) {
   const router = useRouter();
@@ -179,7 +181,7 @@ export function LiveMfa({ userId, enabled, panelPath, needsEmailConfirmation = f
 
   if (enabled && !replacing && panel) {
     const replace = (
-      <Button type="button" variant="outline" className="h-11 border-border" onClick={() => setReplacing(true)}
+      <Button type="button" variant="outline" className="h-11 border-border" disabled={ownerConfirmationRequired} onClick={() => setReplacing(true)}
         ref={(button) => {
           if (button && restoreFocus.current) {
             button.focus();
@@ -196,7 +198,7 @@ export function LiveMfa({ userId, enabled, panelPath, needsEmailConfirmation = f
           <SecurityMethod
             icon={Smartphone}
             title="Aplicativo autenticador"
-            description="Use os códigos do aplicativo como alternativa à biometria."
+            description={ownerConfirmationRequired ? supportOwnerConfirmationMessage : "Use os códigos do aplicativo como alternativa à biometria."}
             status={<Badge variant="success">Ativo</Badge>}
             action={replace}
           />

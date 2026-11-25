@@ -20,9 +20,9 @@ import { ToastNotice } from "@/components/ui/toast-notice";
 import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
 import { formatCNPJ } from "@/lib/validators";
-import { balancePositionsHref, balancePositionsQueryFrom, balancePositionsQueryKey } from "../admin-balance-positions";
+import { balancePositionsHref, balancePositionsQueryFrom, balancePositionsQueryKey, walletsHref } from "../admin-balance-positions";
 import { companiesPath } from "../admin-companies";
-import { adminOperationalAccounts, operationalAccountsPath, operationalParams, operationalQueryFrom, type OperationalAccountDetail } from "../admin-operational-accounts";
+import { adminOperationalAccounts, operationalParams, operationalQueryFrom, type OperationalAccountDetail } from "../admin-operational-accounts";
 import { retryAdminRead } from "../admin-query";
 import { LinkedPixHistory } from "./admin-company-activity";
 import { OperationalStatusBadge } from "./admin-operational-accounts-screen";
@@ -38,8 +38,8 @@ export function AdminOperationalAccountScreen({ user, accountId }: { user: Admin
   const params = useSearchParams();
   const fromBalances = params.get("from") === "saldos";
   const listHref = fromBalances ? balancePositionsHref(balancePositionsQueryFrom(params))
-    : operationalAccountsPath + operationalParams(operationalQueryFrom(params));
-  const listLabel = fromBalances ? "Saldos & Posições" : "Contas operacionais";
+    : walletsHref("vinculos", new URLSearchParams(operationalParams(operationalQueryFrom(params))));
+  const listLabel = "Carteiras";
   const result = useQuery({
     enabled: development,
     queryKey: ["admin-operational-account", user.id, accountId],

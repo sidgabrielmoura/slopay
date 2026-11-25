@@ -136,7 +136,7 @@ export default function AdminPendenciasPage() {
               </div>
               <div>
                 <CardTitle className="text-sm font-semibold text-foreground">
-                  Aprovações Extraordinárias ({pendingApprovals.length})
+                  Aprovações de saque ({pendingApprovals.length})
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
                   Saques e transferências retidas por quórum ou alçada

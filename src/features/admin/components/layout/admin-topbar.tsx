@@ -15,6 +15,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandImage } from "@/components/shared/brand-image";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,7 +73,8 @@ export function AdminTopbar({ user }: { user?: Pick<SessionUser, "fullName" | "e
   return (
     <header className="h-16 border-b border-border bg-card/60 backdrop-blur-md px-4 lg:px-6 flex items-center justify-between sticky top-0 z-20">
       {/* Esquerda: Identificação e Status Operacional */}
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-center gap-2 lg:gap-4">
+        <BrandImage variant="symbol" className="h-5 lg:hidden" />
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"

@@ -11,11 +11,14 @@ import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { SecurityMethod } from "@/features/account/components/security-layout";
 import { authEntry } from "@/lib/auth-navigation";
+import { supportOwnerConfirmationMessage } from "@/lib/support-scope";
 import { authApiService } from "@/services/auth-api.service";
 import { canUseWebAuthn, isIphoneOrIpad, passkeyFailureMessage, rememberBrowserPasskey, authenticateWithPasskey } from "../passkey-device";
 import { AuthActionButton } from "./auth-form-controls";
 
-export function PasskeySettings({ userId, returnTo }: { userId: string; returnTo: string }) {
+export function PasskeySettings({ userId, returnTo, ownerConfirmationRequired = false }: {
+  userId: string; returnTo: string; ownerConfirmationRequired?: boolean;
+}) {
   const [device, setDevice] = useState<{ available: boolean; apple: boolean }>();
   const [testing, setTesting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -24,6 +27,7 @@ export function PasskeySettings({ userId, returnTo }: { userId: string; returnTo
     queryKey: ["security-session", userId],
     queryFn: () => authApiService.sessionStatus(),
     retry: false,
+    enabled: !ownerConfirmationRequired,
     staleTime: 60_000,
   });
 
@@ -61,6 +65,10 @@ export function PasskeySettings({ userId, returnTo }: { userId: string; returnTo
       setTesting(false);
     }
   }
+
+  if (ownerConfirmationRequired) return <SecurityMethod icon={Fingerprint} title={title}
+    description={supportOwnerConfirmationMessage}
+    action={<Button type="button" variant="outline" className="h-11" disabled>Gerenciar biometria</Button>} />;
 
   return (
     <><SecurityMethod

@@ -1,5 +1,6 @@
 export const brandConfig = {
   name: "SloPay",
+  backgroundColor: "#111417",
   tagline: "Operações Pix de Alto Desempenho",
   legalNotice: "Demonstração · dados fictícios",
   supportEmail: "suporte@slopay.com.br",
