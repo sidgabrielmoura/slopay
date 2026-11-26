@@ -20,7 +20,11 @@ export const saveAdminPreferencesSchema = z.strictObject({
 });
 export const adminPreferencesViewSchema = z.object({
   preferences: adminPreferencesSchema, updatedAt: z.iso.datetime({ offset: true }).nullable(),
-  session: z.object({ idleMinutes: z.int().min(1).max(1440), absoluteHours: z.int().min(1).max(168) }),
+  session: z.object({
+    idleMinutes: z.int().min(1).max(1440),
+    absoluteHours: z.int().min(1).max(168),
+    recentMfaMinutes: z.int().positive().optional(),
+  }),
   sandboxEnabled: z.boolean(),
 });
 

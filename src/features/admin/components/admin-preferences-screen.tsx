@@ -54,6 +54,9 @@ function PanelPolicy({ view }: { view: AdminPreferencesView }) {
           <p className="text-pretty text-sm text-muted-foreground">O painel pede nova verificação após o período de inatividade.</p>
         </div>
         <dl className="grid gap-3 p-4 sm:p-5">
+          {view.session.recentMfaMinutes !== undefined && (
+            <CompanyField label="Validade do segundo fator"><span className="tabular-nums">{view.session.recentMfaMinutes} min</span></CompanyField>
+          )}
           <CompanyField label="Bloqueio por inatividade"><span className="tabular-nums">{view.session.idleMinutes} min</span></CompanyField>
           <CompanyField label="Duração máxima"><span className="tabular-nums">{view.session.absoluteHours} h</span></CompanyField>
         </dl>

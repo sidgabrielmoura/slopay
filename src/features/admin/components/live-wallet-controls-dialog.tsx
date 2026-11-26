@@ -51,7 +51,7 @@ export function LiveWalletControlsDialog(props: Props) {
       apply={async (proof) => {
         setFailure("");
         try {
-          const confirmation = "credential" in proof ? token.current : (await livePoolControls.options(review)).confirmation;
+          const confirmation = "verificationCode" in proof ? (await livePoolControls.options(review)).confirmation : token.current;
           if (!confirmation) throw new Error("Prepare a confirmação novamente.");
           return await livePoolControls.apply(review, confirmation, proof);
         } catch (error) {

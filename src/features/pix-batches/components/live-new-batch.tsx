@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Switch } from "@/components/ui/switch";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { CodeSlots, useCodeVerification } from "@/features/auth/components/code-slots";
-import { PasskeyActions, usePasskeyConfirmation } from "@/features/auth/components/passkey-confirmation";
+import { OperationFactorActions, usePasskeyConfirmation } from "@/features/auth/components/passkey-confirmation";
 import { ExpenseCategoryLabel, ExpenseCategorySelect } from "@/features/expenses/components/expense-category-select";
 import type { ExpenseCategory } from "@/features/expenses/expenses";
 import { MAX_PIX_AMOUNT_IN_CENTS, pixPaymentIdSchema } from "@/features/pix-receive/pix-receipt";
@@ -144,6 +144,7 @@ export function LiveNewBatch({ merchantId, available }: { merchantId: string; av
     scope: step === 2 ? prepared?.id ?? null : null,
     loadOptions: () => prepared ? liveBatchesGateway.passkeyOptions(prepared.id, prepared.input) : Promise.resolve({ options: null }),
     verify: (credential) => submitBatch({ credential }),
+    verifySession: (sessionConfirmation) => submitBatch({ sessionConfirmation }),
     onSuccess: followBatch,
   });
   const authorizingBusy = verification.busy || passkey.busy;
@@ -325,18 +326,16 @@ export function LiveNewBatch({ merchantId, available }: { merchantId: string; av
               </div>
             ) : (
               <div className="grid max-w-md gap-4">
-                {passkey.showPasskey ? <PasskeyActions prompt={passkey} autoFocus /> : (
-                  <>
-                    <CodeSlots {...verification.field} id={formId + "-code"} format="totp" label="Código do autenticador"
-                      autoFocus pendingLabel="Registrando lote…" successLabel="Lote autorizado." />
-                    {passkey.available && (
-                      <Button type="button" variant="outline" className="h-11" disabled={authorizingBusy} onClick={() => {
-                        verification.reset();
-                        passkey.choosePasskey();
-                      }}>Usar biometria</Button>
-                    )}
-                  </>
-                )}
+                <OperationFactorActions prompt={passkey} label="Autorizar lote">
+                  <CodeSlots {...verification.field} id={formId + "-code"} format="totp" label="Código do autenticador"
+                    autoFocus pendingLabel="Registrando lote…" successLabel="Lote autorizado." />
+                  {passkey.available && (
+                    <Button type="button" variant="outline" className="h-11" disabled={authorizingBusy} onClick={() => {
+                      verification.reset();
+                      passkey.choosePasskey();
+                    }}>Usar biometria</Button>
+                  )}
+                </OperationFactorActions>
                 {uncertain && prepared ? (
                   <Button asChild variant="outline" className="h-11"><Link href={batchesPath + "/" + prepared.id}>Consultar o lote</Link></Button>
                 ) : (

@@ -86,8 +86,9 @@ export function WebhookEventsField({ events, availableEvents, disabled, invalid,
     : webhookEventGroups;
 
   return (
-    <Card className="min-w-0" id="webhook-event" tabIndex={-1}>
-      <fieldset className="grid min-w-0 gap-3 p-5" aria-labelledby="webhook-event-heading" aria-invalid={invalid || undefined}>
+    <Card className="min-w-0" id="webhook-event" tabIndex={-1} aria-describedby={invalid ? "webhook-event-error" : undefined}>
+      <fieldset className="grid min-w-0 gap-3 p-5" aria-labelledby="webhook-event-heading" aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? "webhook-event-error" : undefined}>
         <div className="grid gap-1">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <h2 id="webhook-event-heading" className="text-balance text-lg font-semibold">Eventos enviados</h2>
@@ -96,6 +97,7 @@ export function WebhookEventsField({ events, availableEvents, disabled, invalid,
             </p>
           </div>
           <p className="text-pretty text-sm text-muted-foreground">Marque um grupo inteiro ou use a seta para escolher eventos individuais.</p>
+          {invalid && <p id="webhook-event-error" role="alert" className="text-sm text-destructive">Selecione pelo menos um evento.</p>}
         </div>
         <div className="min-w-0 divide-y divide-border rounded-lg border">
           {groups.map((group) => (

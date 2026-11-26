@@ -1,11 +1,11 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, KeyRound, Save, Webhook } from "lucide-react";
+import { ArrowLeft, KeyRound, RotateCw, Save, Webhook } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import { IntegrationHeading } from "@/features/integrations/components/integrati
 import { webhookLogsPath } from "@/features/integrations/navigation";
 import type { WebhookEventType } from "@/types/domain";
 import { sandboxWebhookGateway, sandboxWebhookKey, sandboxWebhooksKey } from "../sandbox-webhook-gateway";
-import { sandboxWebhookEvents, webhookSettingsSchema, type SandboxWebhook } from "../sandbox-webhooks";
+import { sandboxWebhookEvents, webhookNameLimit, webhookSettingsSchema, type SandboxWebhook } from "../sandbox-webhooks";
 import { webhookDeliveryOptions, webhookEvents, webhooksPath } from "../webhooks";
 import { SandboxWebhookActionDialog, type WebhookReview } from "./sandbox-webhook-action-dialog";
 import { SandboxWebhookBadge, SandboxWebhookFallback } from "./sandbox-webhook-state";
@@ -60,7 +60,7 @@ export function SandboxWebhookForm({ accountId, webhookId, canManage = true }: {
             <Link href={`${webhookLogsPath}&destino=${detail.data.id}`}>Ver entregas</Link>
           </Button>
         </Card>
-      ) : ready ? <Editor accountId={accountId} webhook={detail.data} development={development} /> : (
+      ) : ready ? <Editor accountId={accountId} webhook={detail.data} /> : (
         <SandboxWebhookFallback development={development} pending={reading.isPending} error={reading.error} unlinked={list.data?.connected === false}
           retry={() => void reading.refetch()} />
       )}
@@ -68,7 +68,7 @@ export function SandboxWebhookForm({ accountId, webhookId, canManage = true }: {
   );
 }
 
-function Editor({ accountId, webhook, development }: { accountId: string; webhook?: SandboxWebhook; development: boolean }) {
+function Editor({ accountId, webhook }: { accountId: string; webhook?: SandboxWebhook }) {
   const router = useRouter();
   const query = useQueryClient();
   const [review, setReview] = useState<WebhookReview | null>(null);
@@ -94,8 +94,8 @@ function Editor({ accountId, webhook, development }: { accountId: string; webhoo
           {verification.isSuccess && webhook.verifiedAt ? <div className="flex flex-wrap items-center gap-3">
             <LoadingConfirmation size={38} animate />
             <div><h2 className="text-base font-semibold">Destino verificado</h2>
-              <p className="text-sm text-muted-foreground">{webhook.enabled ? "O destino pode receber os eventos selecionados."
-                : "Habilite as entregas para enviar os eventos da fila."}</p></div>
+              <p className="text-sm text-muted-foreground">{!webhook.enabled ? "Habilite as entregas para enviar os eventos da fila."
+                : webhook.interruptedAt ? "Reative a fila para retomar as entregas." : "O destino pode receber os eventos selecionados."}</p></div>
           </div> : (
             <>
               <div className="grid gap-1">
@@ -131,7 +131,7 @@ function Editor({ accountId, webhook, development }: { accountId: string; webhoo
         </Card>
       )}
 
-      <SettingsForm key={webhook ? webhook.id + "-" + webhook.version : "new"} webhook={webhook} development={development} onReview={(next, source) => {
+      <SettingsForm key={webhook ? webhook.id + "-" + webhook.version : "new"} webhook={webhook} onReview={(next, source) => {
         control.current = source;
         setReview(next);
       }} />
@@ -162,34 +162,54 @@ function Editor({ accountId, webhook, development }: { accountId: string; webhoo
   );
 }
 
-function SettingsForm({ webhook, onReview, development }: {
+const validationMessages = {
+  name: "Informe um nome de até 50 caracteres.",
+  endpointUrl: "Informe uma URL HTTPS válida na porta 443.",
+  notificationEmail: "Informe um e-mail válido para os avisos.",
+  authToken: "Use um token exclusivo de 32 a 255 caracteres, sem espaços.",
+  eventTypes: "Selecione pelo menos um evento.",
+} as const;
+type SettingsField = keyof typeof validationMessages;
+
+function SettingsForm({ webhook, onReview }: {
   webhook?: SandboxWebhook;
-  development: boolean;
   onReview: (review: WebhookReview, trigger: HTMLElement | null) => void;
 }) {
   const [events, setEvents] = useState<readonly WebhookEventType[]>(webhook?.eventTypes ?? []);
-  const [invalid, setInvalid] = useState<"name" | "endpointUrl" | "eventTypes">();
+  const [invalid, setInvalid] = useState<SettingsField>();
   const [mode, setMode] = useState(webhook?.deliveryMode ?? "SEQUENTIAL");
+  const [token, setToken] = useState("");
+  const queueEditable = !webhook?.interruptedAt;
+  const nameLength = Math.max(webhookNameLimit, webhook?.name.length ?? 0);
+
+  function generateToken() {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    setToken(Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join(""));
+    setInvalid(undefined);
+    toast.success("Token gerado.");
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") ?? "").trim();
     const settings = webhookSettingsSchema.safeParse({
-      name: form.get("name"),
+      name,
       endpointUrl: form.get("endpointUrl"),
       eventTypes: events,
-      deliveryMode: development ? mode : "SEQUENTIAL",
+      deliveryMode: mode,
       retryEnabled: form.has("retryEnabled"),
+      notificationEmail: String(form.get("notificationEmail") ?? "").trim() || null,
+      authToken: token || undefined,
+      queueEnabled: queueEditable ? form.has("queueEnabled") : undefined,
     });
-    if (!settings.success) {
-      const field = settings.error.issues[0]?.path[0];
-      if (field === "name" || field === "endpointUrl" || field === "eventTypes") setInvalid(field);
-      const validation = field === "name" ? "Informe um nome para o webhook."
-        : field === "endpointUrl" ? "Informe uma URL HTTPS válida na porta 443."
-          : "Selecione pelo menos um evento.";
-      toast.error(validation);
+    const nameTooLong = name.length > webhookNameLimit && name !== webhook?.name;
+    if (!settings.success || nameTooLong) {
+      const issue = nameTooLong ? "name" : settings.error?.issues[0]?.path[0];
+      const field = typeof issue === "string" && Object.hasOwn(validationMessages, issue) ? issue as SettingsField : "eventTypes";
+      setInvalid(field);
       if (field === "eventTypes") event.currentTarget.querySelector<HTMLElement>("#webhook-event")?.focus();
-      else if (field === "name" || field === "endpointUrl") {
+      else {
         const input = event.currentTarget.elements.namedItem(field);
         if (input instanceof HTMLElement) input.focus();
       }
@@ -205,29 +225,66 @@ function SettingsForm({ webhook, onReview, development }: {
 
   return (
     <form className="grid min-w-0 gap-4" onSubmit={handleSubmit} noValidate>
-      <Card className="grid min-w-0 gap-4 p-5">
-        <h2 className="text-lg font-semibold">Destino e envio</h2>
-        <div className="grid gap-1.5">
-          <label htmlFor="sandbox-webhook-name" className="text-sm font-medium">Nome</label>
-          <Input id="sandbox-webhook-name" name="name" className="h-11" placeholder="Ex. Conciliação do ERP"
-            defaultValue={webhook?.name} maxLength={80} required autoComplete="off"
-            aria-invalid={invalid === "name" || undefined} onChange={() => setInvalid(undefined)} />
+      <Card className="grid min-w-0 gap-5 p-4 sm:p-5">
+        <h2 className="text-balance text-lg font-semibold">Destino e envio</h2>
+        <div className="grid min-w-0 gap-4 md:grid-cols-2">
+          <div className="grid min-w-0 content-start gap-1.5">
+            <label htmlFor="sandbox-webhook-name" className="text-sm font-medium">Nome do webhook</label>
+            <Input id="sandbox-webhook-name" name="name" className="h-11" placeholder="Ex. Conciliação do ERP"
+              defaultValue={webhook?.name} maxLength={nameLength} required autoComplete="off"
+              aria-describedby="sandbox-webhook-name-help" aria-invalid={invalid === "name" || undefined} onChange={() => setInvalid(undefined)} />
+            <FieldHint id="sandbox-webhook-name-help" field="name" invalid={invalid}>Até 50 caracteres.</FieldHint>
+          </div>
+          <div className="grid min-w-0 content-start gap-1.5">
+            <label htmlFor="sandbox-webhook-email" className="text-sm font-medium">E-mail para avisos</label>
+            <Input id="sandbox-webhook-email" name="notificationEmail" type="email" className="h-11" placeholder="integracoes@empresa.com"
+              defaultValue={webhook?.notificationEmail ?? ""} maxLength={254} autoComplete="off"
+              aria-describedby="sandbox-webhook-email-help" aria-invalid={invalid === "notificationEmail" || undefined} onChange={() => setInvalid(undefined)} />
+            <FieldHint id="sandbox-webhook-email-help" field="notificationEmail" invalid={invalid}>Opcional. Recebe um aviso quando uma entrega termina com falha.</FieldHint>
+          </div>
+          <div className="grid min-w-0 gap-1.5 md:col-span-2">
+            <label htmlFor="sandbox-webhook-url" className="text-sm font-medium">URL HTTPS</label>
+            <Input id="sandbox-webhook-url" name="endpointUrl" className="h-11" placeholder="https://api.empresa.com/webhooks/slopay"
+              type="url" defaultValue={webhook?.endpointUrl} maxLength={2048} required autoComplete="off" spellCheck={false}
+              aria-describedby={invalid === "endpointUrl" ? "sandbox-webhook-url-error" : undefined}
+              aria-invalid={invalid === "endpointUrl" || undefined} onChange={() => setInvalid(undefined)} />
+            {invalid === "endpointUrl" && <FieldHint id="sandbox-webhook-url-error" field="endpointUrl" invalid={invalid} />}
+          </div>
+          <div className="grid min-w-0 content-start gap-1.5">
+            <label htmlFor="sandbox-webhook-token" className="text-sm font-medium">Token de autenticação</label>
+            <div className="flex min-w-0 flex-wrap gap-2 sm:flex-nowrap">
+              <Input id="sandbox-webhook-token" name="authToken" type="password" className="h-11 min-w-0 flex-1" maxLength={255}
+                autoComplete="new-password" placeholder={webhook ? "Informe um novo token" : "Digite ou gere um token"} value={token}
+                aria-describedby="sandbox-webhook-token-help" aria-invalid={invalid === "authToken" || undefined}
+                onChange={(event) => { setToken(event.currentTarget.value); setInvalid(undefined); }} />
+              <Button type="button" variant="outline" className="h-11 shrink-0" onClick={generateToken}>
+                <RotateCw aria-hidden="true" /> Gerar token
+              </Button>
+            </div>
+            <FieldHint id="sandbox-webhook-token-help" field="authToken" invalid={invalid}>
+              Opcional. Enviado no cabeçalho <code>webhook-token</code>{webhook ? ". Em branco, mantém o token atual." : "."}
+            </FieldHint>
+          </div>
+          <div className="grid min-w-0 content-start gap-1.5">
+            <label htmlFor="sandbox-webhook-mode" className="text-sm font-medium">Tipo de envio</label>
+            <GlideSelect id="sandbox-webhook-mode" ariaLabel="Tipo de envio" options={webhookDeliveryOptions} value={mode}
+              onChange={(value) => setMode(value === "PARALLEL" ? "PARALLEL" : "SEQUENTIAL")} size="lg" className="w-full" required />
+            <p className="text-pretty text-xs text-muted-foreground">{mode === "SEQUENTIAL"
+              ? "Envia na ordem dos eventos. A fila é interrompida em caso de falha definitiva."
+              : "Envia em paralelo. Os eventos podem chegar fora de ordem."}</p>
+          </div>
         </div>
-        <div className="grid gap-1.5">
-          <label htmlFor="sandbox-webhook-url" className="text-sm font-medium">URL HTTPS</label>
-          <Input id="sandbox-webhook-url" name="endpointUrl" className="h-11" placeholder="https://api.empresa.com/webhooks/slopay"
-            type="url" defaultValue={webhook?.endpointUrl} maxLength={2048} required autoComplete="off" spellCheck={false}
-            aria-invalid={invalid === "endpointUrl" || undefined} onChange={() => setInvalid(undefined)} />
-        </div>
-        <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-end">
-          {development ? <div className="grid min-w-0 gap-1.5">
-            <label htmlFor="sandbox-webhook-mode" className="text-sm font-medium">Modo de entrega</label>
-            <GlideSelect id="sandbox-webhook-mode" ariaLabel="Modo de entrega" options={webhookDeliveryOptions} value={mode}
-              onChange={(value) => setMode(value === "PARALLEL" ? "PARALLEL" : "SEQUENTIAL")} size="lg" className="w-full" />
-          </div> : <div className="grid gap-1.5"><p className="text-sm font-medium">Modo de entrega</p>
-            <p className="text-sm text-muted-foreground">Sequencial. A fila pausa quando uma entrega esgota as tentativas.</p>
+        <div className="grid gap-2 border-t border-border pt-3">
+          {queueEditable && <div className="grid min-w-0 gap-0.5">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium">
+              <Checkbox name="queueEnabled" defaultChecked={webhook?.enabled ?? true} aria-describedby="sandbox-webhook-queue-help" />
+              Fila de sincronização ativada
+            </label>
+            <p id="sandbox-webhook-queue-help" className="text-pretty text-xs text-muted-foreground">
+              Com a fila pausada, os eventos ficam aguardando envio. As entregas começam após a verificação do destino.
+            </p>
           </div>}
-          <label className="flex min-h-11 items-center gap-2.5 text-sm">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm">
             <Checkbox name="retryEnabled" defaultChecked={webhook?.retryEnabled ?? true} /> Fazer retentativas automáticas
           </label>
         </div>
@@ -247,5 +304,13 @@ function SettingsForm({ webhook, onReview, development }: {
       </div>
     </form>
   );
+}
+
+function FieldHint({ id, field, invalid, children }: {
+  id: string; field: SettingsField; invalid?: SettingsField; children?: ReactNode;
+}) {
+  return invalid === field
+    ? <p id={id} role="alert" className="text-xs text-destructive">{validationMessages[field]}</p>
+    : <p id={id} className="text-pretty text-xs text-muted-foreground">{children}</p>;
 }
 

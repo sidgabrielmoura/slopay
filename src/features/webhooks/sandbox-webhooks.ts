@@ -7,8 +7,11 @@ const eventType = z.enum(sandboxWebhookEvents);
 const webhookMode = z.enum(["SEQUENTIAL", "PARALLEL"]);
 export const webhookIdSchema = z.uuidv4();
 const webhookVersion = z.number().int().positive();
+const webhookAuthToken = z.string().regex(/^(?!(?:slopay_(?:live|sbx)_|whsec_|\$aact_))[!-~]{32,255}(?![\s\S])/i);
+const notificationEmail = z.string().trim().max(254).pipe(z.email()).nullable();
+export const webhookNameLimit = 50;
 
-export const webhookSettingsSchema = z.strictObject({
+const webhookConfiguration = z.strictObject({
   name: z.string().trim().min(1).max(80),
   endpointUrl: z.string().trim().max(2048).refine((text) => {
     if (!/^https:\/\//i.test(text) || /[\s\\#]/.test(text) || !URL.canParse(text)) return false;
@@ -18,11 +21,17 @@ export const webhookSettingsSchema = z.strictObject({
   eventTypes: z.array(eventType).min(1).max(sandboxWebhookEvents.length).refine((items) => new Set(items).size === items.length),
   deliveryMode: webhookMode,
   retryEnabled: z.boolean(),
+  notificationEmail: notificationEmail.optional(),
+});
+
+export const webhookSettingsSchema = webhookConfiguration.extend({
+  authToken: webhookAuthToken.optional(),
+  queueEnabled: z.boolean().optional(),
 });
 
 const target = { id: webhookIdSchema, version: webhookVersion };
 export const webhookActionSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("create"), settings: webhookSettingsSchema }),
+  z.strictObject({ kind: z.literal("create"), settings: webhookSettingsSchema.extend({ name: z.string().trim().min(1).max(webhookNameLimit) }) }),
   z.strictObject({ kind: z.literal("update"), ...target, settings: webhookSettingsSchema }),
   z.strictObject({ kind: z.enum(["pause", "enable", "resume", "delete", "rotate-secret", "retry"]), ...target }),
 ]);
@@ -30,8 +39,9 @@ export const webhookActionSchema = z.discriminatedUnion("kind", [
 export const confirmedWebhookActionSchema = z.strictObject({ action: webhookActionSchema, proof: integrationProofSchema });
 export const webhookVerificationSchema = z.strictObject({ version: webhookVersion });
 
-export const sandboxWebhookSchema = webhookSettingsSchema.extend({
+export const sandboxWebhookSchema = webhookConfiguration.extend({
   ...target,
+  notificationEmail: notificationEmail.default(null),
   enabled: z.boolean(),
   verifiedAt: z.iso.datetime().nullable(),
   interruptedAt: z.iso.datetime().nullable(),
@@ -42,6 +52,7 @@ export const sandboxWebhookListSchema = z.object({ connected: z.boolean(), webho
 export const webhookActionResultSchema = z.object({
   webhook: sandboxWebhookSchema,
   signingSecret: z.string().regex(/^whsec_[A-Za-z0-9+/]{43}=$/).optional(),
+  authToken: webhookAuthToken.optional(),
 });
 
 export const webhookDeliveryState = z.enum(["PENDING", "DELIVERED", "EXHAUSTED", "CANCELLED"]);

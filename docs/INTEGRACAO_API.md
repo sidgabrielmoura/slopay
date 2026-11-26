@@ -72,7 +72,7 @@ O histórico registra método, rota, status HTTP, duração, prefixo mascarado d
 
 ## Webhooks
 
-Em **Integrações → Webhooks**, cadastre um endpoint HTTPS público sem redirecionamento, escolha os eventos e copie o segredo de assinatura. Configure o servidor receptor antes de clicar em **Verificar destino**. Quando o Slopay enviar `WEBHOOK_VERIFICATION`, valide a assinatura e responda `2xx` com JSON `{"challenge":"valor recebido em data.challenge"}`. Um destino novo começa a receber eventos após a verificação. Após trocar o segredo, verifique novamente e clique em **Habilitar entregas**.
+Em **Integrações → Webhooks**, cadastre um endpoint HTTPS público sem redirecionamento e escolha os eventos. Se quiser autenticar a requisição também por token, informe ou gere um valor exclusivo. Quando configurado, o Slopay envia o token no cabeçalho `webhook-token`, inclusive na verificação do destino. Copie as credenciais exibidas após salvar e configure o servidor receptor. Ao receber `WEBHOOK_VERIFICATION`, valide a assinatura e responda `2xx` com JSON `{"challenge":"valor recebido em data.challenge"}`. Um destino começa a enviar eventos após ser verificado e com a fila ativada.
 
 | Evento | Momento |
 | --- | --- |
@@ -83,7 +83,9 @@ Em **Integrações → Webhooks**, cadastre um endpoint HTTPS público sem redir
 | `PIX_SENT` | O saque foi concluído e a baixa da reserva foi registrada. |
 | `WITHDRAWAL_FAILED` | O saque foi encerrado sem liquidação, incluindo recusa pelo titular. |
 
-Apenas a entrega do desafio depende do corpo da resposta. Para eventos de negócio, responda `2xx` após persistir a recepção de forma idempotente. Cada destino de produção recebe eventos em sequência. A fila repete falhas de rede e respostas temporárias, como `429` ou `503`, se as retentativas estiverem habilitadas. Quando a entrega esgota as tentativas ou encontra uma falha definitiva, a fila para naquele evento. Depois de corrigir o destino, o titular clica em **Reativar fila** e o gateway tenta primeiro o mesmo evento. **Logs → Webhooks** mostra os IDs, os estados e o resultado de cada tentativa.
+Para eventos de negócio, responda `2xx` após persistir a recepção de forma idempotente. Em modo **Sequencial**, uma falha definitiva interrompe a fila. Após corrigir o destino, clique em **Reativar fila** para repetir o evento que a interrompeu. No modo **Não sequencial**, os eventos podem chegar fora de ordem, e uma falha definitiva permite reenviar aquela entrega pelos logs. As retentativas automáticas cobrem falhas temporárias, como `429` ou `503`, quando habilitadas.
+
+Uma fila pausada guarda os novos eventos para envio após a reativação. Se houver um e-mail de avisos configurado, o Slopay envia até um alerta por hora por webhook quando uma entrega termina com falha. **Logs → Webhooks** mostra os IDs, os estados e o resultado de cada tentativa.
 
 ### Verificação da assinatura
 

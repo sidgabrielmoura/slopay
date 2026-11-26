@@ -270,7 +270,7 @@ export function PoolPolicyDialog({ owner, adminId, development, onClose, restore
       }}
       apply={(proof: IntegrationProof) => attempt(async () => {
         if (development) return poolAccounts.setPolicy(owner.id, draft, proof);
-        const confirmation = "credential" in proof ? confirmationToken.current : (await livePoolControls.routingOptions(owner.id, draft)).confirmation;
+        const confirmation = "verificationCode" in proof ? (await livePoolControls.routingOptions(owner.id, draft)).confirmation : confirmationToken.current;
         if (!confirmation) throw new Error("Prepare a confirmação novamente.");
         return livePoolControls.routingApply(owner.id, draft, confirmation, proof);
       })}

@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { passkeyAssertionSchema, passkeyOptionsSchema } from "@/features/auth/passkey-contract";
+import { passkeyAssertionSchema, passkeyOptionsSchema, sessionConfirmationTokenSchema } from "@/features/auth/passkey-contract";
 import { expenseCategorySchema } from "@/features/expenses/expenses";
+import type { IntegrationProof } from "@/features/integrations/integration-proof";
 import { MAX_PIX_AMOUNT_IN_CENTS, pixAmountSchema, pixPaymentIdSchema } from "@/features/pix-receive/pix-receipt";
 import { cleanDocument, formatBrazilianInput, pixKeyInputMask } from "@/lib/validators";
 
@@ -53,10 +54,11 @@ export const withdrawalPasskeyOptionsSchema = passkeyOptionsSchema.extend({ revi
 export const withdrawalInputSchema = z.union([
   withdrawalDraftSchema.extend({ verificationCode: z.string().regex(/^\d{6}$/), review: withdrawalReviewSchema.optional() }),
   withdrawalDraftSchema.extend({ credential: passkeyAssertionSchema }),
+  withdrawalDraftSchema.extend({ sessionConfirmation: sessionConfirmationTokenSchema }),
 ]);
 export type WithdrawalDraftInput = z.infer<typeof withdrawalDraftSchema>;
 export type WithdrawalInput = z.infer<typeof withdrawalInputSchema>;
-export type WithdrawalProof = { verificationCode: string } | { credential: z.infer<typeof passkeyAssertionSchema> };
+export type WithdrawalProof = IntegrationProof;
 
 export const withdrawalOptionsSchema = z.object({
   availableBalanceInCents: z.int().nonnegative(),

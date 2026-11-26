@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { passkeyAssertionSchema } from "@/features/auth/passkey-contract";
+import { passkeyAssertionSchema, sessionConfirmationTokenSchema } from "@/features/auth/passkey-contract";
 import { expenseCategorySchema } from "@/features/expenses/expenses";
 import { pixAmountSchema, pixPaymentIdSchema } from "@/features/pix-receive/pix-receipt";
 import { pixKeyTypeSchema, withdrawalFeeSchema, withdrawalReviewSchema, withdrawalSchema } from "@/features/pix-withdraw/pix-withdrawal";
@@ -24,6 +24,7 @@ export const batchDraftSchema = z.strictObject({
 export const batchInputSchema = z.union([
   batchDraftSchema.extend({ verificationCode: z.string().regex(/^\d{6}$/), review: withdrawalReviewSchema.optional() }),
   batchDraftSchema.extend({ credential: passkeyAssertionSchema }),
+  batchDraftSchema.extend({ sessionConfirmation: sessionConfirmationTokenSchema }),
 ]);
 export type BatchDraftInput = z.infer<typeof batchDraftSchema>;
 export type BatchInput = z.infer<typeof batchInputSchema>;

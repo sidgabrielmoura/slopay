@@ -30,7 +30,11 @@ const authenticationOptions = z.object({
   userVerification: z.literal("required"),
 }) satisfies z.ZodType<PublicKeyCredentialRequestOptionsJSON>;
 
-export const passkeyOptionsSchema = z.object({ options: authenticationOptions.nullable() });
+export const sessionConfirmationTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+export const passkeyOptionsSchema = z.object({
+  options: authenticationOptions.nullable(),
+  sessionConfirmation: z.object({ token: sessionConfirmationTokenSchema, expiresAt: z.iso.datetime() }).optional(),
+});
 export type PasskeyOptions = z.infer<typeof passkeyOptionsSchema>;
 
 export const passkeyListSchema = z.object({ credentials: z.array(z.object({

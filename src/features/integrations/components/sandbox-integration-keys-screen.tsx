@@ -15,7 +15,7 @@ import { Empty } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { LoadingConfirmation } from "@/components/ui/loading-indicator";
 import { CodeSlots, useCodeVerification } from "@/features/auth/components/code-slots";
-import { PasskeyActions, usePasskeyConfirmation } from "@/features/auth/components/passkey-confirmation";
+import { OperationFactorActions, usePasskeyConfirmation } from "@/features/auth/components/passkey-confirmation";
 import { passkeyOptionsSchema } from "@/features/auth/passkey-contract";
 import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
@@ -122,6 +122,7 @@ export function SandboxIntegrationKeysScreen({
         passkeyOptionsSchema, unavailable, post({ action: confirmation.action }))
         : Promise.resolve({ options: null }),
     verify: (credential) => mutate({ credential }),
+    verifySession: (sessionConfirmation) => mutate({ sessionConfirmation }),
     onSuccess: apply,
   });
   const busy = modal?.kind === "confirm" && (code.busy || passkey.busy);
@@ -341,16 +342,14 @@ export function SandboxIntegrationKeysScreen({
                   </div>
                 </dl>
               )}
-              {passkey.showPasskey ? <PasskeyActions prompt={passkey} autoFocus /> : (
-                <>
-                  <CodeSlots {...code.field} id="sandbox-key-confirmation" format="totp" label="Código do autenticador"
-                    autoFocus successLabel="Identidade confirmada." />
-                  {passkey.available && <Button variant="outline" className="h-11" disabled={busy} onClick={() => {
-                    code.reset();
-                    passkey.choosePasskey();
-                  }}>Usar biometria</Button>}
-                </>
-              )}
+              <OperationFactorActions prompt={passkey}>
+                <CodeSlots {...code.field} id="sandbox-key-confirmation" format="totp" label="Código do autenticador"
+                  autoFocus successLabel="Identidade confirmada." />
+                {passkey.available && <Button variant="outline" className="h-11" disabled={busy} onClick={() => {
+                  code.reset();
+                  passkey.choosePasskey();
+                }}>Usar biometria</Button>}
+              </OperationFactorActions>
               <footer className="flex justify-end border-t pt-4">
                 <Button variant="ghost" className="h-11" disabled={busy} onClick={close}>Cancelar</Button>
               </footer>

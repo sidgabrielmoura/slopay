@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LoadingConfirmation } from "@/components/ui/loading-indicator";
 import { CodeSlots, useCodeVerification } from "@/features/auth/components/code-slots";
-import { PasskeyActions, usePasskeyConfirmation } from "@/features/auth/components/passkey-confirmation";
+import { OperationFactorActions, usePasskeyConfirmation } from "@/features/auth/components/passkey-confirmation";
 import type { PasskeyOptions } from "@/features/auth/passkey-contract";
 import { ApiError } from "@/lib/api-client";
 import type { IntegrationProof } from "../integration-proof";
@@ -41,7 +41,8 @@ export function IntegrationConfirmationDialog<Result>({ scope, title, descriptio
     failureMessage: "Não foi possível confirmar a operação.",
   });
   const passkey = usePasskeyConfirmation({
-    scope: finished || !open ? null : scope, loadOptions: options, verify: (credential) => apply({ credential }), onSuccess: complete,
+    scope: finished || !open ? null : scope, loadOptions: options, verify: (credential) => apply({ credential }),
+    verifySession: (sessionConfirmation) => apply({ sessionConfirmation }), onSuccess: complete,
   });
   const busy = !finished && (passkey.busy || code.busy);
 
@@ -69,14 +70,12 @@ export function IntegrationConfirmationDialog<Result>({ scope, title, descriptio
         ) : (
           <div className="grid min-w-0 gap-4">
             {children}
-            {passkey.showPasskey ? <PasskeyActions prompt={passkey} autoFocus /> : (
-              <>
-                <CodeSlots {...code.field} id={fieldId} format="totp" label="Código do autenticador"
-                  autoFocus successLabel="Identidade confirmada." />
-                {passkey.available && <Button type="button" variant="outline" disabled={busy}
-                  onClick={() => { code.reset(); passkey.choosePasskey(); }}>Usar chave de acesso</Button>}
-              </>
-            )}
+            <OperationFactorActions prompt={passkey}>
+              <CodeSlots {...code.field} id={fieldId} format="totp" label="Código do autenticador"
+                autoFocus successLabel="Identidade confirmada." />
+              {passkey.available && <Button type="button" variant="outline" disabled={busy}
+                onClick={() => { code.reset(); passkey.choosePasskey(); }}>Usar chave de acesso</Button>}
+            </OperationFactorActions>
             <Button type="button" variant="ghost" className="justify-self-end" disabled={busy} onClick={close}>Cancelar</Button>
           </div>
         )}

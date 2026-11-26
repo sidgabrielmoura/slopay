@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { CodeSlots, useCodeVerification } from "@/features/auth/components/code-slots";
-import { PasskeyActions, usePasskeyConfirmation } from "@/features/auth/components/passkey-confirmation";
+import { OperationFactorActions, usePasskeyConfirmation } from "@/features/auth/components/passkey-confirmation";
 import { ExpenseCategorySelect } from "@/features/expenses/components/expense-category-select";
 import { expenseKeys } from "@/features/expenses/expense-gateway";
 import { expenseCategoryPresentation, type ExpenseCategory } from "@/features/expenses/expenses";
@@ -272,6 +272,7 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
     scope: open && step === "code" ? draft?.id ?? null : null,
     loadOptions: () => draft ? asaasPixWithdrawals.passkeyOptions(draft.id, draft.data) : Promise.resolve({ options: null }),
     verify: (credential) => submitWithdrawal({ credential }),
+    verifySession: (sessionConfirmation) => submitWithdrawal({ sessionConfirmation }),
     onSuccess: (result) => follow(result.id, result),
   });
   const authorizingBusy = verification.busy || passkey.busy;
@@ -461,25 +462,23 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
             )}
             {authorizing ? (
               <>
-                {passkey.showPasskey ? <PasskeyActions prompt={passkey} autoFocus /> : (
-                  <>
-                    <CodeSlots
-                      {...verification.field}
-                      id={id + "-code"}
-                      format="totp"
-                      label="Código do autenticador"
-                      autoFocus
-                      pendingLabel="Autorizando saque…"
-                      successLabel="Autorização registrada."
-                    />
-                    {passkey.available && (
-                      <Button type="button" variant="outline" disabled={authorizingBusy} onClick={() => {
-                        verification.reset();
-                        passkey.choosePasskey();
-                      }}>Usar biometria</Button>
-                    )}
-                  </>
-                )}
+                <OperationFactorActions prompt={passkey} label="Autorizar saque">
+                  <CodeSlots
+                    {...verification.field}
+                    id={id + "-code"}
+                    format="totp"
+                    label="Código do autenticador"
+                    autoFocus
+                    pendingLabel="Autorizando saque…"
+                    successLabel="Autorização registrada."
+                  />
+                  {passkey.available && (
+                    <Button type="button" variant="outline" disabled={authorizingBusy} onClick={() => {
+                      verification.reset();
+                      passkey.choosePasskey();
+                    }}>Usar biometria</Button>
+                  )}
+                </OperationFactorActions>
                 {submissionUncertain ? (
                   <Button type="button" variant="outline" disabled={authorizingBusy} onClick={() => follow(draft.id)}>Consultar saque</Button>
                 ) : (

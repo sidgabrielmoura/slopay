@@ -91,7 +91,7 @@ export function AdminTeamInviteDialog({ onClose, onInvited, restoreFocus }: {
         apply={async (proof) => {
           setFailure("");
           try {
-            const review = "credential" in proof ? currentReview.current : recentReview() ?? await loadReview(email);
+            const review = "verificationCode" in proof ? recentReview() ?? await loadReview(email) : currentReview.current;
             if (!review) throw new Error("Prepare novamente a confirmação do convite.");
             return await adminTeam.invite(email, review.result.confirmation, proof, access);
           } catch (error) {

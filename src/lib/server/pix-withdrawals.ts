@@ -23,6 +23,7 @@ const contextErrors: Partial<Record<number, string>> = {
 const withdrawalMessages: Partial<Record<string, string>> = {
   PIX_WITHDRAWAL_CODE_REJECTED: "Código incorreto ou já utilizado. Aguarde um novo código do autenticador.",
   PIX_WITHDRAWAL_PASSKEY_REJECTED: "A confirmação expirou ou não corresponde à operação. Tente novamente.",
+  INTEGRATION_SESSION_CONFIRMATION_EXPIRED: "O prazo da confirmação terminou. Confirme novamente.",
   PIX_WITHDRAWAL_PROOF_REQUIRED: "Escolha um método para autorizar a operação.",
   PIX_WITHDRAWAL_INVALID_KEY: "A chave Pix não corresponde ao tipo selecionado.",
   PIX_WITHDRAWAL_PENDING: "Já existe um saque em andamento. Acompanhe o resultado antes de iniciar outro.",
@@ -59,7 +60,8 @@ export async function forwardWithdrawalRequest(
       const error: { code?: string; message?: unknown } | null = await response.json().catch(() => null);
       const code = error?.code === "INTEGRATION_CODE_REJECTED" ? "PIX_WITHDRAWAL_CODE_REJECTED"
         : error?.code === "INTEGRATION_PASSKEY_REJECTED" ? "PIX_WITHDRAWAL_PASSKEY_REJECTED"
-          : typeof error?.code === "string" && /^PIX_WITHDRAWAL_[A-Z_]{1,48}$/.test(error.code) ? error.code : undefined;
+          : typeof error?.code === "string" && (error.code === "INTEGRATION_SESSION_CONFIRMATION_EXPIRED" ||
+            /^PIX_WITHDRAWAL_[A-Z_]{1,48}$/.test(error.code)) ? error.code : undefined;
       const rowError = code === "PIX_WITHDRAWAL_INVALID_KEY" && typeof error?.message === "string" &&
         /^Confira a chave Pix da transferência \d{1,2}\.$/.test(error.message) ? error.message : undefined;
       const message = rowError ?? (code ? withdrawalMessages[code] : undefined) ?? contextErrors[response.status];

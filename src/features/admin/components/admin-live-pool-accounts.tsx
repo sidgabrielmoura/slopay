@@ -54,7 +54,7 @@ export function LiveWalletDialog({ wallet, onClose, restoreFocus, onCreated }: {
       apply={async (proof) => {
         setFailure("");
         try {
-          const confirmation = "credential" in proof ? latestProof.current : (await options(review)).confirmation;
+          const confirmation = "verificationCode" in proof ? (await options(review)).confirmation : latestProof.current;
           if (!confirmation) throw new Error("Prepare a confirmação novamente.");
           if (wallet) await livePoolAccounts.rotate(wallet.id, review.apiKey, confirmation, proof);
           else await livePoolAccounts.register(review, confirmation, proof);

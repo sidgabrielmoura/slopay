@@ -98,7 +98,7 @@ function ProviderRegistrationDialog({ close, restoreFocus, onCreated }: {
         return result;
       }}
       apply={async proof => {
-        const reviewed = "credential" in proof ? confirmation.current : (await adminPaymentProviders.options(review)).confirmation;
+        const reviewed = "verificationCode" in proof ? (await adminPaymentProviders.options(review)).confirmation : confirmation.current;
         if (!reviewed) throw new Error("Revise o cadastro novamente.");
         await adminPaymentProviders.register(review, reviewed, proof);
       }}
