@@ -19,6 +19,7 @@ import { Empty } from "@/components/ui/empty";
 import { GlideSelect } from "@/components/ui/glide-select";
 import { Input } from "@/components/ui/input";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { ApiError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/dates";
@@ -38,6 +39,14 @@ import { useAdminAccess } from "./admin-access-provider";
 const statuses = ruleStatusFilter.options.map(value => ({
   value, label: value === "ALL" ? "Todas as situações" : ruleStatusLabels[value].label,
 }));
+
+const balanceColumns = [
+  { key: "bookedCents", label: "Saldo dos clientes" },
+  { key: "reservedCents", label: "Reservado" },
+  { key: "platformRevenueCents", label: "Tarifas Slopay" },
+  { key: "providerCents", label: "Saldo do provedor" },
+  { key: "differenceCents", label: "Diferença" },
+] as const;
 
 function Balance({ value }: { value: string | null }) {
   return value === null ? <span className="text-muted-foreground">Sem consulta</span>
@@ -63,95 +72,87 @@ function WalletPositionRow({ item, writable, canRotate, refreshingId, refreshBal
   const canClose = !item.closedAt && can("admin.wallets.close");
   const nextDialog = useRef<WalletChange["type"] | null>(null);
   const withdrawalStatus = item.withdrawalStatus && ruleStatusLabels[item.withdrawalStatus];
-  const balances = [
-    { label: "Saldo dos clientes", value: item.bookedCents },
-    { label: "Reservado", value: item.reservedCents },
-    { label: "Tarifas Slopay", value: item.platformRevenueCents },
-    { label: "Saldo do provedor", value: item.providerCents },
-    { label: "Diferença", value: item.differenceCents },
-  ];
 
   return (
-    <li className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 p-4 sm:px-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] xl:gap-x-5">
-      <div className="col-start-1 row-start-1 grid min-w-0 gap-1">
-        <h3 className="text-balance wrap-anywhere text-base font-semibold">{item.name}</h3>
-        <p className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-          <span className="tabular-nums">Carteira final {item.walletId.slice(-8)}</span>
-          {item.verifiedAt && <span>Verificada em <time dateTime={item.verifiedAt}>{formatDateTime(item.verifiedAt, "date-only")}</time></span>}
-        </p>
-        {(item.closedAt || withdrawalStatus || item.receives) && <div className="flex min-w-0 flex-wrap gap-1.5 pt-1">
+    <TableRow>
+      <th scope="row" className="px-4 py-3 text-left font-semibold">{item.name}</th>
+      <TableCell className="py-3 font-mono text-xs text-muted-foreground">{item.walletId.slice(-8)}</TableCell>
+      <TableCell className="py-3 text-muted-foreground">
+        {item.verifiedAt ? <time dateTime={item.verifiedAt}>{formatDateTime(item.verifiedAt, "date-only")}</time> : "—"}
+      </TableCell>
+      <TableCell className="py-3">
+        <div className="flex items-center gap-1.5">
           {item.closedAt ? <Badge variant="secondary">Encerrada</Badge> : <>
-            {withdrawalStatus && <Badge variant={withdrawalStatus.variant} className="whitespace-normal">{withdrawalStatus.label}</Badge>}
+            {withdrawalStatus && <Badge variant={withdrawalStatus.variant}>{withdrawalStatus.label}</Badge>}
             {item.receives && <Badge variant="secondary">Recebimentos</Badge>}
+            {!withdrawalStatus && !item.receives && <span className="text-muted-foreground">—</span>}
           </>}
-        </div>}
-      </div>
-      <div className="col-span-2 col-start-1 row-start-2 grid min-w-0 gap-1.5 xl:col-span-1 xl:col-start-2 xl:row-start-1">
-        <dl className="grid min-w-0 grid-cols-2 gap-3 text-sm sm:grid-cols-3 2xl:grid-cols-5">
-          {balances.map(({ label, value }) => <div key={label} className="min-w-0">
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="wrap-anywhere font-medium tabular-nums"><Balance value={value} /></dd>
-          </div>)}
-        </dl>
-        <p role="status" className="text-xs text-muted-foreground empty:hidden">
-          {refreshingId === item.id ? "Consultando saldo…" : item.checkedAt && <>
-            Consultado em <time className="tabular-nums" dateTime={item.checkedAt}>{formatDateTime(item.checkedAt)}</time>
-          </>}
-        </p>
-      </div>
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button ref={menuTrigger} type="button" variant="ghost" size="icon"
-            className="col-start-2 row-start-1 size-11 text-muted-foreground data-[state=open]:bg-accent xl:col-start-3"
-            aria-label={`Ações da carteira ${item.name}`}>
-            <Ellipsis aria-hidden="true" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" collisionPadding={12}
-          className="max-h-(--radix-dropdown-menu-content-available-height) w-56 max-w-(--radix-dropdown-menu-content-available-width) overflow-y-auto overscroll-contain"
-          onCloseAutoFocus={event => {
-            const type = nextDialog.current;
-            nextDialog.current = null;
-            if (!type || !menuTrigger.current) return;
-            event.preventDefault();
-            openAction({ type, wallet: item }, menuTrigger.current);
-          }}>
-          {(canRefresh || canConfigure || canRotateKey || canClose) && <>
-          <DropdownMenuGroup>
-            {canRefresh && <DropdownMenuItem className="min-h-11" disabled={!writable || refreshingId !== undefined}
-              onSelect={() => refreshBalance(item.id)}>
-              <RefreshCw aria-hidden="true" />Consultar saldo
-            </DropdownMenuItem>}
-            {canConfigure && <DropdownMenuItem className="min-h-11" disabled={!writable}
-              onSelect={() => { nextDialog.current = "configure"; }}>
-              <Settings2 aria-hidden="true" />Configurar
-            </DropdownMenuItem>}
-            {canRotateKey && <DropdownMenuItem className="min-h-11" disabled={!writable}
-              onSelect={() => { nextDialog.current = "rotate"; }}>
-              <KeyRound aria-hidden="true" />Trocar chave
-            </DropdownMenuItem>}
-            {canClose && <DropdownMenuItem className="min-h-11 text-destructive" disabled={!writable}
-              onSelect={() => { nextDialog.current = "close"; }}>
-              <LockKeyhole aria-hidden="true" />Encerrar carteira
-            </DropdownMenuItem>}
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          </>}
-          <DropdownMenuGroup>
-            {can("admin.movements.read") && <DropdownMenuItem asChild className="min-h-11">
-              <Link href={pixTransactionsPath + "?" + new URLSearchParams({ accountId: item.id })} prefetch={false}>
-                <ArrowDownUp aria-hidden="true" />Ver movimentações
-              </Link>
-            </DropdownMenuItem>}
-            {can("admin.fees.read") && <DropdownMenuItem asChild className="min-h-11">
-              <Link href={adminPixFeesPath + "/" + item.id} prefetch={false}>
-                <Percent aria-hidden="true" />Ver tarifas
-              </Link>
-            </DropdownMenuItem>}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </li>
+        </div>
+      </TableCell>
+      {balanceColumns.map(({ key }) => (
+        <TableCell key={key} className="py-3 text-right font-medium"><Balance value={item[key]} /></TableCell>
+      ))}
+      <TableCell className="py-3 text-muted-foreground">
+        <span role="status">
+          {refreshingId === item.id ? "Consultando saldo…" : item.checkedAt
+            ? <time dateTime={item.checkedAt}>{formatDateTime(item.checkedAt)}</time> : "—"}
+        </span>
+      </TableCell>
+      <TableCell className="sticky right-0 z-10 bg-card px-2 py-2 text-right">
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button ref={menuTrigger} type="button" variant="ghost" size="icon"
+              className="size-11 text-muted-foreground data-[state=open]:bg-accent"
+              aria-label={`Ações da carteira ${item.name}`}>
+              <Ellipsis aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" collisionPadding={12}
+            className="max-h-(--radix-dropdown-menu-content-available-height) w-56 max-w-(--radix-dropdown-menu-content-available-width) overflow-y-auto overscroll-contain"
+            onCloseAutoFocus={event => {
+              const type = nextDialog.current;
+              nextDialog.current = null;
+              if (!type || !menuTrigger.current) return;
+              event.preventDefault();
+              openAction({ type, wallet: item }, menuTrigger.current);
+            }}>
+            {(canRefresh || canConfigure || canRotateKey || canClose) && <>
+            <DropdownMenuGroup>
+              {canRefresh && <DropdownMenuItem className="min-h-11" disabled={!writable || refreshingId !== undefined}
+                onSelect={() => refreshBalance(item.id)}>
+                <RefreshCw aria-hidden="true" />Consultar saldo
+              </DropdownMenuItem>}
+              {canConfigure && <DropdownMenuItem className="min-h-11" disabled={!writable}
+                onSelect={() => { nextDialog.current = "configure"; }}>
+                <Settings2 aria-hidden="true" />Configurar
+              </DropdownMenuItem>}
+              {canRotateKey && <DropdownMenuItem className="min-h-11" disabled={!writable}
+                onSelect={() => { nextDialog.current = "rotate"; }}>
+                <KeyRound aria-hidden="true" />Trocar chave
+              </DropdownMenuItem>}
+              {canClose && <DropdownMenuItem className="min-h-11 text-destructive" disabled={!writable}
+                onSelect={() => { nextDialog.current = "close"; }}>
+                <LockKeyhole aria-hidden="true" />Encerrar carteira
+              </DropdownMenuItem>}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            </>}
+            <DropdownMenuGroup>
+              {can("admin.movements.read") && <DropdownMenuItem asChild className="min-h-11">
+                <Link href={pixTransactionsPath + "?" + new URLSearchParams({ accountId: item.id })} prefetch={false}>
+                  <ArrowDownUp aria-hidden="true" />Ver movimentações
+                </Link>
+              </DropdownMenuItem>}
+              {can("admin.fees.read") && <DropdownMenuItem asChild className="min-h-11">
+                <Link href={adminPixFeesPath + "/" + item.id} prefetch={false}>
+                  <Percent aria-hidden="true" />Ver tarifas
+                </Link>
+              </DropdownMenuItem>}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -246,13 +247,27 @@ export function AdminLiveBalancePositions({ adminId }: { adminId: string }) {
         {data ? (
           <>
             {data.items.length ? (
-              <ul className="min-w-0 divide-y divide-border" aria-label="Carteiras operacionais">
-                {data.items.map(item => (
-                  <WalletPositionRow key={item.id} item={item} writable={writable} canRotate={data.canRotate}
-                    refreshingId={refresh.isPending ? refresh.variables : undefined}
-                    refreshBalance={refresh.mutate} openAction={open} />
-                ))}
-              </ul>
+              <Table className="w-max min-w-full whitespace-nowrap tabular-nums" aria-label="Carteiras operacionais"
+                scrollLabel="Rolagem horizontal dos saldos das carteiras">
+                <TableHeader className="bg-secondary/20">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead scope="col">Carteira</TableHead>
+                    <TableHead scope="col">Final da carteira</TableHead>
+                    <TableHead scope="col">Verificada em</TableHead>
+                    <TableHead scope="col">Situação</TableHead>
+                    {balanceColumns.map(({ key, label }) => <TableHead key={key} scope="col" className="text-right">{label}</TableHead>)}
+                    <TableHead scope="col">Última consulta</TableHead>
+                    <TableHead scope="col" className="sticky right-0 z-10 bg-card"><span className="sr-only">Ações</span></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.items.map(item => (
+                    <WalletPositionRow key={item.id} item={item} writable={writable} canRotate={data.canRotate}
+                      refreshingId={refresh.isPending ? refresh.variables : undefined}
+                      refreshBalance={refresh.mutate} openAction={open} />
+                  ))}
+                </TableBody>
+              </Table>
             ) : <Empty icon={<Wallet aria-hidden="true" />} className="min-h-44 animate-none rounded-none border-0"
               title={filtered ? "Nenhuma carteira encontrada" : "Nenhuma carteira cadastrada"}
               description={filtered ? "Consulte com outros filtros." : data.available ? "Use Cadastrar carteira para adicionar uma conta." : "O cadastro de carteiras está indisponível neste ambiente."}

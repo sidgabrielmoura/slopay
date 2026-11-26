@@ -135,15 +135,6 @@ function PositionSummary({ summary, loading }: { summary?: BalancePositionsRepor
   );
 }
 
-function WalletIdentity({ position }: { position: BalancePosition }) {
-  return (
-    <div className="min-w-0 space-y-0.5">
-      <p className="truncate font-medium" title={position.companyName}>{position.companyName}</p>
-      <p className="font-mono text-xs text-muted-foreground">Carteira final {position.walletSuffix}</p>
-    </div>
-  );
-}
-
 function BalanceValue({ position }: { position: BalancePosition }) {
   return position.balanceInCents === null
     ? <span className="text-sm font-normal text-muted-foreground">Sem consulta</span>
@@ -151,15 +142,16 @@ function BalanceValue({ position }: { position: BalancePosition }) {
 }
 
 function WithdrawalValue({ position }: { position: BalancePosition }) {
+  const withdrawals = position.openWithdrawals;
   return (
-    <div className="min-w-0 space-y-0.5">
-      <div className="wrap-anywhere font-medium tabular-nums"><PanelAmount cents={BigInt(position.openWithdrawals.amountInCents)} /></div>
-      {position.openWithdrawals.count > 0 && (
-        <div className="text-xs tabular-nums text-muted-foreground">
-          {count.format(position.openWithdrawals.count)} {position.openWithdrawals.count === 1 ? "saque" : "saques"}
-        </div>
+    <>
+      <PanelAmount cents={BigInt(withdrawals.amountInCents)} />
+      {withdrawals.count > 0 && (
+        <span className="ml-2 text-xs font-normal text-muted-foreground">
+          {count.format(withdrawals.count)} {withdrawals.count === 1 ? "saque" : "saques"}
+        </span>
       )}
-    </div>
+    </>
   );
 }
 
@@ -182,54 +174,33 @@ function OpenWallet({ position, query }: { position: BalancePosition; query: Bal
 
 function PositionRows({ items, query }: { items: BalancePosition[]; query: BalancePositionsQuery }) {
   return (
-    <>
-      <div className="hidden min-w-0 xl:block">
-        <Table aria-label="Posição das carteiras" className="table-fixed">
-          <colgroup>
-            <col className="w-[25%]" /><col className="w-[17%]" /><col className="w-[16%]" />
-            <col className="w-[19%]" /><col className="w-[17%]" /><col className="w-[6%]" />
-          </colgroup>
-          <TableHeader className="bg-secondary/20">
-            <TableRow className="hover:bg-transparent">
-              <TableHead scope="col">Empresa e carteira</TableHead><TableHead scope="col" className="text-right">Saldo registrado</TableHead>
-              <TableHead scope="col" className="text-right">Saques em aberto</TableHead><TableHead scope="col">Última consulta</TableHead>
-              <TableHead scope="col">Situação Pix</TableHead><TableHead scope="col"><span className="sr-only">Dossiê</span></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>{items.map((position) => (
-            <TableRow key={position.id}>
-              <TableCell className="py-3"><WalletIdentity position={position} /></TableCell>
-              <TableCell className="wrap-anywhere py-3 text-right font-semibold tabular-nums"><BalanceValue position={position} /></TableCell>
-              <TableCell className="py-3 text-right"><WithdrawalValue position={position} /></TableCell>
-              <TableCell className="py-3">
-                {position.balanceCheckedAt ? <BalanceTime checkedAt={position.balanceCheckedAt} /> : <span className="text-muted-foreground">—</span>}
-              </TableCell>
-              <TableCell className="py-3"><OperationalStatusBadge status={position.status} /></TableCell>
-              <TableCell className="px-1 py-2 text-right"><OpenWallet position={position} query={query} /></TableCell>
-            </TableRow>
-          ))}</TableBody>
-        </Table>
-      </div>
-      <ul aria-label="Posição das carteiras" className="min-w-0 divide-y divide-border xl:hidden">{items.map((position) => (
-        <li key={position.id} className="grid min-w-0 gap-3 px-4 py-3.5 sm:px-5">
-          <div className="flex min-w-0 items-center justify-between gap-2"><WalletIdentity position={position} /><OpenWallet position={position} query={query} /></div>
-          <dl className="grid min-w-0 grid-cols-2 gap-3">
-            <div className="min-w-0 space-y-1">
-              <dt className="text-xs text-muted-foreground">Saldo registrado</dt>
-              <dd className="wrap-anywhere text-sm font-semibold tabular-nums"><BalanceValue position={position} /></dd>
-            </div>
-            <div className="min-w-0 space-y-1 text-right">
-              <dt className="text-xs text-muted-foreground">Saques em aberto</dt>
-              <dd className="text-sm"><WithdrawalValue position={position} /></dd>
-            </div>
-          </dl>
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-            <OperationalStatusBadge status={position.status} />
-            {position.balanceCheckedAt && <BalanceTime checkedAt={position.balanceCheckedAt} />}
-          </div>
-        </li>
-      ))}</ul>
-    </>
+    <Table aria-label="Posição das carteiras" className="w-max min-w-full whitespace-nowrap tabular-nums"
+      scrollLabel="Rolagem horizontal dos saldos das carteiras">
+      <TableHeader className="bg-secondary/20">
+        <TableRow className="hover:bg-transparent">
+          <TableHead scope="col">Empresa</TableHead>
+          <TableHead scope="col">Final da carteira</TableHead>
+          <TableHead scope="col">Situação Pix</TableHead>
+          <TableHead scope="col" className="text-right">Saldo registrado</TableHead>
+          <TableHead scope="col" className="text-right">Saques em aberto</TableHead>
+          <TableHead scope="col">Última consulta</TableHead>
+          <TableHead scope="col" className="sticky right-0 z-10 bg-card"><span className="sr-only">Dossiê</span></TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>{items.map((position) => (
+        <TableRow key={position.id}>
+          <th scope="row" className="px-4 py-3 text-left font-semibold">{position.companyName}</th>
+          <TableCell className="py-3 font-mono text-xs text-muted-foreground">{position.walletSuffix}</TableCell>
+          <TableCell className="py-3"><OperationalStatusBadge status={position.status} /></TableCell>
+          <TableCell className="py-3 text-right font-medium"><BalanceValue position={position} /></TableCell>
+          <TableCell className="py-3 text-right font-medium"><WithdrawalValue position={position} /></TableCell>
+          <TableCell className="py-3">
+            {position.balanceCheckedAt ? <BalanceTime checkedAt={position.balanceCheckedAt} /> : <span className="text-muted-foreground">—</span>}
+          </TableCell>
+          <TableCell className="sticky right-0 z-10 bg-card px-2 py-2 text-right"><OpenWallet position={position} query={query} /></TableCell>
+        </TableRow>
+      ))}</TableBody>
+    </Table>
   );
 }
 
