@@ -1,19 +1,16 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronRight, Search, X } from "lucide-react";
-import { toast } from "sonner";
+import { ChevronRight, X } from "lucide-react";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -41,54 +38,25 @@ export function AdminBatchBadge({ state }: { state: AdminWithdrawalBatch["state"
 }
 
 function BatchFilters({ query, onChange }: { query: AdminWithdrawalBatchQuery; onChange: (next: AdminWithdrawalBatchQuery) => void }) {
-  const [search, setSearch] = useState(query.search);
-  const filtered = query.search || query.companyId || query.accountId || query.status !== "ALL" || query.period !== initialQuery.period;
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = adminBatchSearch.safeParse(search);
-    if (!value.success) {
-      toast.error("Confira o texto da busca.");
-      return;
-    }
-    setSearch(value.data);
-    onChange({ ...query, search: value.data, page: 1 });
-  }
+  const filtered = Boolean(query.search || query.companyId || query.accountId) || query.status !== initialQuery.status || query.period !== initialQuery.period;
 
   return (
-    <form role="search" aria-label="Filtrar lotes de saída" className="grid min-w-0 gap-3 border-y border-border px-4 py-4 sm:px-5" onSubmit={submit}>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(0,1fr))]">
-        <div className="grid min-w-0 gap-2 sm:col-span-2 lg:col-span-1">
-          <label htmlFor="admin-batch-search" className="text-sm font-medium">Buscar lote</label>
-          <div className="flex min-w-0 gap-2">
-            <Input id="admin-batch-search" type="search" className="h-11 min-w-0" placeholder="Lote, transferência, empresa ou CNPJ"
-              maxLength={120} value={search} onChange={(event) => setSearch(event.target.value)} />
-            <Button type="submit" variant="outline" size="icon" className="size-11 shrink-0" aria-label="Buscar lote"><Search aria-hidden="true" /></Button>
-          </div>
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="admin-batch-status" className="text-sm font-medium">Situação</span>
-          <GlideSelect aria-labelledby="admin-batch-status" options={statuses} value={query.status} size="lg" menuWidth={228}
-            onChange={(value) => onChange({ ...query, status: adminBatchQuery.shape.status.parse(value), page: 1 })} />
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="admin-batch-period" className="text-sm font-medium">Período de criação</span>
-          <GlideSelect aria-labelledby="admin-batch-period" options={periods} value={query.period} size="lg"
-            onChange={(value) => onChange({ ...query, period: adminDatePeriod.parse(value), page: 1 })} />
-        </div>
-      </div>
-      {filtered && (
-        <div className="flex min-w-0 flex-wrap gap-2">
-          {query.companyId && <Button type="button" variant="outline" size="sm" className="h-11" onClick={() => onChange({ ...query, companyId: undefined, page: 1 })}>
-            Remover filtro de empresa <X aria-hidden="true" />
-          </Button>}
-          {query.accountId && <Button type="button" variant="outline" size="sm" className="h-11" onClick={() => onChange({ ...query, accountId: undefined, page: 1 })}>
-            Remover filtro de conta <X aria-hidden="true" />
-          </Button>}
-          <Button type="button" variant="ghost" size="sm" className="h-11" onClick={() => { setSearch(""); onChange(initialQuery); }}>Limpar filtros</Button>
-        </div>
-      )}
-    </form>
+    <FilterSheet value={query} defaults={initialQuery} active={filtered}
+      onApply={draft => applySearchFilters(draft, adminBatchSearch, onChange)}>
+      {(draft, setDraft) => <>
+        <FilterInput label="Buscar lote" placeholder="Lote, transferência, empresa ou CNPJ" maxLength={120} value={draft.search}
+          onChange={event => setDraft({ ...draft, search: event.target.value })} />
+        <FilterSelect label="Situação" options={statuses} value={draft.status}
+          onChange={value => setDraft({ ...draft, status: adminBatchQuery.shape.status.parse(value) })} />
+        <FilterSelect label="Período de criação" options={periods} value={draft.period}
+          onChange={value => setDraft({ ...draft, period: adminDatePeriod.parse(value) })} />
+        {(["companyId", "accountId"] as const).map(scope => draft[scope] && (
+          <Button key={scope} type="button" variant="outline" className="h-11 w-fit" onClick={() => setDraft({ ...draft, [scope]: undefined })}>
+            {scope === "companyId" ? "Remover filtro de empresa" : "Remover filtro de conta"}<X aria-hidden="true" />
+          </Button>
+        ))}
+      </>}
+    </FilterSheet>
   );
 }
 
@@ -223,10 +191,10 @@ export function AdminWithdrawalBatchesScreen({ user }: { user: AdminIdentity }) 
       {(result.isLoading || data) && <BatchSummary data={data} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="admin-batch-history">
-        <header className="px-4 py-4 sm:px-5">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
           <h2 id="admin-batch-history" className="text-balance text-lg font-semibold">Histórico de lotes</h2>
+          <BatchFilters query={query} onChange={navigate} />
         </header>
-        <BatchFilters key={query.search} query={query} onChange={navigate} />
         {result.isLoading && <p role="status" className="sr-only">Carregando lotes de saída</p>}
         <SkeletonReveal flow revealed={!result.isLoading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3, 4].map((cell) => (

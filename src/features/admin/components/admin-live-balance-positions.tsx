@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { ArrowDownUp, Ellipsis, KeyRound, LockKeyhole, Percent, Plus, RefreshCw, Search, Settings2, Wallet } from "lucide-react";
+import { ArrowDownUp, Ellipsis, KeyRound, LockKeyhole, Percent, Plus, RefreshCw, Settings2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,8 +17,6 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Empty } from "@/components/ui/empty";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToastNotice } from "@/components/ui/toast-notice";
@@ -162,10 +161,7 @@ export function AdminLiveBalancePositions({ adminId }: { adminId: string }) {
   const client = useQueryClient();
   const heading = useRef<HTMLHeadingElement>(null);
   const origin = useRef<HTMLButtonElement>(null);
-  const searchInput = useRef<HTMLInputElement>(null);
   const [action, setAction] = useState<WalletAction | null>(null);
-  const [draft, setDraft] = useState({ previous: query.search, value: query.search });
-  const search = draft.previous === query.search ? draft.value : query.search;
   const filtered = Boolean(query.search || query.status !== "ALL");
   const key = ["admin-live-wallet-positions", adminId] as const;
   const filterKey = approvalRulesParams({ ...query, page: 1 }).toString();
@@ -188,19 +184,8 @@ export function AdminLiveBalancePositions({ adminId }: { adminId: string }) {
     window.history.replaceState(null, "", walletsHref("saldos", approvalRulesParams(next)));
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = operationalSearch.safeParse(search);
-    if (!value.success) { toast.error("Confira o texto da busca."); return; }
-    setDraft({ previous: value.data, value: value.data });
-    navigate({ ...query, search: value.data, page: 1 });
-  }
-
-  function clear() {
-    setDraft({ previous: "", value: "" });
-    navigate({ status: "ALL", search: "", page: 1 });
-    searchInput.current?.focus();
-  }
+  const defaults: ApprovalRulesQuery = { status: "ALL", search: "", page: 1 };
+  const clear = () => navigate(defaults);
 
   function open(next: WalletAction, trigger: HTMLButtonElement) {
     origin.current = trigger;
@@ -221,27 +206,20 @@ export function AdminLiveBalancePositions({ adminId }: { adminId: string }) {
           <h2 id="admin-wallet-positions" ref={heading} tabIndex={-1} className="text-balance text-lg font-semibold outline-none">Saldos e configuração</h2>
           <p className="text-pretty text-sm text-muted-foreground">A diferença compara o saldo no provedor com a soma dos saldos dos clientes e das tarifas Slopay.</p>
         </div>
-        {data?.available && can("admin.wallets.register") && <Button type="button" className="min-h-11" disabled={!writable}
-          onClick={event => open({ type: "register" }, event.currentTarget)}><Plus aria-hidden="true" />Cadastrar carteira</Button>}
+        <div className="flex flex-wrap gap-2">
+          <FilterSheet value={query} defaults={defaults} active={filtered}
+            onApply={draft => applySearchFilters(draft, operationalSearch, navigate)}>
+            {(draft, setDraft) => <>
+              <FilterInput label="Buscar carteira" placeholder="Nome ou ID da carteira" maxLength={120} value={draft.search}
+                onChange={event => setDraft({ ...draft, search: event.target.value })} />
+              <FilterSelect label="Validação de saques" options={statuses} value={draft.status}
+                onChange={value => setDraft({ ...draft, status: ruleStatusFilter.parse(value) })} />
+            </>}
+          </FilterSheet>
+          {data?.available && can("admin.wallets.register") && <Button type="button" className="min-h-11" disabled={!writable}
+            onClick={event => open({ type: "register" }, event.currentTarget)}><Plus aria-hidden="true" />Cadastrar carteira</Button>}
+        </div>
       </header>
-      <form role="search" aria-label="Filtrar carteiras" onSubmit={submit}
-        className="flex min-w-0 flex-wrap items-end gap-3 border-b border-border p-4 sm:px-5">
-        <div className="grid w-full min-w-0 gap-2 sm:max-w-xs">
-          <label htmlFor="wallet-search" className="text-sm font-medium">Buscar carteira</label>
-          <div className="flex min-w-0 gap-2">
-            <Input ref={searchInput} id="wallet-search" type="search" className="h-11 min-w-0" maxLength={120}
-              placeholder="Nome ou ID da carteira" value={search}
-              onChange={event => setDraft({ previous: query.search, value: event.target.value })} />
-            <Button type="submit" size="icon" variant="outline" className="size-11 shrink-0" aria-label="Buscar carteira"><Search aria-hidden="true" /></Button>
-          </div>
-        </div>
-        <div className="grid w-full min-w-0 gap-2 sm:max-w-xs">
-          <span id="wallet-approval-status" className="text-sm font-medium">Validação de saques</span>
-          <GlideSelect size="lg" aria-labelledby="wallet-approval-status" options={statuses} value={query.status}
-            onChange={status => navigate({ ...query, status: ruleStatusFilter.parse(status), page: 1 })} />
-        </div>
-        {filtered && <Button type="button" variant="ghost" className="min-h-11" onClick={clear}>Limpar filtros</Button>}
-      </form>
       <ToastNotice message={result.error?.message} />
       <SkeletonReveal flow revealed={!result.isPending} skeleton={<CompanyRowsSkeleton />}>
         {data ? (

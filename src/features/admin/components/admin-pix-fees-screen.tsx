@@ -1,19 +1,16 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, ChevronRight, Search } from "lucide-react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { toast } from "sonner";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -43,48 +40,18 @@ const coverageOptions = [
 ];
 
 function FeeFilters({ query, onChange }: { query: PixFeesQuery; onChange: (next: PixFeesQuery) => void }) {
-  const [draft, setDraft] = useState({ searched: query.search, value: query.search });
-  const input = useRef<HTMLInputElement>(null);
-  const value = draft.searched === query.search ? draft.value : query.search;
-
-  function search(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = operationalSearch.safeParse(value);
-    if (!parsed.success) {
-      toast.error("Confira o texto da busca.");
-      return;
-    }
-    setDraft({ searched: parsed.data, value: parsed.data });
-    onChange({ ...query, search: parsed.data, page: 1 });
-  }
+  const filtered = Boolean(query.search) || query.coverage !== defaultQuery.coverage;
 
   return (
-    <form role="search" aria-label="Filtrar tarifas por carteira" onSubmit={search}
-      className="grid gap-3 border-y border-border px-4 py-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] sm:px-5 lg:grid-cols-[minmax(0,26rem)_minmax(0,15rem)]">
-      <div className="grid min-w-0 gap-2">
-        <label htmlFor="pix-fees-search" className="text-sm font-medium">Buscar carteira</label>
-        <div className="flex min-w-0 gap-2">
-          <Input id="pix-fees-search" ref={input} type="search" className="h-11 min-w-0" maxLength={120}
-            placeholder="Empresa, CNPJ ou carteira" autoComplete="off" value={value}
-            onChange={(event) => setDraft({ searched: query.search, value: event.target.value })} />
-          <Button type="submit" variant="outline" size="icon" className="size-11 shrink-0" aria-label="Buscar carteira">
-            <Search aria-hidden="true" />
-          </Button>
-        </div>
-      </div>
-      <div className="grid min-w-0 gap-2">
-        <span id="pix-fees-coverage" className="text-sm font-medium">Situação da consulta</span>
-        <GlideSelect aria-labelledby="pix-fees-coverage" size="lg" menuWidth={224} options={coverageOptions} value={query.coverage}
-          onChange={(coverage) => onChange({ ...query, coverage: pixFeeCoverage.parse(coverage), page: 1 })} />
-      </div>
-      {(query.search || query.coverage !== "ALL") && (
-        <Button type="button" variant="ghost" size="sm" className="-ml-2 h-11 w-fit" onClick={() => {
-          setDraft({ searched: "", value: "" });
-          onChange(defaultQuery);
-          input.current?.focus();
-        }}>Limpar filtros</Button>
-      )}
-    </form>
+    <FilterSheet value={query} defaults={defaultQuery} active={filtered}
+      onApply={draft => applySearchFilters(draft, operationalSearch, onChange)}>
+      {(draft, setDraft) => <>
+        <FilterInput label="Buscar carteira" placeholder="Nome ou ID da carteira" maxLength={120} value={draft.search}
+          onChange={event => setDraft({ ...draft, search: event.target.value })} />
+        <FilterSelect label="Situação da consulta" options={coverageOptions} value={draft.coverage}
+          onChange={value => setDraft({ ...draft, coverage: pixFeeCoverage.parse(value) })} />
+      </>}
+    </FilterSheet>
   );
 }
 
@@ -265,7 +232,7 @@ export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
       {(result.isLoading || data) && <AppliedLimits limits={data?.limits} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="pix-fees-wallets">
-        <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-5">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
           <div className="space-y-1">
             <h2 id="pix-fees-wallets" className="text-balance text-lg font-semibold">Tarifas por carteira</h2>
             <p className="text-pretty text-sm text-muted-foreground">Abra uma carteira para consultar o provedor ou ver descontos e franquias registrados.</p>
@@ -275,8 +242,8 @@ export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
               {count.format(data.summary.checked)} de {count.format(data.summary.total)} com tarifas registradas
             </p>
           )}
+          <FeeFilters query={query} onChange={navigate} />
         </header>
-        <FeeFilters query={query} onChange={navigate} />
         {loading && <span role="status" className="sr-only">Carregando tarifas das carteiras</span>}
         <SkeletonReveal flow revealed={!loading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3, 4].map((index) => (

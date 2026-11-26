@@ -3,6 +3,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { CirclePause, CirclePlay, Ellipsis, KeyRound, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -134,8 +135,11 @@ export function ApiKeysScreen({ readOnly = false }: { readOnly?: boolean }) {
             </div>
             <h2 className="text-balance text-lg font-semibold tracking-tight">Chaves cadastradas</h2>
           </div>
-          <GlideSelect ref={filterRef} ariaLabel="Filtrar por ambiente" options={environmentFilters} value={filter}
-            onChange={changeFilter} size="lg" className="w-full shrink-0 sm:w-52" />
+          <FilterSheet value={{ filter }} defaults={{ filter: "all" }} active={filter !== "all"} triggerRef={filterRef}
+            onApply={draft => changeFilter(draft.filter)}>
+            {(draft, setDraft) => <FilterSelect label="Ambiente" options={environmentFilters} value={draft.filter}
+              onChange={filter => setDraft({ filter })} />}
+          </FilterSheet>
         </CardHeader>
         {visible.length ? (
           <ul className="divide-y divide-border" aria-label="Chaves cadastradas">

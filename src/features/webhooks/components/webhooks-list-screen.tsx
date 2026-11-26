@@ -9,6 +9,7 @@ import {
   AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -95,8 +96,11 @@ export function WebhooksListScreen({ service, queryKey, readOnly: isReadOnly }: 
               {endpoints.data && !endpoints.isError ? `${visible.length} ${visible.length === 1 ? "webhook" : "webhooks"}` : null}
             </p>
           </div>
-          <GlideSelect ref={filterRef} ariaLabel="Filtrar por evento" options={eventOptions} value={eventFilter}
-            onChange={setEventFilter} size="lg" className="w-full shrink-0 sm:w-48" />
+          <FilterSheet value={{ event: eventFilter }} defaults={{ event: "ALL" }} active={eventFilter !== "ALL"} triggerRef={filterRef}
+            onApply={draft => setEventFilter(draft.event)}>
+            {(draft, setDraft) => <FilterSelect label="Evento" options={eventOptions} value={draft.event}
+              onChange={event => setDraft({ event })} />}
+          </FilterSheet>
         </CardHeader>
         <div className="border-t" aria-busy={endpoints.isFetching}>
           {endpoints.isError ? (

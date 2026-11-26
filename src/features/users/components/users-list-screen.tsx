@@ -1,19 +1,18 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2, Users } from "lucide-react";
 import {
   AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { FilterInput, FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { LoadingConfirmation, LoadingIndicator, OperationFailure } from "@/components/ui/loading-indicator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/dates";
@@ -62,7 +61,7 @@ export function UsersListScreen() {
   const service = useGatewayService();
   const { currentUser, isReadOnly, activeScenario } = useDemoScenario();
   const client = useQueryClient();
-  const searchField = useRef<HTMLInputElement>(null);
+  const filterRef = useRef<HTMLButtonElement>(null);
   const removeTrigger = useRef<HTMLButtonElement | null>(null);
   const [search, setSearch] = useState("");
   const [role, setRole] = useState<UserRole | "ALL">("ALL");
@@ -98,18 +97,16 @@ export function UsersListScreen() {
   const data = list.data;
   const filtered = Boolean(filters.search || filters.role || filters.status);
 
-  function changeSearch(event: ChangeEvent<HTMLInputElement>) {
-    setSearch(event.currentTarget.value);
+  const defaults = { search: "", role: "ALL" as const, status: "ALL" as const };
+
+  function applyFilters(draft: { search: string; role: typeof role; status: typeof status }) {
+    setSearch(draft.search.trim());
+    setRole(draft.role);
+    setStatus(draft.status);
     setPage(1);
   }
 
-  function clearFilters() {
-    setSearch("");
-    setRole("ALL");
-    setStatus("ALL");
-    setPage(1);
-    searchField.current?.focus();
-  }
+  const clearFilters = () => applyFilters(defaults);
 
   return (
     <div className="grid min-w-0 gap-5">
@@ -126,8 +123,8 @@ export function UsersListScreen() {
       </header>
 
       <Card className="min-w-0">
-        <CardHeader className="gap-4 space-y-0 p-4 sm:p-5">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0 p-4 sm:p-5">
+          <div className="grid gap-1">
             <h2 className="text-balance text-lg font-semibold">Colaboradores</h2>
             <p className="text-xs text-muted-foreground tabular-nums" role="status">
               {list.isPlaceholderData ? "Atualizando resultados…" : data && !list.isError
@@ -135,17 +132,16 @@ export function UsersListScreen() {
                 : null}
             </p>
           </div>
-          <div className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-[minmax(0,1fr)_10rem_10rem]">
-            <div className="relative col-span-2 min-w-0 lg:col-span-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input ref={searchField} type="search" aria-label="Buscar usuários por nome, e-mail ou CPF"
-                value={search} onChange={changeSearch} placeholder="Nome, e-mail ou CPF" className="h-11 pl-9" />
-            </div>
-            <GlideSelect ariaLabel="Filtrar por perfil" className="min-w-0" size="lg"
-              options={roleOptions} value={role} onChange={(next) => { setRole(next as typeof role); setPage(1); }} />
-            <GlideSelect ariaLabel="Filtrar por status" className="min-w-0" size="lg"
-              options={statusOptions} value={status} onChange={(next) => { setStatus(next as typeof status); setPage(1); }} />
-          </div>
+          <FilterSheet value={{ search, role, status }} defaults={defaults} active={filtered} onApply={applyFilters} triggerRef={filterRef}>
+            {(draft, setDraft) => <>
+              <FilterInput label="Buscar usuários" placeholder="Nome, e-mail ou CPF" value={draft.search}
+                onChange={event => setDraft({ ...draft, search: event.target.value })} />
+              <FilterSelect label="Perfil" options={roleOptions} value={draft.role}
+                onChange={role => setDraft({ ...draft, role: role as typeof draft.role })} />
+              <FilterSelect label="Situação" options={statusOptions} value={draft.status}
+                onChange={status => setDraft({ ...draft, status: status as typeof draft.status })} />
+            </>}
+          </FilterSheet>
         </CardHeader>
 
         <div className="border-t" aria-busy={list.isFetching}>
@@ -229,7 +225,7 @@ export function UsersListScreen() {
             event.preventDefault();
             const trigger = removeTrigger.current;
             if (trigger?.isConnected && !trigger.disabled) trigger.focus();
-            else searchField.current?.focus();
+            else filterRef.current?.focus();
           }}>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-balance">{remove.isSuccess ? "Usuário removido" : "Remover usuário?"}</AlertDialogTitle>

@@ -4,10 +4,10 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { demoRepository } from "@/services/demo-repository";
 import { formatDateTime } from "@/lib/dates";
+import { FilterInput, FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 import {
   Table,
   TableHeader,
@@ -23,17 +23,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Users,
-  Search,
-  Shield,
-  CheckCircle2,
-  XCircle,
-  Eye,
-  Building2,
-  Lock,
-  Unlock,
-} from "lucide-react";
+import { Users, Shield, CheckCircle2, XCircle, Eye, Building2, Lock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import type { User, UserRole, UserStatus } from "@/types/domain";
 
@@ -124,43 +114,24 @@ export default function AdminUsuariosPage() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <Card className="bg-card border-border">
-        <CardContent className="p-4 flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por nome, e-mail ou documento..."
-              className="h-9 pl-9 text-xs bg-background border-border text-foreground"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            {[
-              { id: "ALL", label: "Todos os Perfis" },
-              { id: "TITULAR", label: "Titulares" },
-              { id: "APROVADOR", label: "Aprovadores" },
-              { id: "OPERADOR", label: "Operadores" },
-              { id: "CONSULTA", label: "Consulta" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setRoleFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  roleFilter === tab.id
-                    ? "bg-secondary text-foreground font-semibold border border-border"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-                  }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex justify-end">
+        <FilterSheet value={{ search: searchTerm, roleFilter }} defaults={{ search: "", roleFilter: "ALL" }}
+          active={Boolean(searchTerm) || roleFilter !== "ALL"}
+          onApply={draft => { setSearchTerm(draft.search.trim()); setRoleFilter(draft.roleFilter); }}>
+          {(draft, setDraft) => <>
+            <FilterInput label="Buscar usuários" placeholder="Nome, e-mail ou documento" value={draft.search}
+              onChange={event => setDraft({ ...draft, search: event.target.value })} />
+            <FilterSelect label="Perfil" value={draft.roleFilter} options={[
+              { value: "ALL", label: "Todos os perfis" },
+              { value: "TITULAR", label: "Titulares" },
+              { value: "APROVADOR", label: "Aprovadores" },
+              { value: "OPERADOR", label: "Operadores" },
+              { value: "CONSULTA", label: "Consulta" },
+            ]}
+              onChange={roleFilter => setDraft({ ...draft, roleFilter })} />
+          </>}
+        </FilterSheet>
+      </div>
 
       {/* Table */}
       <Card className="bg-card border-border overflow-hidden">

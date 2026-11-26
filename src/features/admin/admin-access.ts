@@ -37,6 +37,7 @@ const pageAccess: Record<string, string> = {
   "/admin/empresas": "admin.companies.read",
   "/admin/usuarios": "admin.users.read",
   "/admin/operacoes": "admin.movements.read",
+  "/admin/contestacoes-pix": "admin.med.read",
   "/admin/cobrancas": "admin.movements.read",
   "/admin/extrato": "admin.movements.read",
   "/admin/lotes": "admin.batches.read",

@@ -3,13 +3,13 @@
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RotateCcw, Webhook } from "lucide-react";
+import { FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Empty } from "@/components/ui/empty";
-import { GlideSelect } from "@/components/ui/glide-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IntegrationHeading } from "@/features/integrations/components/integration-heading";
@@ -81,12 +81,14 @@ function DeliveryHistory({ accountId, webhookId }: { accountId: string; webhookI
         <CardHeader className="flex flex-row! flex-wrap items-center justify-between gap-3 border-b p-4 sm:p-5">
           <h2 ref={heading} tabIndex={-1} className="text-lg font-semibold">Histórico de entregas</h2>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-            <GlideSelect ariaLabel="Filtrar entregas por status" size="lg" options={filters} value={state}
-              onChange={(value) => {
-                const selected = webhookDeliveryState.safeParse(value);
-                setState(selected.success ? selected.data : "all");
-                setPage(1);
-              }} className="w-full sm:w-52" />
+            <FilterSheet value={{ state }} defaults={{ state: "all" }} active={state !== "all"} disabled={disabled}
+              onApply={draft => { setState(draft.state); setPage(1); }}>
+              {(draft, setDraft) => <FilterSelect label="Situação da entrega" options={filters} value={draft.state}
+                onChange={value => {
+                  const parsed = webhookDeliveryState.safeParse(value);
+                  setDraft({ state: parsed.success ? parsed.data : "all" });
+                }} />}
+            </FilterSheet>
             <Button type="button" variant="outline" disabled={deliveries.isFetching || disabled}
               onClick={() => void deliveries.refetch()}><RotateCcw aria-hidden="true" /> Atualizar</Button>
           </div>

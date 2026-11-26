@@ -1,20 +1,17 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { cn } from "@/lib/utils";
-import { ArrowUpRight, Building2, Search } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowUpRight, Building2 } from "lucide-react";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { ToastNotice } from "@/components/ui/toast-notice";
@@ -40,7 +37,6 @@ export function AdminCompaniesScreen({ user }: { user: AdminIdentity }) {
   const development = useDevelopmentFeatures();
   const filters = companiesQueryFrom(useSearchParams());
   const { status, period, search, page } = filters;
-  const [draft, setDraft] = useState(search);
   const result = useQuery({
     queryKey: ["admin-companies", user.id, status, period, search, page],
     queryFn: ({ signal }) => adminCompanies.list(filters, signal),
@@ -55,17 +51,8 @@ export function AdminCompaniesScreen({ user }: { user: AdminIdentity }) {
     window.history.replaceState(null, "", companiesPath + companyListParams(next));
   }
 
-  function submitSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = companySearch.safeParse(draft);
-    if (!value.success) { toast.error("Confira o texto da busca."); return; }
-    navigate({ ...filters, search: value.data, page: 1 });
-  }
-
-  function reset() {
-    setDraft("");
-    navigate({ search: "", status: "ALL", period: "all", page: 1 });
-  }
+  const defaults: CompaniesQuery = { search: "", status: "ALL", period: "all", page: 1 };
+  const reset = () => navigate(defaults);
 
   return (
     <AdminPanel user={user}>
@@ -75,6 +62,17 @@ export function AdminCompaniesScreen({ user }: { user: AdminIdentity }) {
           <p className="text-pretty text-sm text-muted-foreground">Consulte os cadastros e gerencie o acesso dos titulares.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <FilterSheet value={filters} defaults={defaults} active={filtered}
+            onApply={draft => applySearchFilters(draft, companySearch, navigate)}>
+            {(draft, setDraft) => <>
+              <FilterInput label="Buscar empresa" placeholder="Nome, CNPJ ou titular" maxLength={120} value={draft.search}
+                onChange={event => setDraft({ ...draft, search: event.target.value })} />
+              <FilterSelect label="Acesso" options={statusOptions} value={draft.status}
+                onChange={value => setDraft({ ...draft, status: companyStatusFilter.parse(value) })} />
+              <FilterSelect label="Data de cadastro" options={periodOptions} value={draft.period}
+                onChange={value => setDraft({ ...draft, period: companyPeriod.parse(value) })} />
+            </>}
+          </FilterSheet>
           <Button asChild variant="outline" className="h-11">
             <Link href={openingsPath} prefetch={false}>Abertura de contas <ArrowUpRight aria-hidden="true" /></Link>
           </Button>
@@ -84,27 +82,7 @@ export function AdminCompaniesScreen({ user }: { user: AdminIdentity }) {
         </div>
       </header>
 
-      <form role="search" aria-label="Filtrar empresas" className="grid min-w-0 gap-3 sm:grid-cols-2 xl:flex xl:items-end" onSubmit={submitSearch}>
-        <div className="grid min-w-0 gap-2 sm:col-span-2 xl:flex-1">
-          <label htmlFor="company-search" className="text-sm font-medium">Buscar empresa</label>
-          <Input id="company-search" type="search" className="h-11" maxLength={120} value={draft}
-            placeholder="Nome, CNPJ ou titular" onChange={(event) => setDraft(event.target.value)} />
-        </div>
-        <div className="grid min-w-0 gap-2 xl:w-40">
-          <span className="text-sm font-medium">Acesso</span>
-          <GlideSelect ariaLabel="Situação do acesso" options={statusOptions} value={status} size="lg"
-            onChange={(value) => navigate({ ...filters, status: companyStatusFilter.parse(value), page: 1 })} />
-        </div>
-        <div className="grid min-w-0 gap-2 xl:w-44">
-          <span className="text-sm font-medium">Data de cadastro</span>
-          <GlideSelect ariaLabel="Período de cadastro" options={periodOptions} value={period} size="lg"
-            onChange={(value) => navigate({ ...filters, period: companyPeriod.parse(value), page: 1 })} />
-        </div>
-        <div className="flex flex-wrap gap-2 sm:col-span-2">
-          <Button type="submit" variant="outline" className="h-11"><Search aria-hidden="true" />Buscar</Button>
-          {filtered && <Button type="button" variant="ghost" className="h-11" onClick={reset}>Limpar filtros</Button>}
-        </div>
-      </form>
+
 
       <ToastNotice message={result.isError ? result.error.message : null} />
       {result.isPending && <p role="status" className="sr-only">Carregando empresas</p>}

@@ -2,19 +2,18 @@
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, Building2, ChevronRight, ClipboardList, RotateCw, Search, Webhook } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Building2, ChevronRight, ClipboardList, RotateCw, Webhook } from "lucide-react";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { ToastNotice } from "@/components/ui/toast-notice";
@@ -61,7 +60,6 @@ export function AdminPendingScreen({ user, initialReport }: { user: AdminIdentit
   const activity = useAdminActivity();
   const [category, setCategory] = useState<PendingCategory>("ALL");
   const [search, setSearch] = useState("");
-  const [draft, setDraft] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
   const origin = useRef<HTMLElement | null>(null);
@@ -88,8 +86,13 @@ export function AdminPendingScreen({ user, initialReport }: { user: AdminIdentit
     if (liveRevision && currentRevision && liveRevision !== currentRevision) void refetch({ cancelRefetch: false });
   }, [liveRevision, currentRevision, refetch]);
 
-  function submitSearch(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setSearch(draft.trim()); setPage(1); }
-  function clearFilters() { setCategory("ALL"); setSearch(""); setDraft(""); setPage(1); }
+  function applyFilters(filters: { category: PendingCategory; search: string }) {
+    setCategory(filters.category);
+    setSearch(filters.search.trim());
+    setPage(1);
+  }
+  const defaults = { category: "ALL" as const, search: "" };
+  const clearFilters = () => applyFilters(defaults);
   function openDetail(item: PendingItem, trigger: HTMLElement) { origin.current = trigger; setSelected(item.id); }
   function closeDetail() {
     setSelected(null);
@@ -116,22 +119,15 @@ export function AdminPendingScreen({ user, initialReport }: { user: AdminIdentit
           <Summary label="Webhooks interrompidos" value={summary.webhooks} caption="Entregas que precisam de atenção" />
         </div>
         <Card className="min-w-0 overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-end">
-            <div className="grid gap-2 lg:w-64 lg:shrink-0">
-              <label id="pending-category-label" className="text-sm font-medium">Tipo de pendência</label>
-              <GlideSelect ariaLabel="Tipo de pendência" value={category} size="lg"
-                options={pendingCategories.map((value) => ({ value, label: pendingCategoryLabels[value] }))}
-                onChange={(value) => { setCategory(pendingCategorySchema.parse(value)); setPage(1); }} />
-            </div>
-            <form className="flex min-w-0 flex-1 items-end gap-2" onSubmit={submitSearch}>
-              <div className="grid min-w-0 flex-1 gap-2">
-                <label htmlFor="pending-search" className="text-sm font-medium">Buscar na fila</label>
-                <Input id="pending-search" value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={120}
-                  placeholder="Empresa, titular ou identificador" className="h-11" type="search" />
-              </div>
-              <Button type="submit" variant="outline" className="size-11 shrink-0" aria-label="Buscar pendências"><Search aria-hidden="true" className="size-4" /></Button>
-            </form>
-            {(category !== "ALL" || search) && <Button type="button" variant="ghost" className="h-11 shrink-0" onClick={clearFilters}>Limpar filtros</Button>}
+          <div className="flex justify-end border-b border-border px-5 pb-4">
+            <FilterSheet value={{ category, search }} defaults={defaults} active={category !== "ALL" || Boolean(search)} onApply={applyFilters}>
+              {(draft, setDraft) => <>
+                <FilterInput label="Buscar na fila" placeholder="Empresa, titular ou identificador" maxLength={120} value={draft.search}
+                  onChange={event => setDraft({ ...draft, search: event.target.value })} />
+                <FilterSelect label="Tipo de pendência" options={pendingCategories.map(value => ({ value, label: pendingCategoryLabels[value] }))}
+                  value={draft.category} onChange={value => setDraft({ ...draft, category: pendingCategorySchema.parse(value) })} />
+              </>}
+            </FilterSheet>
           </div>
           <CardHeader className="gap-1 p-5">
             <h2 className="text-balance text-lg font-semibold">Pendências em aberto</h2>

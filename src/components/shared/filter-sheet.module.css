@@ -1,0 +1,70 @@
+.panel {
+  --panel-open-dur: 200ms;
+  --panel-close-dur: 160ms;
+  --panel-translate-x: 2rem;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.panel[data-state="open"] {
+  animation: reveal var(--panel-open-dur) var(--panel-ease) both;
+}
+
+.panel[data-state="closed"] {
+  animation: exit var(--panel-close-dur) ease-in both;
+}
+
+.panel > [data-slot="sheet-close"] {
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  display: grid;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  place-items: center;
+}
+
+.panel > :first-child {
+  padding-top: max(1.25rem, env(safe-area-inset-top));
+}
+
+.footer {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+.overlay {
+  backdrop-filter: none;
+}
+
+.overlay[data-state="open"] {
+  animation: fade-in 200ms ease-out both;
+}
+
+.overlay[data-state="closed"] {
+  animation: fade-out 160ms ease-in both;
+}
+
+@keyframes reveal {
+  from { transform: translateX(var(--panel-translate-x)); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes exit {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(var(--panel-translate-x)); opacity: 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel[data-state],
+  .overlay[data-state] {
+    animation: none;
+  }
+}

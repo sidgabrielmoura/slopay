@@ -3,18 +3,16 @@
 import { useAdminAccess } from "./admin-access-provider";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import { Download, FileText, Search } from "lucide-react";
-import { toast } from "sonner";
+import { Download, FileText } from "lucide-react";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -75,50 +73,21 @@ function reportRange({ fromDate, throughDate }: Pick<ReportPreview, "fromDate" |
 }
 
 function ReportFilters({ query, onChange }: { query: ReportPreviewQuery; onChange: (query: ReportPreviewQuery) => void }) {
-  const [draft, setDraft] = useState({ applied: query.search, value: query.search });
-  const search = draft.applied === query.search ? draft.value : query.search;
-  const input = useRef<HTMLInputElement>(null);
-
-  function applySearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = pixTransactionSearch.safeParse(search);
-    if (!parsed.success) {
-      toast.error("Confira o texto da busca.");
-      return;
-    }
-    setDraft({ applied: parsed.data, value: parsed.data });
-    onChange({ ...query, search: parsed.data, page: 1 });
-  }
+  const defaults = reportQueryFrom(new URLSearchParams());
+  const filtered = Boolean(query.search) || query.kind !== defaults.kind || query.period !== defaults.period;
 
   return (
-    <form role="search" aria-label="Filtros do relatório" onSubmit={applySearch} className="grid min-w-0 gap-3 border-y border-border p-4 sm:p-5">
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)]">
-        <div className="grid min-w-0 gap-2">
-          <span id="report-kind" className="text-sm font-medium">Relatório</span>
-          <GlideSelect aria-labelledby="report-kind" size="lg" options={kinds} value={query.kind}
-            onChange={(kind) => onChange({ ...query, kind: reportKind.parse(kind), page: 1 })} />
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="report-period" className="text-sm font-medium">Período</span>
-          <GlideSelect aria-labelledby="report-period" size="lg" options={periods} value={query.period}
-            onChange={(period) => onChange({ ...query, period: reportPeriod.parse(period), page: 1 })} />
-        </div>
-        <div className="grid min-w-0 gap-2 sm:col-span-2 lg:col-span-1">
-          <label htmlFor="report-search" className="text-sm font-medium">Empresa</label>
-          <div className="flex min-w-0 gap-2">
-            <Input id="report-search" ref={input} type="search" maxLength={120} autoComplete="off" className="h-11 min-w-0"
-              placeholder="Todas as empresas · nome ou CNPJ" value={search}
-              onChange={(event) => setDraft({ applied: query.search, value: event.target.value })} />
-            <Button type="submit" size="icon" variant="outline" className="size-11 shrink-0" aria-label="Buscar empresa"><Search aria-hidden="true" /></Button>
-          </div>
-        </div>
-      </div>
-      {query.search && <Button type="button" variant="ghost" size="sm" className="-ml-2 h-11 w-fit" onClick={() => {
-        input.current?.focus();
-        setDraft({ applied: "", value: "" });
-        onChange({ ...query, search: "", page: 1 });
-      }}>Limpar busca</Button>}
-    </form>
+    <FilterSheet value={query} defaults={defaults} active={filtered}
+      onApply={draft => applySearchFilters(draft, pixTransactionSearch, onChange)}>
+      {(draft, setDraft) => <>
+        <FilterSelect label="Relatório" options={kinds} value={draft.kind}
+          onChange={value => setDraft({ ...draft, kind: reportKind.parse(value) })} />
+        <FilterSelect label="Período" options={periods} value={draft.period}
+          onChange={value => setDraft({ ...draft, period: reportPeriod.parse(value) })} />
+        <FilterInput label="Empresa" placeholder="Todas as empresas · nome ou CNPJ" maxLength={120} value={draft.search}
+          onChange={event => setDraft({ ...draft, search: event.target.value })} />
+      </>}
+    </FilterSheet>
   );
 }
 
@@ -345,15 +314,17 @@ export function AdminReportsScreen({ user }: { user: AdminIdentity }) {
       <Card className="min-w-0" aria-labelledby="report-preview">
         <header className="flex flex-wrap items-center justify-between gap-3 p-4 sm:px-5">
           <h2 id="report-preview" className="text-balance text-lg font-semibold">Prévia do relatório</h2>
-          {canExport && <Button type="button" className="h-11" disabled={!data?.items.length || preview.isError || preview.isPlaceholderData} onClick={(event) => {
-            if (!data) return;
-            const { kind, period, search } = query;
-            const { fromDate, throughDate } = data;
-            origin.current = event.currentTarget;
-            setAction({ type: "issue", report: { requestId: crypto.randomUUID(), kind, period, search, fromDate, throughDate } });
-          }}><FileText aria-hidden="true" /> Emitir CSV</Button>}
+          <div className="flex flex-wrap items-center gap-2">
+            <ReportFilters query={query} onChange={navigate} />
+            {canExport && <Button type="button" className="h-11" disabled={!data?.items.length || preview.isError || preview.isPlaceholderData} onClick={(event) => {
+              if (!data) return;
+              const { kind, period, search } = query;
+              const { fromDate, throughDate } = data;
+              origin.current = event.currentTarget;
+              setAction({ type: "issue", report: { requestId: crypto.randomUUID(), kind, period, search, fromDate, throughDate } });
+            }}><FileText aria-hidden="true" /> Emitir CSV</Button>}
+          </div>
         </header>
-        <ReportFilters query={query} onChange={navigate} />
         {preview.isLoading && <p role="status" className="sr-only">Carregando prévia do relatório</p>}
         <SkeletonReveal flow revealed={!preview.isLoading} skeleton={<ReportSkeleton preview />}>
           {data ? <ReportDataset data={data} query={query} busy={preview.isPlaceholderData} onChange={navigate} />

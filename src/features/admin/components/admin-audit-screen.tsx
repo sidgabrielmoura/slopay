@@ -1,18 +1,15 @@
 "use client";
 
-import { useDevelopmentFeatures } from "@/providers/app-providers";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { toast } from "sonner";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -42,59 +39,22 @@ function retryAuditRead(failures: number, error: Error) {
 }
 
 function AuditFilters({ query, onChange }: { query: AdminAuditQuery; onChange: (query: AdminAuditQuery) => void }) {
-  const development = useDevelopmentFeatures();
-  const input = useRef<HTMLInputElement>(null);
-  const [draft, setDraft] = useState({ submitted: query.search, value: query.search });
-  const search = draft.submitted === query.search ? draft.value : query.search;
   const filtered = adminAuditHref({ ...query, page: 1 }) !== adminAuditHref(initialQuery);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const checked = operationalSearch.safeParse(search);
-    if (!checked.success) {
-      toast.error("Confira o texto da busca.");
-      return;
-    }
-    setDraft({ submitted: checked.data, value: checked.data });
-    onChange({ ...query, search: checked.data, page: 1 });
-  }
-
-  function reset() {
-    setDraft({ submitted: "", value: "" });
-    onChange(initialQuery);
-    input.current?.focus();
-  }
-
   return (
-    <form role="search" aria-label="Filtrar eventos de auditoria" onSubmit={submit} className="grid gap-3 border-y border-border px-4 py-4 sm:px-5">
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 2xl:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))]">
-        <div className="grid min-w-0 gap-2">
-          <label htmlFor="audit-search" className="text-sm font-medium">Buscar evento</label>
-          <div className="flex min-w-0 gap-2">
-            <Input id="audit-search" ref={input} type="search" className="h-11 min-w-0" placeholder="Nome, evento ou ID do registro"
-              autoComplete="off" maxLength={120} value={search} onChange={(event) => setDraft({ submitted: query.search, value: event.target.value })} />
-            <Button type="submit" variant="outline" size="icon" className="size-11 shrink-0" aria-label="Buscar evento"><Search aria-hidden="true" /></Button>
-          </div>
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="audit-period" className="text-sm font-medium">Período</span>
-          <GlideSelect aria-labelledby="audit-period" size="lg" value={query.period} options={periods} menuWidth={208}
-            onChange={(period) => onChange({ ...query, period: adminDatePeriod.parse(period), page: 1 })} />
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="audit-category" className="text-sm font-medium">Módulo</span>
-          <GlideSelect aria-labelledby="audit-category" size="lg" value={query.category}
-            options={development ? categories : categories.filter(({ value }) => value !== "PIX")} menuWidth={220}
-            onChange={(category) => onChange({ ...query, category: auditCategoryFilter.parse(category), page: 1 })} />
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="audit-outcome" className="text-sm font-medium">Resultado</span>
-          <GlideSelect aria-labelledby="audit-outcome" size="lg" value={query.outcome} options={outcomes} menuWidth={206}
-            onChange={(outcome) => onChange({ ...query, outcome: auditOutcomeFilter.parse(outcome), page: 1 })} />
-        </div>
-      </div>
-      {filtered && <Button type="button" variant="ghost" className="h-11 w-fit" onClick={reset}>Limpar filtros</Button>}
-    </form>
+    <FilterSheet value={query} defaults={initialQuery} active={filtered}
+      onApply={draft => applySearchFilters(draft, operationalSearch, onChange)}>
+      {(draft, setDraft) => <>
+        <FilterInput label="Buscar evento" placeholder="Nome, evento ou ID do registro" maxLength={120} value={draft.search}
+          onChange={event => setDraft({ ...draft, search: event.target.value })} />
+        <FilterSelect label="Período" options={periods} value={draft.period}
+          onChange={value => setDraft({ ...draft, period: adminDatePeriod.parse(value) })} />
+        <FilterSelect label="Módulo" options={categories} value={draft.category}
+          onChange={value => setDraft({ ...draft, category: auditCategoryFilter.parse(value) })} />
+        <FilterSelect label="Resultado" options={outcomes} value={draft.outcome}
+          onChange={value => setDraft({ ...draft, outcome: auditOutcomeFilter.parse(value) })} />
+      </>}
+    </FilterSheet>
   );
 }
 
@@ -225,13 +185,10 @@ function AuditEventDialog({ id, userId, open, onOpenChange, onCloseAutoFocus }: 
 }
 
 export function AdminAuditScreen({ user }: { user: AdminIdentity }) {
-  const development = useDevelopmentFeatures();
   const heading = useRef<HTMLHeadingElement>(null);
   const detailsTrigger = useRef<HTMLButtonElement>(null);
   const [details, setDetails] = useState<{ id: string; open: boolean } | null>(null);
-  const requestedQuery = adminAuditQueryFrom(useSearchParams());
-  const query = !development && requestedQuery.category === "PIX"
-    ? { ...requestedQuery, category: "ALL" as const, page: 1 } : requestedQuery;
+  const query = adminAuditQueryFrom(useSearchParams());
   const filterKey = adminAuditHref({ ...query, page: 1 });
   const filtered = filterKey !== adminAuditHref(initialQuery);
   const result = useQuery({
@@ -269,11 +226,13 @@ export function AdminAuditScreen({ user }: { user: AdminIdentity }) {
       </header>
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="audit-events">
-        <header className="space-y-1 px-4 py-4 sm:px-5">
-          <h2 id="audit-events" className="text-balance text-lg font-semibold">Eventos registrados</h2>
-          <p className="text-pretty text-sm text-muted-foreground">Datas e horários de Brasília.</p>
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+          <div className="grid gap-1">
+            <h2 id="audit-events" className="text-balance text-lg font-semibold">Eventos registrados</h2>
+            <p className="text-pretty text-sm text-muted-foreground">Datas e horários de Brasília.</p>
+          </div>
+          <AuditFilters query={query} onChange={navigate} />
         </header>
-        <AuditFilters query={query} onChange={navigate} />
         {loading && <span role="status" className="sr-only">Carregando eventos de auditoria</span>}
         <SkeletonReveal flow revealed={!loading} skeleton={<AuditRowsSkeleton />}>
           {report?.items.length ? <AuditRows entries={report.items} openEvent={openEvent} /> : report ? (

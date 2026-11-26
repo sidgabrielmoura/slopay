@@ -1,5 +1,6 @@
 "use client";
 
+import { FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 
 import { useState } from "react";
@@ -11,7 +12,6 @@ import { PanelAmount } from "@/components/layout/panel-privacy";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToastNotice } from "@/components/ui/toast-notice";
@@ -26,12 +26,11 @@ import {
 import { ExpenseCategoryLabel, ExpenseCategorySelect } from "./expense-category-select";
 import { ExpenseCharts } from "./expense-charts";
 
-function ExpenseItems({ merchantId, period, category, onCategoryChange, page, setPage, canCategorize }: {
+function ExpenseItems({ merchantId, period, category, page, setPage, canCategorize }: {
   merchantId: string;
   period: ExpensePeriod;
   category: ExpenseCategoryFilter | null;
   canCategorize: boolean;
-  onCategoryChange: (category: ExpenseCategoryFilter | null) => void;
   page: number;
   setPage: (page: number) => void;
 }) {
@@ -63,20 +62,6 @@ function ExpenseItems({ merchantId, period, category, onCategoryChange, page, se
           <h2 className="text-lg font-semibold tracking-tight">Saídas confirmadas</h2>
           <p className="mt-1 text-sm text-muted-foreground">Escolha uma categoria para cada saque quando necessário.</p>
         </div>
-        <Select value={category ?? "ALL"} onValueChange={(value) => {
-          onCategoryChange(value === "ALL" ? null : expenseCategoryFilterSchema.parse(value));
-        }}>
-          <SelectTrigger aria-label="Filtrar por categoria" className="h-11 w-full sm:w-56">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="ALL">Todas as categorias</SelectItem>
-              <SelectItem value="UNCATEGORIZED" textValue={expenseCategoryPresentation.UNCATEGORIZED.label}><ExpenseCategoryLabel category="UNCATEGORIZED" /></SelectItem>
-              {expenseCategories.map((key) => <SelectItem key={key} value={key} textValue={expenseCategoryPresentation[key].label}><ExpenseCategoryLabel category={key} /></SelectItem>)}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
       </CardHeader>
       <ToastNotice message={items.isError ? items.error.message || expensesUnavailable : null} />
       <ToastNotice message={update.isError ? update.error.message : null} />
@@ -164,23 +149,25 @@ export function FinancialControlScreen({ merchantId, canCategorize = true }: { m
             Acompanhe seus gastos por período. Transferências próprias e tarifas aparecem separadas do total de gastos.
           </p>
         </div>
-        <Select value={period} onValueChange={(value) => {
-          setPeriod(expensePeriodSchema.parse(value));
-          setPage(1);
-        }}>
-          <SelectTrigger aria-label="Período do controle financeiro" className="h-11 w-full sm:w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {expensePeriods.map((option) => <SelectItem key={option} value={option}>{expensePeriodLabels[option]}</SelectItem>)}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+        <FilterSheet value={{ period, category }} defaults={{ period: defaultExpensePeriod, category: null }}
+          active={period !== defaultExpensePeriod || category !== null} onApply={draft => {
+            setPeriod(draft.period);
+            changeCategory(draft.category);
+          }}>
+          {(draft, setDraft) => <>
+            <FilterSelect label="Período" value={draft.period}
+              options={expensePeriods.map(value => ({ value, label: expensePeriodLabels[value] }))}
+              onChange={value => setDraft({ ...draft, period: expensePeriodSchema.parse(value) })} />
+            <FilterSelect label="Categoria das saídas" value={draft.category ?? "ALL"}
+              options={[{ value: "ALL", label: "Todas as categorias" }, ...["UNCATEGORIZED" as const, ...expenseCategories]
+                .map(value => ({ value, label: expenseCategoryPresentation[value].label }))]}
+              onChange={value => setDraft({ ...draft, category: value === "ALL" ? null : expenseCategoryFilterSchema.parse(value) })} />
+          </>}
+        </FilterSheet>
       </header>
       <ExpenseCharts merchantId={merchantId} period={period} selected={category}
         onSelect={(next) => changeCategory(category === next ? null : next)} />
-      <ExpenseItems merchantId={merchantId} period={period} category={category} onCategoryChange={changeCategory}
+      <ExpenseItems merchantId={merchantId} period={period} category={category}
         page={page} setPage={setPage} canCategorize={canCategorize} />
     </div>
   );

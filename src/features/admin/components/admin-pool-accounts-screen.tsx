@@ -1,17 +1,17 @@
 "use client";
 
-import { useId, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
+import { useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Plus, Search, Wallet } from "lucide-react";
+import { Plus, Wallet } from "lucide-react";
+import { FilterInput, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDateTime } from "@/lib/dates";
@@ -222,10 +222,6 @@ function PoolOwnerList({ adminId, filter, setFilter, show, development }: {
   adminId: string; filter: OwnerFilter; setFilter: (filter: OwnerFilter) => void; show: OpenDialog; development: boolean;
 }) {
   const { can } = useAdminAccess();
-  const searchId = useId();
-  const [error, setError] = useState("");
-  const [draft, setDraft] = useState({ previous: filter.search, value: filter.search });
-  const value = draft.previous === filter.search ? draft.value : filter.search;
   const result = useQuery({
     queryKey: ["admin-pool-accounts", adminId, "owners", development, filter.search, filter.page],
     queryFn: ({ signal }) => (development ? poolAccounts : livePoolControls).owners(filter.page, filter.search, signal),
@@ -235,42 +231,25 @@ function PoolOwnerList({ adminId, filter, setFilter, show, development }: {
   const data = result.data;
   const writable = data?.available === true && !result.isError && !result.isPlaceholderData;
 
-  function search(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const input = poolOwnerSearch.safeParse(value);
-    if (!input.success) { setError("Confira o texto da busca."); return; }
-    setError("");
-    setDraft({ previous: input.data, value: input.data });
-    setFilter({ search: input.data, page: 1 });
-  }
-  function clearSearch() {
-    setError("");
-    setDraft({ previous: "", value: "" });
-    setFilter({ search: "", page: 1 });
-  }
+  const defaults = { search: "", page: 1 };
+  const clearSearch = () => setFilter(defaults);
 
   return (
     <SkeletonReveal flow revealed={!result.isPending} skeleton={<CompanyRowsSkeleton />}>
       {data ? (
         <Card className="min-w-0 gap-0 overflow-hidden">
-          <CardHeader className="grid min-w-0 gap-4 p-5">
+          <CardHeader className="min-w-0 flex-wrap items-start justify-between gap-3 p-5 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-balance text-lg font-semibold">Roteamento por titular</h2>
               <p className="mt-1 text-pretty text-sm text-muted-foreground">
                 Por padrão, um sorteio escolhe entre todas as contas elegíveis para cada nova operação.
               </p>
             </div>
-            {data.available && <form role="search" aria-label="Buscar titulares" className="flex min-w-0 flex-wrap items-end gap-2" onSubmit={search}>
-              <div className="grid w-full min-w-0 gap-2 sm:w-64">
-                <label htmlFor={searchId} className="text-sm font-medium">Titular</label>
-                <Input id={searchId} name="search" type="search" className="h-11" maxLength={120} value={value}
-                  onChange={(event) => { setDraft({ previous: filter.search, value: event.target.value }); setError(""); }}
-                  placeholder="Nome ou e-mail" aria-invalid={Boolean(error)} aria-describedby={error ? `${searchId}-error` : undefined} />
-              </div>
-              <Button type="submit" variant="outline" className="h-11"><Search aria-hidden="true" />Buscar</Button>
-              {filter.search && <Button type="button" variant="ghost" className="h-11" onClick={clearSearch}>Limpar busca</Button>}
-              {error && <p id={`${searchId}-error`} role="alert" className="w-full text-sm text-destructive">{error}</p>}
-            </form>}
+            {data.available && <FilterSheet value={filter} defaults={defaults} active={Boolean(filter.search)}
+              onApply={draft => applySearchFilters(draft, poolOwnerSearch, setFilter)}>
+              {(draft, setDraft) => <FilterInput label="Titular" placeholder="Nome ou e-mail" maxLength={120} value={draft.search}
+                onChange={event => setDraft({ ...draft, search: event.target.value })} />}
+            </FilterSheet>}
           </CardHeader>
           {result.isError && <p role="alert" className="px-5 pb-3 text-sm text-destructive">{result.error.message}</p>}
           {!data.available ? <PoolUnavailable /> : <>

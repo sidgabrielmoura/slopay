@@ -148,6 +148,7 @@ function WalletSettingsForm({ poolId, data, onReview, onCancel }: {
           path={data.eventsPath} configured={data.eventsConfigured} required={(receives || withdraws) && !data.eventsConfigured} onGenerate={() => setError("")}>
           No provedor, abra <strong>Integrações → Webhooks → Criar Webhook</strong>. Use a URL pública do backend com o caminho deste campo.
           Cole o mesmo valor em <strong>Token de autenticação</strong>. Esse webhook avisa o Slopay sobre pagamentos, estornos e transferências.
+          Para receber retenções de MED, inclua os eventos <code>BALANCE_VALUE_BLOCKED</code> e <code>BALANCE_VALUE_UNBLOCKED</code>.
         </WalletTokenField>
         <WalletTokenField id={id + "-validation"} name="validationToken" label="Token da validação de saques" tokenLabel="da validação de saques"
           path={data.validationPath} configured={data.validationConfigured} required={withdraws && !data.validationConfigured} onGenerate={() => setError("")}>

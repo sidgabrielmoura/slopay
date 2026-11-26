@@ -1,19 +1,16 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronRight, Search } from "lucide-react";
-import { toast } from "sonner";
+import { ChevronRight } from "lucide-react";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -39,48 +36,20 @@ const statusOptions = adminApprovalQuery.shape.status.unwrap().options.map((valu
 const periodOptions = adminDatePeriod.options.map((value) => ({ value, label: adminDatePeriodLabels[value] }));
 
 function ApprovalFilters({ query, onChange }: { query: AdminApprovalQuery; onChange: (query: AdminApprovalQuery) => void }) {
-  const [draft, setDraft] = useState({ submitted: query.search, value: query.search });
-  const search = draft.submitted === query.search ? draft.value : query.search;
-  const filtered = query.search || query.status !== initialQuery.status || query.period !== initialQuery.period;
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = adminApprovalSearch.safeParse(search);
-    if (!value.success) {
-      toast.error("Confira o texto da busca.");
-      return;
-    }
-    setDraft({ submitted: value.data, value: value.data });
-    onChange({ ...query, search: value.data, page: 1 });
-  }
+  const filtered = Boolean(query.search) || query.status !== initialQuery.status || query.period !== initialQuery.period;
 
   return (
-    <form role="search" aria-label="Filtrar solicitações de saque" className="grid min-w-0 gap-3 border-y border-border px-4 py-4 sm:px-5" onSubmit={submit}>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(0,1fr))]">
-        <div className="grid min-w-0 gap-2 sm:col-span-2 lg:col-span-1">
-          <label htmlFor="approval-search" className="text-sm font-medium">Buscar solicitação</label>
-          <div className="flex min-w-0 gap-2">
-            <Input id="approval-search" type="search" className="h-11 min-w-0" placeholder="Empresa, titular, CNPJ ou ID"
-              autoComplete="off" maxLength={120} value={search} onChange={(event) => setDraft({ submitted: query.search, value: event.target.value })} />
-            <Button type="submit" variant="outline" size="icon" className="size-11 shrink-0" aria-label="Buscar solicitação"><Search aria-hidden="true" /></Button>
-          </div>
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="approval-decision-filter" className="text-sm font-medium">Decisão do titular</span>
-          <GlideSelect aria-labelledby="approval-decision-filter" options={statusOptions} value={query.status} size="lg" menuWidth={224}
-            onChange={(value) => onChange({ ...query, status: adminApprovalQuery.shape.status.parse(value), page: 1 })} />
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="approval-period-filter" className="text-sm font-medium">Período da solicitação</span>
-          <GlideSelect aria-labelledby="approval-period-filter" options={periodOptions} value={query.period} size="lg"
-            onChange={(value) => onChange({ ...query, period: adminDatePeriod.parse(value), page: 1 })} />
-        </div>
-      </div>
-      {filtered && <Button type="button" variant="ghost" size="sm" className="-ml-2 h-11 w-fit" onClick={() => {
-        setDraft({ submitted: "", value: "" });
-        onChange(initialQuery);
-      }}>Restaurar filtros</Button>}
-    </form>
+    <FilterSheet value={query} defaults={initialQuery} active={filtered}
+      onApply={draft => applySearchFilters(draft, adminApprovalSearch, onChange)}>
+      {(draft, setDraft) => <>
+        <FilterInput label="Buscar solicitação" placeholder="Empresa, titular, CNPJ ou ID" maxLength={120} value={draft.search}
+          onChange={event => setDraft({ ...draft, search: event.target.value })} />
+        <FilterSelect label="Decisão do titular" options={statusOptions} value={draft.status}
+          onChange={value => setDraft({ ...draft, status: adminApprovalQuery.shape.status.parse(value) })} />
+        <FilterSelect label="Período da solicitação" options={periodOptions} value={draft.period}
+          onChange={value => setDraft({ ...draft, period: adminDatePeriod.parse(value) })} />
+      </>}
+    </FilterSheet>
   );
 }
 
@@ -239,10 +208,10 @@ export function AdminWithdrawalApprovalsScreen({ user }: { user: AdminIdentity }
       {(result.isLoading || data) && <ApprovalSummary summary={data?.summary} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="withdrawal-approvals">
-        <header className="px-4 py-4 sm:px-5">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
           <h2 id="withdrawal-approvals" className="text-balance text-lg font-semibold">Solicitações de saque</h2>
+          <ApprovalFilters query={query} onChange={navigate} />
         </header>
-        <ApprovalFilters query={query} onChange={navigate} />
         {result.isLoading && <p role="status" className="sr-only">Carregando solicitações de saque</p>}
         <SkeletonReveal flow revealed={!result.isLoading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3].map((row) => (

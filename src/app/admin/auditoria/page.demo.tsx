@@ -4,10 +4,10 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { demoRepository } from "@/services/demo-repository";
 import { formatDateTime } from "@/lib/dates";
+import { FilterInput, FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 import {
   Table,
   TableHeader,
@@ -23,17 +23,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  ShieldCheck,
-  Search,
-  CheckCircle2,
-  XCircle,
-  FileCode,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-} from "lucide-react";
+import { ShieldCheck, CheckCircle2, XCircle, FileCode, Eye, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import type { AuditEvent } from "@/types/domain";
 
 export default function AdminAuditoriaPage() {
@@ -70,51 +60,26 @@ export default function AdminAuditoriaPage() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <Card className="bg-card border-border">
-        <CardContent className="p-4 flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Buscar por ator, motivo, ID de entidade ou evento..."
-              className="h-9 pl-9 text-xs bg-background border-border text-foreground"
-            />
-          </div>
-
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-            {[
-              { id: "ALL", label: "Todos os Módulos" },
-              { id: "APPLICATION", label: "Onboarding KYC" },
-              { id: "COMPANY", label: "Empresas" },
-              { id: "ACCOUNT", label: "Contas" },
-              { id: "FEE_LIMIT", label: "Taxas & Limites" },
-              { id: "APPROVAL_REQUEST", label: "Alçadas" },
-              { id: "SECURITY", label: "Segurança" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  setEntityType(tab.id);
-                  setPage(1);
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                  entityType === tab.id
-                    ? "bg-secondary text-foreground font-semibold border border-border"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-                  }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex justify-end">
+        <FilterSheet value={{ search: searchTerm, entityType }} defaults={{ search: "", entityType: "ALL" }}
+          active={Boolean(searchTerm) || entityType !== "ALL"}
+          onApply={draft => { setSearchTerm(draft.search.trim()); setEntityType(draft.entityType); setPage(1); }}>
+          {(draft, setDraft) => <>
+            <FilterInput label="Buscar eventos" placeholder="Ator, motivo, evento ou identificador" value={draft.search}
+              onChange={event => setDraft({ ...draft, search: event.target.value })} />
+            <FilterSelect label="Módulo" value={draft.entityType} options={[
+              { value: "ALL", label: "Todos os módulos" },
+              { value: "APPLICATION", label: "Abertura de contas" },
+              { value: "COMPANY", label: "Empresas" },
+              { value: "ACCOUNT", label: "Contas" },
+              { value: "FEE_LIMIT", label: "Taxas e limites" },
+              { value: "APPROVAL_REQUEST", label: "Alçadas" },
+              { value: "SECURITY", label: "Segurança" },
+            ]}
+              onChange={entityType => setDraft({ ...draft, entityType })} />
+          </>}
+        </FilterSheet>
+      </div>
 
       {/* Table */}
       <Card className="bg-card border-border overflow-hidden">

@@ -2,19 +2,16 @@
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
-import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowUpRight, Search, Wallet } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowUpRight, Wallet } from "lucide-react";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { ToastNotice } from "@/components/ui/toast-notice";
@@ -45,7 +42,6 @@ export function AdminOperationalAccountsScreen({ user }: { user: AdminIdentity }
   const development = useDevelopmentFeatures();
   const query = operationalQueryFrom(useSearchParams());
   const { search, status, page } = query;
-  const [draft, setDraft] = useState(search);
   const result = useQuery({
     enabled: development,
     queryKey: ["admin-operational-accounts", user.id, status, search, page],
@@ -60,36 +56,22 @@ export function AdminOperationalAccountsScreen({ user }: { user: AdminIdentity }
     window.history.replaceState(null, "", walletsHref("vinculos", new URLSearchParams(operationalParams(next))));
   }
 
-  function submitSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const searchInput = operationalSearch.safeParse(draft);
-    if (!searchInput.success) { toast.error("Confira o texto da busca."); return; }
-    navigate({ ...query, search: searchInput.data, page: 1 });
-  }
-
-  function clear() {
-    setDraft("");
-    navigate({ search: "", status: "ALL", page: 1 });
-  }
+  const defaults: OperationalQuery = { search: "", status: "ALL", page: 1 };
+  const clear = () => navigate(defaults);
 
   return (
     <>
-      <form role="search" aria-label="Filtrar contas operacionais" className="flex min-w-0 flex-wrap items-end gap-3" onSubmit={submitSearch}>
-        <div className="grid min-w-0 basis-full gap-2 sm:basis-52 sm:grow">
-          <label htmlFor="operational-account-search" className="text-sm font-medium">Buscar conta</label>
-          <Input id="operational-account-search" type="search" className="h-11" placeholder="Empresa, CNPJ ou carteira"
-            value={draft} maxLength={120} onChange={(event) => setDraft(event.target.value)} />
-        </div>
-        <div className="grid min-w-0 basis-full gap-2 sm:basis-52">
-          <span className="text-sm font-medium">Situação</span>
-          <GlideSelect ariaLabel="Situação das operações" size="lg" options={statuses} value={status}
-            onChange={(value) => navigate({ ...query, status: operationalStatusFilter.parse(value), page: 1 })} />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" variant="outline" className="h-11"><Search aria-hidden="true" />Buscar</Button>
-          {filtered && <Button type="button" variant="ghost" className="h-11" onClick={clear}>Limpar filtros</Button>}
-        </div>
-      </form>
+      {development && <div className="flex justify-end">
+        <FilterSheet value={query} defaults={defaults} active={filtered}
+          onApply={draft => applySearchFilters(draft, operationalSearch, navigate)}>
+          {(draft, setDraft) => <>
+            <FilterInput label="Buscar conta" placeholder="Empresa, CNPJ ou carteira" maxLength={120} value={draft.search}
+              onChange={event => setDraft({ ...draft, search: event.target.value })} />
+            <FilterSelect label="Situação" options={statuses} value={draft.status}
+              onChange={value => setDraft({ ...draft, status: operationalStatusFilter.parse(value) })} />
+          </>}
+        </FilterSheet>
+      </div>}
 
       <ToastNotice message={result.isError ? result.error.message : null} />
       {result.isLoading && <p role="status" className="sr-only">Carregando contas</p>}

@@ -12,6 +12,7 @@ import { walletsHref } from "@/features/admin/admin-balance-positions";
 import { adminPageSearchParams } from "@/features/admin/admin-navigation";
 import { pixMovementHref, pixMovementQueryFrom, pixMovementSelection } from "@/features/admin/admin-pix-movements";
 import { AdminPixMovementsScreen } from "@/features/admin/components/admin-pix-movements-screen";
+import { AdminPixMedScreen } from "@/features/admin/components/admin-pix-med-screen";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { LivePanel } from "@/features/auth/components/live-panel";
@@ -80,6 +81,10 @@ export default async function AdminPage({ params, searchParams }: {
 
   if (section.length === 1 && section[0] === "operacoes") {
     return <AdminPixMovementsScreen user={identity} />;
+  }
+
+  if (section.length === 1 && section[0] === "contestacoes-pix") {
+    return <AdminPixMedScreen adminId={identity.id} />;
   }
 
   if (section.length === 1 && section[0] === "cobrancas") {

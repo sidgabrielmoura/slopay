@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RotateCw } from "lucide-react";
+import { FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { PanelAmount } from "@/components/layout/panel-privacy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { ToastNotice } from "@/components/ui/toast-notice";
@@ -56,14 +56,12 @@ export function AnalyticsScreen({ scope, load }: {
           <p className="text-pretty text-sm text-muted-foreground">Acompanhe recebimentos, saques e a conversão das suas cobranças.</p>
         </div>
         <div className="flex w-full gap-2 sm:w-auto">
-          <Select value={period} onValueChange={(value) => setPeriod(indicatorPeriodSchema.parse(value))}>
-            <SelectTrigger aria-label="Período dos indicadores" className="h-11 min-w-0 flex-1 sm:w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {indicatorPeriods.map((option) => <SelectItem key={option} value={option}>{periodLabels[option]}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <FilterSheet value={{ period }} defaults={{ period: defaultIndicatorPeriod }} active={period !== defaultIndicatorPeriod}
+            onApply={draft => setPeriod(draft.period)}>
+            {(draft, setDraft) => <FilterSelect label="Período dos indicadores" value={draft.period}
+              options={indicatorPeriods.map(value => ({ value, label: periodLabels[value] }))}
+              onChange={value => setDraft({ period: indicatorPeriodSchema.parse(value) })} />}
+          </FilterSheet>
           <Button type="button" variant="outline" size="icon" aria-label="Atualizar indicadores" className="size-11"
             onClick={() => void report.refetch()} disabled={report.isFetching}>
             <RotateCw aria-hidden="true" />

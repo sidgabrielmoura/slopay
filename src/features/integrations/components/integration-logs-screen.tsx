@@ -1,14 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ChevronRight, FileSearch, Search } from "lucide-react";
+import { ChevronRight, FileSearch } from "lucide-react";
+import { FilterInput, FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Empty } from "@/components/ui/empty";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDateTime } from "@/lib/dates";
 import { integrationLogsPath, webhookLogsPath } from "../navigation";
@@ -79,7 +78,13 @@ function LogList({ tab }: { tab: LogTab }) {
   const [date, setDate] = useState("");
   const [selected, setSelected] = useState<IntegrationLog | null>(null);
   const detailTrigger = useRef<HTMLButtonElement | null>(null);
-  const searchInput = useRef<HTMLInputElement>(null);
+  const defaults = { query: "", status: "all", date: "" };
+  const filtered = Boolean(query || date || status !== "all");
+  function applyFilters(draft: typeof defaults) {
+    setQuery(draft.query.trim());
+    setStatus(draft.status);
+    setDate(draft.date);
+  }
   const isDelivery = tab === "webhooks";
   const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
   const day = date ? formatDateTime(date, "date-only") : null;
@@ -92,21 +97,21 @@ function LogList({ tab }: { tab: LogTab }) {
 
   return (
     <Card className="min-w-0">
-      <CardHeader className="gap-4 space-y-0 border-b p-4 sm:p-5">
+      <CardHeader className="gap-4 space-y-0 border-b p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="grid gap-1">
           <h2 className="text-balance text-lg font-semibold">{isDelivery ? "Entregas de webhooks" : "Requisições à API"}</h2>
           <p className="text-pretty text-sm text-muted-foreground">{isDelivery ? "Acompanhe as tentativas de envio e as respostas dos seus endpoints." : "Consulte as chamadas feitas à API, o status HTTP e o corpo da resposta."}</p>
         </div>
-        <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_11rem_13rem]">
-          <label className="relative block min-w-0 sm:col-span-2 xl:col-span-1">
-            <span className="sr-only">{isDelivery ? "Buscar nos logs de webhooks" : "Buscar nos logs de requisições"}</span>
-            <Search aria-hidden="true" className="pointer-events-none absolute top-3.5 left-3 size-4 text-muted-foreground" />
-            <Input ref={searchInput} type="search" value={query} onChange={(event) => setQuery(event.currentTarget.value)}
-              className="h-11 min-w-0 pl-9" placeholder={isDelivery ? "Buscar evento, endpoint ou referência" : "Buscar rota, chave ou referência"} />
-          </label>
-          <Input type="date" aria-label="Filtrar por data" value={date} onChange={(event) => setDate(event.currentTarget.value)} className="h-11 min-w-0 scheme-dark" />
-          <GlideSelect ariaLabel="Filtrar por resultado" options={statusOptions} value={status} onChange={setStatus} size="lg" className="w-full sm:min-w-48" />
-        </div>
+        <FilterSheet value={{ query, date, status }} defaults={defaults} active={filtered} onApply={applyFilters}>
+          {(draft, setDraft) => <>
+            <FilterInput label="Buscar nos logs" placeholder={isDelivery ? "Evento, endpoint ou referência" : "Rota, chave ou referência"}
+              value={draft.query} onChange={event => setDraft({ ...draft, query: event.target.value })} />
+            <FilterInput type="date" label="Data" value={draft.date} className="scheme-dark"
+              onChange={event => setDraft({ ...draft, date: event.target.value })} />
+            <FilterSelect label="Resultado" options={statusOptions} value={draft.status}
+              onChange={status => setDraft({ ...draft, status })} />
+          </>}
+        </FilterSheet>
       </CardHeader>
 
       <div className="flex min-w-0 items-center justify-between gap-2 bg-background/40 px-4 py-2.5 text-xs text-muted-foreground sm:px-5">
@@ -140,7 +145,7 @@ function LogList({ tab }: { tab: LogTab }) {
         </ul>
       ) : (
         <Empty icon={<FileSearch aria-hidden="true" />} className="rounded-none border-0 border-t" title="Nenhum registro encontrado"
-          action={<Button type="button" variant="outline" className="h-11" onClick={() => { setQuery(""); setDate(""); setStatus("all"); searchInput.current?.focus(); }}>Limpar filtros</Button>} />
+          action={filtered && <Button type="button" variant="outline" className="h-11" onClick={() => applyFilters(defaults)}>Limpar filtros</Button>} />
       )}
       <LogDetail log={selected} onClose={() => setSelected(null)} restoreFocus={() => detailTrigger.current?.focus()} />
     </Card>

@@ -1,17 +1,15 @@
 "use client";
 
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, Layers2, QrCode, Receipt, Search, Undo2, X, type LucideIcon } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, Layers2, QrCode, Receipt, Undo2, X, type LucideIcon } from "lucide-react";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,79 +57,34 @@ const entryTypeOptions = [
 const count = new Intl.NumberFormat("pt-BR");
 
 function MovementFilters({ adminId, query, onChange }: { adminId: string; query: PixMovementQuery; onChange: (value: PixMovementQuery) => void }) {
-  const searchInput = useRef<HTMLInputElement>(null);
-  const [draft, setDraft] = useState({ previous: query.search, value: query.search });
-  const search = draft.previous === query.search ? draft.value : query.search;
-  const filtered = query.search || query.companyId || query.accountId || query.merchantId || query.provider || query.period !== "LAST_30_DAYS" ||
-    ("type" in query && query.type !== "ALL") || ("status" in query && query.status !== "ALL");
+  const defaults = pixMovementViewQuery(query.view, pixMovementQueryFrom(new URLSearchParams()));
+  const filtered = pixMovementHref({ ...query, page: 1 }) !== pixMovementHref(defaults);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = pixTransactionSearch.safeParse(search);
-    if (!parsed.success) { toast.error("Confira o texto da busca."); return; }
-    setDraft({ previous: parsed.data, value: parsed.data });
-    onChange({ ...query, search: parsed.data, page: 1 });
-  }
-
-  return (
-    <form role="search" aria-label="Filtrar movimentações Pix" onSubmit={submit}
-      className="grid min-w-0 gap-3 border-b border-border px-4 py-4 sm:px-5">
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap">
-        <div className="grid min-w-0 gap-2 sm:col-span-2 lg:min-w-64 lg:flex-2">
-          <label htmlFor="pix-movement-search" className="text-sm font-medium">Buscar</label>
-          <div className="flex min-w-0 gap-2">
-            <Input id="pix-movement-search" ref={searchInput} type="search" className="h-11 min-w-0" maxLength={120} autoComplete="off"
-              placeholder="Empresa, CNPJ, carteira ou ID" value={search}
-              onChange={event => setDraft({ previous: query.search, value: event.target.value })} />
-            <Button type="submit" size="icon" variant="outline" className="size-11 shrink-0" aria-label="Buscar movimentações"><Search aria-hidden="true" /></Button>
-          </div>
-        </div>
-        <div className="grid min-w-0 gap-2 lg:min-w-40 lg:flex-1">
-          <span id="pix-movement-period" className="text-sm font-medium">Período</span>
-          <GlideSelect size="lg" aria-labelledby="pix-movement-period" value={query.period} options={periods}
-            onChange={period => onChange({ ...query, period: adminDatePeriod.parse(period), page: 1 })} />
-        </div>
-        {query.view === "all" && (
-          <div className="grid min-w-0 gap-2 lg:min-w-40 lg:flex-1">
-            <span id="pix-movement-type" className="text-sm font-medium">Tipo de operação</span>
-            <GlideSelect size="lg" aria-labelledby="pix-movement-type" value={query.type} options={transactionTypeOptions}
-              onChange={type => onChange({ ...query, type: transactionTypes.parse(type), page: 1 })} />
-          </div>
-        )}
-        {query.view === "statement" ? (
-          <div className="grid min-w-0 gap-2 lg:min-w-40 lg:flex-1">
-            <span id="pix-movement-entry" className="text-sm font-medium">Tipo de lançamento</span>
-            <GlideSelect size="lg" aria-labelledby="pix-movement-entry" value={query.type} options={entryTypeOptions}
-              onChange={type => onChange({ ...query, type: statementTypeFilter.parse(type), page: 1 })} />
-          </div>
-        ) : (
-          <div className="grid min-w-0 gap-2 lg:min-w-40 lg:flex-1">
-            <span id="pix-movement-status" className="text-sm font-medium">Situação</span>
-            <GlideSelect size="lg" aria-labelledby="pix-movement-status" value={query.status}
-              options={query.view === "charges" ? chargeStatusOptions : transactionStatusOptions}
-              onChange={status => onChange(query.view === "charges" ? { ...query, status: chargeStatuses.parse(status), page: 1 }
-                : { ...query, status: transactionStatuses.parse(status), page: 1 })} />
-          </div>
-        )}
-      </div>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-        <MovementPartiesFilter adminId={adminId} query={query} onChange={onChange} />
-      </div>
-      {filtered && <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {(["companyId", "accountId"] as const).map((scope) => query[scope] && (
-          <Button key={scope} type="button" variant="outline" size="sm" className="min-h-11"
-            onClick={() => { searchInput.current?.focus(); onChange({ ...query, [scope]: undefined, page: 1 }); }}>
-            {scope === "companyId" ? "Remover empresa" : "Remover carteira"}<X aria-hidden="true" />
-          </Button>
-        ))}
-        <Button type="button" variant="ghost" size="sm" className="min-h-11" onClick={() => {
-          searchInput.current?.focus();
-          setDraft({ previous: "", value: "" });
-          onChange(pixMovementViewQuery(query.view, pixMovementQueryFrom(new URLSearchParams())));
-        }}>Limpar filtros</Button>
-      </div>}
-    </form>
-  );
+  return <FilterSheet value={query} defaults={defaults} active={filtered}
+    onApply={draft => applySearchFilters(draft, pixTransactionSearch, onChange)}>
+    {(draft, setDraft) => <>
+      <FilterInput label="Buscar movimentação" placeholder="Empresa, CNPJ, carteira ou ID" maxLength={120} value={draft.search}
+        onChange={event => setDraft({ ...draft, search: event.target.value })} />
+      <FilterSelect label="Período" value={draft.period} options={periods}
+        onChange={period => setDraft({ ...draft, period: adminDatePeriod.parse(period) })} />
+      {draft.view === "all" && <FilterSelect label="Tipo de operação" value={draft.type} options={transactionTypeOptions}
+        onChange={type => setDraft({ ...draft, type: transactionTypes.parse(type) })} />}
+      {draft.view === "statement" ? (
+        <FilterSelect label="Tipo de lançamento" value={draft.type} options={entryTypeOptions}
+          onChange={type => setDraft({ ...draft, type: statementTypeFilter.parse(type) })} />
+      ) : (
+        <FilterSelect label="Situação" value={draft.status} options={draft.view === "charges" ? chargeStatusOptions : transactionStatusOptions}
+          onChange={status => setDraft(draft.view === "charges" ? { ...draft, status: chargeStatuses.parse(status) }
+            : { ...draft, status: transactionStatuses.parse(status) })} />
+      )}
+      <MovementPartiesFilter adminId={adminId} query={draft} onChange={setDraft} />
+      {(["companyId", "accountId"] as const).map(scope => draft[scope] && (
+        <Button key={scope} type="button" variant="outline" className="h-11 w-fit" onClick={() => setDraft({ ...draft, [scope]: undefined })}>
+          {scope === "companyId" ? "Remover empresa" : "Remover carteira"}<X aria-hidden="true" />
+        </Button>
+      ))}
+    </>}
+  </FilterSheet>;
 }
 
 function movementMetrics(report: PixMovementReport): { label: string; value: number | null; entries?: number; signed?: boolean }[] {
@@ -419,12 +372,14 @@ export function AdminPixMovementsScreen({ user }: { user: AdminIdentity }) {
                 <h2 id="pix-movement-list" className="text-balance text-lg font-semibold">{query.view === "all" ? "Operações" : view.label}</h2>
                 <p className="text-pretty text-sm text-muted-foreground">{view.period} no horário de Brasília.{query.view === "statement" && " Tarifas aparecem em linhas próprias."}</p>
               </div>
-              {can("admin.movements.export") && displayed.view === "all" && <PixTransactionExport query={displayed} disabled={exportDisabled} onRefresh={() => void result.refetch()} />}
-              {can("admin.movements.export") && displayed.view === "statement" && <AdminCsvExport page={displayed.page} disabled={exportDisabled}
-                description="O CSV inclui os lançamentos desta página com os filtros atuais."
-                onExport={() => exportStatement(displayed)} onRefresh={() => void result.refetch()} />}
+              <div className="flex flex-wrap items-center gap-2">
+                <MovementFilters adminId={user.id} query={query} onChange={navigate} />
+                {can("admin.movements.export") && displayed.view === "all" && <PixTransactionExport query={displayed} disabled={exportDisabled} onRefresh={() => void result.refetch()} />}
+                {can("admin.movements.export") && displayed.view === "statement" && <AdminCsvExport page={displayed.page} disabled={exportDisabled}
+                  description="O CSV inclui os lançamentos desta página com os filtros atuais."
+                  onExport={() => exportStatement(displayed)} onRefresh={() => void result.refetch()} />}
+              </div>
             </div>
-            <MovementFilters adminId={user.id} query={query} onChange={navigate} />
             {result.isPending && <p role="status" className="sr-only">Carregando movimentações</p>}
             <ToastNotice message={result.error?.message} />
             <SkeletonReveal flow revealed={!result.isPending} skeleton={<div className="divide-y divide-border">

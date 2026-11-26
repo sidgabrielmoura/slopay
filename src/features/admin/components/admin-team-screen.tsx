@@ -1,17 +1,15 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, ChevronRight, Ellipsis, Search, Trash2, UserPlus } from "lucide-react";
+import { Ban, ChevronRight, Ellipsis, Trash2, UserPlus } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { toast } from "sonner";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -67,47 +65,16 @@ function TeamSummary({ summary, loading }: { summary?: AdminTeamSummary; loading
 }
 
 function TeamFilters({ query, onChange }: { query: AdminTeamQuery; onChange: (query: AdminTeamQuery) => void }) {
-  const input = useRef<HTMLInputElement>(null);
-  const [draft, setDraft] = useState({ submitted: query.search, value: query.search });
-  const search = draft.submitted === query.search ? draft.value : query.search;
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = operationalSearch.safeParse(search);
-    if (!parsed.success) {
-      toast.error("Confira o texto da busca.");
-      return;
-    }
-    setDraft({ submitted: parsed.data, value: parsed.data });
-    onChange({ ...query, search: parsed.data, page: 1 });
-  }
-
   return (
-    <form role="search" aria-label="Filtrar equipe administrativa" onSubmit={submit}
-      className="grid min-w-0 gap-3 border-y border-border px-4 py-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] sm:px-5 lg:grid-cols-[minmax(0,24rem)_minmax(0,15rem)_auto] lg:items-end">
-      <div className="grid min-w-0 gap-2">
-        <label htmlFor="admin-team-search" className="text-sm font-medium">Buscar na equipe</label>
-        <div className="flex min-w-0 gap-2">
-          <Input id="admin-team-search" ref={input} type="search" className="h-11 min-w-0" placeholder="Nome ou e-mail"
-            autoComplete="off" maxLength={120} value={search} onChange={(event) => setDraft({ submitted: query.search, value: event.target.value })} />
-          <Button type="submit" variant="outline" size="icon" className="size-11 shrink-0" aria-label="Buscar na equipe">
-            <Search aria-hidden="true" />
-          </Button>
-        </div>
-      </div>
-      <div className="grid min-w-0 gap-2">
-        <span id="admin-team-status" className="text-sm font-medium">Situação</span>
-        <GlideSelect aria-labelledby="admin-team-status" size="lg" options={statuses} value={query.status} menuWidth={224}
-          onChange={(status) => onChange({ ...query, status: adminMemberStatusFilter.parse(status), page: 1 })} />
-      </div>
-      {(query.search || query.status !== "ALL") && (
-        <Button type="button" variant="ghost" className="h-11 w-fit" onClick={() => {
-          setDraft({ submitted: "", value: "" });
-          onChange(initialQuery);
-          input.current?.focus();
-        }}>Limpar filtros</Button>
-      )}
-    </form>
+    <FilterSheet value={query} defaults={initialQuery} active={Boolean(query.search) || query.status !== "ALL"}
+      onApply={draft => applySearchFilters(draft, operationalSearch, onChange)}>
+      {(draft, setDraft) => <>
+        <FilterInput label="Buscar na equipe" placeholder="Nome ou e-mail" maxLength={120} value={draft.search}
+          onChange={event => setDraft({ ...draft, search: event.target.value })} />
+        <FilterSelect label="Situação" options={statuses} value={draft.status}
+          onChange={value => setDraft({ ...draft, status: adminMemberStatusFilter.parse(value) })} />
+      </>}
+    </FilterSheet>
   );
 }
 
@@ -312,10 +279,10 @@ export function AdminTeamScreen({ user }: { user: AdminIdentity }) {
       {(result.isPending || report) && <TeamSummary summary={report?.summary} loading={result.isPending} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="admin-team-members">
-        <header className="px-4 py-4 sm:px-5">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
           <h2 id="admin-team-members" className="text-balance text-lg font-semibold">Membros e convites</h2>
+          <TeamFilters query={query} onChange={navigate} />
         </header>
-        <TeamFilters query={query} onChange={navigate} />
         {loading && <span role="status" className="sr-only">Carregando equipe administrativa</span>}
         <SkeletonReveal flow revealed={!loading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3, 4].map((index) => (

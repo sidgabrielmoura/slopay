@@ -1,24 +1,15 @@
+import { FilterInput, FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  RotateCcw,
-  Search,
-} from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ChevronRight, Download, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { PanelAmount } from "@/components/layout/panel-privacy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ToastNotice } from "@/components/ui/toast-notice";
@@ -143,19 +134,9 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
   const outflow = live && initialTab === "OUT";
   const direction = initialTab === "IN" || initialTab === "OUT" ? initialTab : undefined;
   const [status, setStatus] = useState<StatementStatus | "ALL">("ALL");
-  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [search, setSearch] = useState(initialSearch.trim());
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    const nextSearch = searchTerm.trim();
-    if (nextSearch === search) return;
-    const timer = window.setTimeout(() => {
-      setSearch(nextSearch);
-      setPage(1);
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [searchTerm, search]);
 
   const filters = { direction, status: status === "ALL" ? undefined : status, search, page };
   const { data, isError, isFetching, isLoading, error, refetch } = useQuery({
@@ -170,15 +151,17 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
     ) ? 15_000 : false,
   });
 
-  const filtered = Boolean(searchTerm || status !== "ALL");
-  const searching = searchTerm.trim() !== search;
+  const filtered = Boolean(search || status !== "ALL");
+  const defaults = { search: "", status: "ALL" as const };
+  const statuses = live ? liveTransactionStatuses : demoStatuses;
 
-  function clearFilters() {
-    setSearchTerm("");
-    setSearch("");
-    setStatus("ALL");
+  function applyFilters(draft: { search: string; status: StatementStatus | "ALL" }) {
+    setSearch(draft.search.trim());
+    setStatus(draft.status);
     setPage(1);
   }
+
+  const clearFilters = () => applyFilters(defaults);
 
   function handleExport() {
     if (!data?.data.length) return;
@@ -208,18 +191,29 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => void refetch()} disabled={!available || isFetching || searching} className="gap-1.5">
+          <FilterSheet value={{ search, status }} defaults={defaults} active={filtered} disabled={!available} onApply={applyFilters}>
+            {(draft, setDraft) => <>
+              <FilterInput label="Buscar movimentações" maxLength={transactionSearchLimit} value={draft.search}
+                placeholder={live ? "Referência, ID no provedor ou descrição" : "ID, End-to-End, favorecido ou descrição"}
+                onChange={event => setDraft({ ...draft, search: event.target.value })} />
+              <FilterSelect label="Situação" value={draft.status} options={[
+                { value: "ALL", label: "Todas as situações" },
+                ...statuses.map(value => ({ value, label: statusPresentation[value].label })),
+              ]} onChange={value => setDraft({ ...draft, status: statuses.find(item => item === value) ?? "ALL" })} />
+            </>}
+          </FilterSheet>
+          <Button type="button" variant="outline" className="h-11 gap-1.5" onClick={() => void refetch()} disabled={!available || isFetching}>
             <RotateCcw className="size-3.5" aria-hidden="true" />
             Atualizar
           </Button>
-          {live ? owner && canExport && <StatementExportDialog direction={direction} status={filters.status} search={search} disabled={!available || searching || isError} /> : <Button
+          {live ? owner && canExport && <StatementExportDialog direction={direction} status={filters.status} search={search} disabled={!available || isError} /> : <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleExport}
-            disabled={!data?.data.length || searching || !preferencesReady}
+            disabled={!data?.data.length || !preferencesReady}
             title="Exportar a página atual"
-            className="gap-1.5"
+            className="h-11 gap-1.5"
           >
             <Download className="size-3.5" aria-hidden="true" />
             Exportar CSV
@@ -240,47 +234,6 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
         ))}
       </div>
 
-      <div className="flex flex-col items-center gap-3 sm:flex-row">
-        <div className="relative w-full flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input
-            type="search"
-            value={searchTerm}
-            maxLength={transactionSearchLimit}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            aria-label="Buscar movimentações"
-            placeholder={live ? "Buscar por referência, ID no provedor ou descrição..." : "Buscar por ID, EndToEnd ID, favorecido ou descrição..."}
-            className="h-10 bg-card/80 pl-9"
-          />
-        </div>
-        <div className="flex w-full items-center gap-2 sm:w-auto">
-          <Select
-            value={status}
-            onValueChange={(value) => {
-              const nextStatus = (live ? liveTransactionStatuses : demoStatuses).find((item) => item === value);
-              setStatus(nextStatus ?? "ALL");
-              setPage(1);
-            }}
-          >
-            <SelectTrigger aria-label="Filtrar por status" className="h-10 w-full bg-card/80 sm:w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="ALL">Todos os status</SelectItem>
-                {(live ? liveTransactionStatuses : demoStatuses).map((value) => (
-                  <SelectItem key={value} value={value}>{statusPresentation[value].label}</SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          {filtered && (
-            <Button type="button" variant="ghost" size="sm" onClick={clearFilters} className="shrink-0 text-xs text-muted-foreground hover:text-foreground">
-              Limpar filtros
-            </Button>
-          )}
-        </div>
-      </div>
 
       <Card className="overflow-hidden border-border bg-card/80" aria-busy={isFetching}>
         {isLoading ? (
@@ -377,7 +330,7 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
                   variant="outline"
                   size="sm"
                   aria-label="Página anterior"
-                  disabled={data.page <= 1 || searching}
+                  disabled={data.page <= 1 || isFetching}
                   onClick={() => setPage(data.page - 1)}
                   className="size-8 p-0"
                 >
@@ -389,7 +342,7 @@ export function StatementScreen({ initialTab, initialSearch = "", merchantId, fe
                   variant="outline"
                   size="sm"
                   aria-label="Próxima página"
-                  disabled={data.page >= data.totalPages || searching}
+                  disabled={data.page >= data.totalPages || isFetching}
                   onClick={() => setPage(data.page + 1)}
                   className="size-8 p-0"
                 >

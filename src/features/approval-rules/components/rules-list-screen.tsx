@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, GitBranch, Pencil, Plus, Trash2 } from "lucide-react";
+import { FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { PanelAmount } from "@/components/layout/panel-privacy";
 import {
   AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -13,7 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
-import { GlideSelect } from "@/components/ui/glide-select";
 import { LoadingConfirmation, LoadingIndicator, OperationFailure } from "@/components/ui/loading-indicator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryKeys } from "@/lib/query-keys";
@@ -77,8 +77,11 @@ export function RulesListScreen() {
               Entre as regras ativas que se aplicam, vale a de maior valor mínimo. Em caso de empate, vale a primeira cadastrada.
             </p>
           </div>
-          <GlideSelect ref={filterRef} ariaLabel="Filtrar regras por status" options={statusOptions}
-            value={status} onChange={setStatus} size="lg" className="w-full shrink-0 sm:w-44" />
+          <FilterSheet value={{ status }} defaults={{ status: "all" }} active={status !== "all"} triggerRef={filterRef}
+            onApply={draft => setStatus(draft.status)}>
+            {(draft, setDraft) => <FilterSelect label="Situação" options={statusOptions} value={draft.status}
+              onChange={status => setDraft({ status })} />}
+          </FilterSheet>
         </CardHeader>
 
         <div className="border-t" aria-busy={rules.isFetching || members.isFetching}>

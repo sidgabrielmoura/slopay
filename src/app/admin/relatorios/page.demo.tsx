@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { demoRepository } from "@/services/demo-repository";
 import { formatDateTime } from "@/lib/dates";
+import { FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -177,41 +178,20 @@ export default function AdminRelatoriosPage() {
       {/* Global Parameters Filter Bar */}
       <Card className="bg-card border-border">
         <CardContent className="p-4 flex flex-wrap items-center gap-4">
-          <div className="flex flex-col gap-1 min-w-[180px]">
-            <span className="text-[11px] font-medium text-muted-foreground">
-              Período de Extração
-            </span>
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger aria-label="Período de extração" className="h-9 text-xs bg-background border-border text-foreground">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border text-foreground">
-                <SelectItem value="LAST_7_DAYS">Últimos 7 dias</SelectItem>
-                <SelectItem value="LAST_30_DAYS">Últimos 30 dias</SelectItem>
-                <SelectItem value="THIS_MONTH">Mês Vigente</SelectItem>
-                <SelectItem value="LAST_MONTH">Mês Anterior</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1 min-w-[220px]">
-            <span className="text-[11px] font-medium text-muted-foreground">
-              Filtrar por Empresa
-            </span>
-            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-              <SelectTrigger aria-label="Filtrar por empresa" className="h-9 text-xs bg-background border-border text-foreground">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border text-foreground">
-                <SelectItem value="ALL">Todas as Empresas (Consolidado)</SelectItem>
-                {companies.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.tradeName} ({c.cnpjMasked})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterSheet value={{ period: selectedPeriod, company: selectedCompany }} defaults={{ period: "LAST_30_DAYS", company: "ALL" }}
+            active={selectedPeriod !== "LAST_30_DAYS" || selectedCompany !== "ALL"}
+            onApply={draft => { setSelectedPeriod(draft.period); setSelectedCompany(draft.company); }}>
+            {(draft, setDraft) => <>
+              <FilterSelect label="Período de extração" value={draft.period} options={[
+                { value: "LAST_7_DAYS", label: "Últimos 7 dias" }, { value: "LAST_30_DAYS", label: "Últimos 30 dias" },
+                { value: "THIS_MONTH", label: "Este mês" }, { value: "LAST_MONTH", label: "Mês anterior" },
+              ]} onChange={period => setDraft({ ...draft, period })} />
+              <FilterSelect label="Empresa" value={draft.company} options={[
+                { value: "ALL", label: "Todas as empresas" },
+                ...companies.map(company => ({ value: company.id, label: company.tradeName + " · " + company.cnpjMasked })),
+              ]} onChange={company => setDraft({ ...draft, company })} />
+            </>}
+          </FilterSheet>
 
           <div className="flex flex-col gap-1 min-w-[140px]">
             <span className="text-[11px] font-medium text-muted-foreground">

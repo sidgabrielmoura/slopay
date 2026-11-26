@@ -6,11 +6,11 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -209,9 +209,11 @@ export function AdminWebhookScreen({ user, webhookId }: { user: AdminIdentity; w
               <Card className="min-w-0" aria-labelledby="webhook-history">
                 <header className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
                   <h2 ref={heading} tabIndex={-1} id="webhook-history" className="text-balance text-lg font-semibold">Histórico de entregas</h2>
-                  <GlideSelect ariaLabel="Situação da entrega" size="lg" className="w-full sm:w-56" menuWidth={224}
-                    options={stateOptions} value={history.state}
-                    onChange={(state) => navigate({ state: adminDeliveryStateFilter.parse(state), page: 1 })} />
+                  <FilterSheet value={history} defaults={{ state: "ALL", page: 1 }} active={history.state !== "ALL"}
+                    onApply={draft => navigate({ ...draft, page: 1 })}>
+                    {(draft, setDraft) => <FilterSelect label="Situação da entrega" options={stateOptions} value={draft.state}
+                      onChange={state => setDraft({ ...draft, state: adminDeliveryStateFilter.parse(state) })} />}
+                  </FilterSheet>
                 </header>
                 {listLoading && <span role="status" className="sr-only">Carregando entregas</span>}
                 <SkeletonReveal flow revealed={!listLoading} skeleton={<WebhookRowsSkeleton rows={2} />}>

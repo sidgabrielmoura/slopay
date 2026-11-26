@@ -5,12 +5,12 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownLeft, ArrowUpRight, Building2, Clock3, RotateCw, Undo2 } from "lucide-react";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { GlideSelect } from "@/components/ui/glide-select";
 import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
@@ -103,9 +103,12 @@ export function AdminDashboardScreen({ user, initialReport }: { user: AdminIdent
           <p className="text-pretty text-sm text-muted-foreground">Acompanhe os recebimentos, saques e a operação do Slopay.</p>
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
-          <GlideSelect value={period} onChange={(value) => { setPeriod(indicatorPeriodSchema.parse(value)); setPage(1); }}
-            options={indicatorPeriods.map((value) => ({ value, label: periodLabels[value] }))}
-            ariaLabel="Período da visão geral" size="lg" disabled={report.isPending || (Boolean(data) && !pix)} className="min-w-0 flex-1 sm:w-48" />
+          <FilterSheet value={{ period }} defaults={{ period: defaultIndicatorPeriod }} active={period !== defaultIndicatorPeriod}
+            disabled={report.isPending || (Boolean(data) && !pix)} onApply={draft => { setPeriod(draft.period); setPage(1); }}>
+            {(draft, setDraft) => <FilterSelect label="Período da visão geral" value={draft.period}
+              options={indicatorPeriods.map(value => ({ value, label: periodLabels[value] }))}
+              onChange={value => setDraft({ period: indicatorPeriodSchema.parse(value) })} />}
+          </FilterSheet>
           <Button type="button" variant="outline" size="icon" className="size-11 shrink-0"
             aria-label="Atualizar visão geral" disabled={report.isFetching} onClick={() => void report.refetch()}>
             {report.isFetching ? <LoadingIndicator /> : <RotateCw aria-hidden="true" />}

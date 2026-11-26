@@ -2,18 +2,15 @@
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
 import { OperationalDataUnavailable } from "@/components/shared/operational-data-unavailable";
-import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronRight, Search } from "lucide-react";
-import { toast } from "sonner";
+import { ChevronRight } from "lucide-react";
 import { PanelAmount } from "@/components/layout/panel-privacy";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -42,51 +39,20 @@ const coverageOptions = [
 ];
 
 function BalanceFilters({ query, onChange }: { query: BalancePositionsQuery; onChange: (query: BalancePositionsQuery) => void }) {
-  const [draft, setDraft] = useState({ searched: query.search, value: query.search });
-  const input = useRef<HTMLInputElement>(null);
-  const search = draft.searched === query.search ? draft.value : query.search;
-  const filtered = query.search || query.status !== "ALL" || query.coverage !== "ALL";
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = operationalSearch.safeParse(search);
-    if (!value.success) {
-      toast.error("Confira o texto da busca.");
-      return;
-    }
-    setDraft({ searched: value.data, value: value.data });
-    onChange({ ...query, search: value.data, page: 1 });
-  }
+  const filtered = Boolean(query.search) || query.status !== "ALL" || query.coverage !== "ALL";
 
   return (
-    <form role="search" aria-label="Filtrar posições" className="grid min-w-0 gap-3 border-y border-border px-4 py-4 sm:px-5" onSubmit={submit}>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(0,1fr))]">
-        <div className="grid min-w-0 gap-2 sm:col-span-2 lg:col-span-1">
-          <label htmlFor="balance-search" className="text-sm font-medium">Buscar carteira</label>
-          <div className="flex min-w-0 gap-2">
-            <Input id="balance-search" ref={input} type="search" className="h-11 min-w-0" maxLength={120} autoComplete="off"
-              placeholder="Empresa, CNPJ ou carteira" value={search}
-              onChange={(event) => setDraft({ searched: query.search, value: event.target.value })} />
-            <Button type="submit" size="icon" variant="outline" className="size-11 shrink-0" aria-label="Buscar carteira"><Search aria-hidden="true" /></Button>
-          </div>
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="balance-status" className="text-sm font-medium">Situação Pix</span>
-          <GlideSelect aria-labelledby="balance-status" size="lg" options={statuses} value={query.status}
-            onChange={(value) => onChange({ ...query, status: operationalStatusFilter.parse(value), page: 1 })} />
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="balance-coverage" className="text-sm font-medium">Consulta de saldo</span>
-          <GlideSelect aria-labelledby="balance-coverage" size="lg" menuWidth={218} options={coverageOptions} value={query.coverage}
-            onChange={(value) => onChange({ ...query, coverage: balanceCoverage.parse(value), page: 1 })} />
-        </div>
-      </div>
-      {filtered && <Button type="button" variant="ghost" size="sm" className="-ml-2 h-11 w-fit" onClick={() => {
-        input.current?.focus();
-        setDraft({ searched: "", value: "" });
-        onChange(initialQuery);
-      }}>Limpar filtros</Button>}
-    </form>
+    <FilterSheet value={query} defaults={initialQuery} active={filtered}
+      onApply={draft => applySearchFilters(draft, operationalSearch, onChange)}>
+      {(draft, setDraft) => <>
+        <FilterInput label="Buscar carteira" placeholder="Empresa, CNPJ ou carteira" maxLength={120} value={draft.search}
+          onChange={event => setDraft({ ...draft, search: event.target.value })} />
+        <FilterSelect label="Situação Pix" options={statuses} value={draft.status}
+          onChange={value => setDraft({ ...draft, status: operationalStatusFilter.parse(value) })} />
+        <FilterSelect label="Consulta de saldo" options={coverageOptions} value={draft.coverage}
+          onChange={value => setDraft({ ...draft, coverage: balanceCoverage.parse(value) })} />
+      </>}
+    </FilterSheet>
   );
 }
 
@@ -228,11 +194,13 @@ export function AdminBalancePositionsScreen({ user }: { user: AdminIdentity }) {
       {(result.isLoading || data) && <PositionSummary summary={data?.summary} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="balance-positions">
-        <header className="space-y-1 px-4 py-4 sm:px-5">
-          <h2 id="balance-positions" className="text-balance text-lg font-semibold">Posição por carteira</h2>
-          <p className="text-pretty text-sm text-muted-foreground">O saldo reflete a última consulta de cada carteira. Para atualizar, abra o dossiê da conta.</p>
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+          <div className="grid gap-1">
+            <h2 id="balance-positions" className="text-balance text-lg font-semibold">Posição por carteira</h2>
+            <p className="text-pretty text-sm text-muted-foreground">O saldo reflete a última consulta de cada carteira. Para atualizar, abra o dossiê da conta.</p>
+          </div>
+          <BalanceFilters query={query} onChange={navigate} />
         </header>
-        <BalanceFilters query={query} onChange={navigate} />
         {result.isLoading && <p role="status" className="sr-only">Carregando posições das carteiras</p>}
         <SkeletonReveal flow revealed={!result.isLoading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3, 4].map((row) => (

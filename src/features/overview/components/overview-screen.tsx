@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import NextLink from "next/link";
+import { FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { ToastNotice } from "@/components/ui/toast-notice";
 import { usePreferences } from "@/providers/preferences-provider";
 import { formatCentsToBrl } from "@/lib/money";
@@ -11,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Empty } from "@/components/ui/empty";
 import {
   ArrowDownLeft,
@@ -36,6 +36,7 @@ import {
 } from "recharts";
 
 const overviewPeriods = ["today", "yesterday", "week", "month"] as const;
+const overviewPeriodLabels = { today: "Hoje", yesterday: "Ontem", week: "Últimos 7 dias", month: "Últimos 30 dias" };
 const compactCurrency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
@@ -171,21 +172,11 @@ export function OverviewScreen({
           </p>
         </div>
 
-        {/* Seletor de Período das Métricas */}
-        <ToggleGroup
-          type="single"
-          value={period}
-          onValueChange={(value) => {
-            const selected = overviewPeriods.find((item) => item === value);
-            if (selected) onPeriodChange(selected);
-          }}
-          className="bg-card border border-border p-1 rounded-lg w-fit"
-        >
-          <ToggleGroupItem value="today" size="sm">Hoje</ToggleGroupItem>
-          <ToggleGroupItem value="yesterday" size="sm">Ontem</ToggleGroupItem>
-          <ToggleGroupItem value="week" size="sm">7 dias</ToggleGroupItem>
-          <ToggleGroupItem value="month" size="sm">30 dias</ToggleGroupItem>
-        </ToggleGroup>
+        <FilterSheet value={{ period }} defaults={{ period: "today" }} active={period !== "today"} onApply={draft => onPeriodChange(draft.period)}>
+          {(draft, setDraft) => <FilterSelect label="Período das métricas" value={draft.period}
+            options={overviewPeriods.map(value => ({ value, label: overviewPeriodLabels[value] }))}
+            onChange={value => setDraft({ period: overviewPeriods.find(option => option === value) ?? "today" })} />}
+        </FilterSheet>
       </div>
 
       {accountNotice}

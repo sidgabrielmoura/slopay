@@ -1,18 +1,15 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { ArrowUpRight, ClipboardList, RotateCw, Search } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowUpRight, ClipboardList, RotateCw } from "lucide-react";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { LoadingIndicator } from "@/components/ui/loading-indicator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
@@ -49,7 +46,6 @@ export function AdminAccountOpeningsScreen({ user }: { user: AdminIdentity }) {
   const requestedQuery = openingQueryFrom(useSearchParams());
   const query = !development && (requestedQuery.status === "PILOT" || requestedQuery.status === "LINKED")
     ? { ...requestedQuery, status: "ALL" as const, page: 1 } : requestedQuery;
-  const [draft, setDraft] = useState(query.search);
   const { status, search, page } = query;
   const result = useQuery({
     queryKey: ["admin-account-openings", user.id, status, search, page],
@@ -68,20 +64,8 @@ export function AdminAccountOpeningsScreen({ user }: { user: AdminIdentity }) {
     window.history.replaceState(null, "", openingsPath + openingParams(next));
   }
 
-  function submitSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = openingSearch.safeParse(draft);
-    if (!value.success) {
-      toast.error("Confira o texto da busca.");
-      return;
-    }
-    updateQuery({ ...query, search: value.data, page: 1 });
-  }
-
-  function clear() {
-    setDraft("");
-    updateQuery({ status: "ALL", search: "", page: 1 });
-  }
+  const defaults: OpeningQuery = { status: "ALL", search: "", page: 1 };
+  const clear = () => updateQuery(defaults);
 
   return (
     <AdminPanel user={user}>
@@ -93,29 +77,22 @@ export function AdminAccountOpeningsScreen({ user }: { user: AdminIdentity }) {
           </div>
           <p className="text-pretty text-sm text-muted-foreground">Analise os cadastros dos titulares e acompanhe as solicitações.</p>
         </div>
-        <Button type="button" variant="outline" className="h-11" disabled={result.isFetching} onClick={() => void result.refetch()}>
-          {result.isFetching ? <LoadingIndicator /> : <RotateCw aria-hidden="true" />}
-          Atualizar cadastros
-        </Button>
-      </header>
-
-      <form className="flex flex-col gap-3 sm:flex-row sm:items-end" role="search" aria-label="Buscar cadastros" onSubmit={submitSearch}>
-        <div className="grid min-w-0 gap-2 sm:w-56 sm:shrink-0">
-          <span className="text-sm font-medium">Situação</span>
-          <GlideSelect ariaLabel="Situação do cadastro"
-            options={development ? filters : filters.filter(({ value }) => value !== "PILOT" && value !== "LINKED")} value={status} size="lg"
-            onChange={(value) => updateQuery({ ...query, status: openingFilter.parse(value), page: 1 })} />
-        </div>
-        <div className="grid min-w-0 flex-1 gap-2">
-          <label className="text-sm font-medium" htmlFor="account-opening-search">Buscar cadastro</label>
-          <Input id="account-opening-search" type="search" value={draft} maxLength={120} className="h-11"
-            placeholder="Titular, empresa, e-mail ou CNPJ" onChange={(event) => setDraft(event.target.value)} />
-        </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" variant="outline" className="h-11"><Search aria-hidden="true" />Buscar</Button>
-          {filtering && <Button type="button" variant="ghost" className="h-11" onClick={clear}>Limpar filtros</Button>}
+          <FilterSheet value={query} defaults={defaults} active={filtering}
+            onApply={draft => applySearchFilters(draft, openingSearch, updateQuery)}>
+            {(draft, setDraft) => <>
+              <FilterInput label="Buscar cadastro" placeholder="Titular, empresa, e-mail ou CNPJ" maxLength={120} value={draft.search}
+                onChange={event => setDraft({ ...draft, search: event.target.value })} />
+              <FilterSelect label="Situação" options={development ? filters : filters.filter(({ value }) => value !== "PILOT" && value !== "LINKED")} value={draft.status}
+                onChange={value => setDraft({ ...draft, status: openingFilter.parse(value) })} />
+            </>}
+          </FilterSheet>
+          <Button type="button" variant="outline" className="h-11" disabled={result.isFetching} onClick={() => void result.refetch()}>
+            {result.isFetching ? <LoadingIndicator /> : <RotateCw aria-hidden="true" />}
+            Atualizar cadastros
+          </Button>
         </div>
-      </form>
+      </header>
 
       <ToastNotice message={result.isError ? result.error.message : null} />
       {result.isPending && <p role="status" className="sr-only">Carregando cadastros</p>}

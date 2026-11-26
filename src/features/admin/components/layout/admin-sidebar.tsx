@@ -2,7 +2,7 @@
 
 import {
   AlertOctagon, ArrowDownUp, Building2, ExternalLink, FileCheck2, FileSpreadsheet,
-  History, Layers, LayoutDashboard, Shield, ShieldAlert, Sliders, SlidersHorizontal,
+  History, Layers, LayoutDashboard, ScanSearch, Shield, ShieldAlert, Sliders, SlidersHorizontal,
   UserCog, Users2, WalletCards, Webhook,
 } from "lucide-react";
 import { PanelSidebar, type PanelSidebarGroup } from "@/components/layout/panel-sidebar";
@@ -44,6 +44,7 @@ export function adminNavigationGroups({ pendingSummary }: AdminNavigationOptions
           title: "Movimentações", path: "/admin/operacoes", icon: ArrowDownUp,
           aliases: ["/admin/cobrancas", "/admin/extrato"],
         },
+        { title: "Contestações Pix", path: "/admin/contestacoes-pix", icon: ScanSearch },
         { title: "Lotes de saída", path: "/admin/lotes", icon: Layers },
         {
           title: "Aprovações de saque", path: "/admin/aprovacoes-financeiras", icon: ShieldAlert,

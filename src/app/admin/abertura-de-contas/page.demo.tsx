@@ -5,20 +5,11 @@ import NextLink from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useGatewayService } from "@/providers/demo-provider";
 import { useAdminFilters } from "@/features/admin/hooks/use-admin-filters";
-import {
-  FileCheck2,
-  ExternalLink,
-  Clock,
-  UserCheck,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  X,
-} from "lucide-react";
+import { FileCheck2, ExternalLink, Clock, UserCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { FilterInput, FilterSelect, FilterSheet } from "@/components/shared/filter-sheet";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 
 export default function AdminAberturaDeContasPage() {
   const service = useGatewayService();
@@ -81,50 +72,17 @@ export default function AdminAberturaDeContasPage() {
         </div>
       </div>
 
-      {/* Tabs de Filtro de Status */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border/60">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => {
-              setActiveTab(tab.id);
-              setPage(1);
-            }}
-            className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0 ${
-              activeTab === tab.id
-                ? "bg-secondary text-foreground font-semibold border border-border"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-              }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Busca */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Buscar por Razão Social, Fantasia, CNPJ ou Titular..."
-            className="h-9 pl-9 pr-8 text-xs bg-card border-border text-foreground"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="size-3.5" />
-            </button>
-          )}
-        </div>
+      <div className="flex justify-end">
+        <FilterSheet value={{ search: search, activeTab }} defaults={{ search: "", activeTab: "ALL" }}
+          active={Boolean(search) || activeTab !== "ALL"}
+          onApply={draft => { setSearch(draft.search.trim()); setActiveTab(draft.activeTab); setPage(1); }}>
+          {(draft, setDraft) => <>
+            <FilterInput label="Buscar cadastro" placeholder="Razão social, nome fantasia, CNPJ ou titular" value={draft.search}
+              onChange={event => setDraft({ ...draft, search: event.target.value })} />
+            <FilterSelect label="Situação" value={draft.activeTab} options={tabs.map(tab => ({ value: tab.id, label: tab.label }))}
+              onChange={activeTab => setDraft({ ...draft, activeTab })} />
+          </>}
+        </FilterSheet>
       </div>
 
       {/* Tabela de Solicitações */}

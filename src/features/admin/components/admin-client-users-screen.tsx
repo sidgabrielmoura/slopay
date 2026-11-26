@@ -1,16 +1,14 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { toast } from "sonner";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -54,49 +52,18 @@ function DirectorySummary({ summary, loading }: { summary?: ClientUserSummary; l
 }
 
 function DirectoryFilters({ query, filtered, onChange }: { query: ClientUserQuery; filtered: boolean; onChange: (query: ClientUserQuery) => void }) {
-  const [draft, setDraft] = useState({ search: query.search, value: query.search });
-  const input = useRef<HTMLInputElement>(null);
-  const search = draft.search === query.search ? draft.value : query.search;
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = companySearch.safeParse(search);
-    if (!parsed.success) {
-      toast.error("Confira o texto da busca.");
-      return;
-    }
-    setDraft({ search: parsed.data, value: parsed.data });
-    onChange({ ...query, search: parsed.data, page: 1 });
-  }
-
   return (
-    <form role="search" aria-label="Filtrar usuários credenciados" onSubmit={submit} className="grid min-w-0 gap-3 border-y border-border px-4 py-4 sm:px-5">
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_repeat(2,minmax(0,1fr))]">
-        <div className="grid min-w-0 gap-2 sm:col-span-2 xl:col-span-1">
-          <label htmlFor="directory-search" className="text-sm font-medium">Buscar usuário</label>
-          <div className="flex min-w-0 gap-2">
-            <Input id="directory-search" ref={input} type="search" autoComplete="off" maxLength={120} className="h-11 min-w-0"
-              placeholder="Nome, e-mail ou empresa" value={search} onChange={(event) => setDraft({ search: query.search, value: event.target.value })} />
-            <Button type="submit" variant="outline" size="icon" className="size-11 shrink-0" aria-label="Pesquisar usuários"><Search aria-hidden="true" /></Button>
-          </div>
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="directory-role" className="text-sm font-medium">Perfil de acesso</span>
-          <GlideSelect aria-labelledby="directory-role" size="lg" value={query.role} options={roles} menuWidth={208}
-            onChange={(role) => onChange({ ...query, role: clientUserRoleFilter.parse(role), page: 1 })} />
-        </div>
-        <div className="grid min-w-0 gap-2">
-          <span id="directory-status" className="text-sm font-medium">Situação do acesso</span>
-          <GlideSelect aria-labelledby="directory-status" size="lg" value={query.status} options={statuses} menuWidth={224}
-            onChange={(status) => onChange({ ...query, status: companyStatusFilter.parse(status), page: 1 })} />
-        </div>
-      </div>
-      {filtered && <Button type="button" variant="ghost" className="h-11 w-fit" onClick={() => {
-        setDraft({ search: "", value: "" });
-        onChange(defaultQuery);
-        input.current?.focus();
-      }}>Limpar filtros</Button>}
-    </form>
+    <FilterSheet value={query} defaults={defaultQuery} active={filtered}
+      onApply={draft => applySearchFilters(draft, companySearch, onChange)}>
+      {(draft, setDraft) => <>
+        <FilterInput label="Buscar usuário" placeholder="Nome, e-mail ou empresa" maxLength={120} value={draft.search}
+          onChange={event => setDraft({ ...draft, search: event.target.value })} />
+        <FilterSelect label="Perfil de acesso" options={roles} value={draft.role}
+          onChange={value => setDraft({ ...draft, role: clientUserRoleFilter.parse(value) })} />
+        <FilterSelect label="Situação do acesso" options={statuses} value={draft.status}
+          onChange={value => setDraft({ ...draft, status: companyStatusFilter.parse(value) })} />
+      </>}
+    </FilterSheet>
   );
 }
 
@@ -204,8 +171,10 @@ export function AdminClientUsersScreen({ user }: { user: AdminIdentity }) {
       {(result.isPending || report) && <DirectorySummary summary={report?.summary} loading={result.isPending} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="directory-users">
-        <header className="px-4 py-4 sm:px-5"><h2 id="directory-users" className="text-balance text-lg font-semibold">Diretório de usuários</h2></header>
-        <DirectoryFilters query={query} filtered={filtered} onChange={navigate} />
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+          <h2 id="directory-users" className="text-balance text-lg font-semibold">Diretório de usuários</h2>
+          <DirectoryFilters query={query} filtered={filtered} onChange={navigate} />
+        </header>
         {loading && <span role="status" className="sr-only">Carregando usuários credenciados</span>}
         <SkeletonReveal flow revealed={!loading} skeleton={<DirectorySkeleton />}>
           {report?.items.length ? <DirectoryRows items={report.items} openUser={openUser} /> : report ? (

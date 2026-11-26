@@ -1,18 +1,15 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, ChevronRight, Search } from "lucide-react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { toast } from "sonner";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -78,46 +75,18 @@ function WebhookSummary({ summary, loading }: { summary?: AdminWebhookSummary; l
 }
 
 function DestinationFilters({ query, onChange }: { query: AdminWebhookQuery; onChange: (query: AdminWebhookQuery) => void }) {
-  const [draft, setDraft] = useState({ submitted: query.search, value: query.search });
-  const input = useRef<HTMLInputElement>(null);
-  const search = draft.submitted === query.search ? draft.value : query.search;
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = operationalSearch.safeParse(search);
-    if (!parsed.success) {
-      toast.error("Confira o texto da busca.");
-      return;
-    }
-    setDraft({ submitted: parsed.data, value: parsed.data });
-    onChange({ ...query, search: parsed.data, page: 1 });
-  }
+  const filtered = Boolean(query.search) || query.status !== "ALL";
 
   return (
-    <form role="search" aria-label="Filtrar destinos" onSubmit={submit}
-      className="grid min-w-0 gap-3 border-y border-border px-4 py-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] sm:px-5 lg:grid-cols-[minmax(0,26rem)_minmax(0,16rem)_auto] lg:items-end">
-      <div className="grid min-w-0 gap-2">
-        <label htmlFor="admin-webhook-search" className="text-sm font-medium">Buscar destino</label>
-        <div className="flex min-w-0 gap-2">
-          <Input id="admin-webhook-search" type="search" ref={input} className="h-11 min-w-0" autoComplete="off" maxLength={120}
-            value={search} placeholder="Webhook, domínio, empresa ou CNPJ"
-            onChange={(event) => setDraft({ submitted: query.search, value: event.target.value })} />
-          <Button type="submit" variant="outline" size="icon" className="size-11 shrink-0" aria-label="Buscar destino"><Search aria-hidden="true" /></Button>
-        </div>
-      </div>
-      <div className="grid min-w-0 gap-2">
-        <span id="admin-webhook-status" className="text-sm font-medium">Situação do webhook</span>
-        <GlideSelect aria-labelledby="admin-webhook-status" options={statusOptions} size="lg" menuWidth={224} value={query.status}
-          onChange={(status) => onChange({ ...query, status: adminWebhookStatusFilter.parse(status), page: 1 })} />
-      </div>
-      {(query.search || query.status !== "ALL") && (
-        <Button type="button" variant="ghost" className="h-11 w-fit" onClick={() => {
-          setDraft({ submitted: "", value: "" });
-          onChange(initialQuery);
-          input.current?.focus();
-        }}>Limpar filtros</Button>
-      )}
-    </form>
+    <FilterSheet value={query} defaults={initialQuery} active={filtered}
+      onApply={draft => applySearchFilters(draft, operationalSearch, onChange)}>
+      {(draft, setDraft) => <>
+        <FilterInput label="Buscar destino" placeholder="Webhook, domínio, empresa ou CNPJ" maxLength={120} value={draft.search}
+          onChange={event => setDraft({ ...draft, search: event.target.value })} />
+        <FilterSelect label="Situação do webhook" options={statusOptions} value={draft.status}
+          onChange={value => setDraft({ ...draft, status: adminWebhookStatusFilter.parse(value) })} />
+      </>}
+    </FilterSheet>
   );
 }
 
@@ -220,11 +189,13 @@ export function AdminWebhooksScreen({ user }: { user: AdminIdentity }) {
       {(result.isLoading || report) && <WebhookSummary summary={report?.summary} loading={result.isLoading} />}
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="global-webhook-destinations">
-        <div className="space-y-1 px-4 py-4 sm:px-5">
-          <h2 id="global-webhook-destinations" className="text-balance text-lg font-semibold">Destinos por empresa</h2>
-          <p className="text-pretty text-sm text-muted-foreground">Abra um destino para ver os eventos assinados e as respostas de cada tentativa.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+          <div className="grid gap-1">
+            <h2 id="global-webhook-destinations" className="text-balance text-lg font-semibold">Destinos por empresa</h2>
+            <p className="text-pretty text-sm text-muted-foreground">Abra um destino para ver os eventos assinados e as respostas de cada tentativa.</p>
+          </div>
+          <DestinationFilters query={query} onChange={navigate} />
         </div>
-        <DestinationFilters query={query} onChange={navigate} />
         {loading && <span role="status" className="sr-only">Carregando destinos de webhooks</span>}
         <SkeletonReveal flow revealed={!loading} skeleton={<WebhookRowsSkeleton />}>
           {report?.items.length ? <DestinationRows items={report.items} query={{ ...query, page: report.pagination.page }} /> : report ? (

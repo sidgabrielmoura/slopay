@@ -1,18 +1,15 @@
 "use client";
 
 import { useDevelopmentFeatures } from "@/providers/app-providers";
-import { useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, ChevronRight, Search } from "lucide-react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { toast } from "sonner";
+import { FilterInput, FilterSelect, FilterSheet, applySearchFilters } from "@/components/shared/filter-sheet";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { GlideSelect } from "@/components/ui/glide-select";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonReveal } from "@/components/ui/skeleton-reveal";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -40,49 +37,19 @@ const statusOptions = ruleStatusFilter.options.map((value) => ({
 }));
 
 function RuleFilters({ query, onChange }: { query: ApprovalRulesQuery; onChange: (next: ApprovalRulesQuery) => void }) {
-  const [draft, setDraft] = useState({ submitted: query.search, value: query.search });
-  const input = useRef<HTMLInputElement>(null);
-  const search = draft.submitted === query.search ? draft.value : query.search;
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = operationalSearch.safeParse(search);
-    if (!parsed.success) {
-      toast.error("Confira o texto da busca.");
-      return;
-    }
-    setDraft({ submitted: parsed.data, value: parsed.data });
-    onChange({ ...query, search: parsed.data, page: 1 });
-  }
-
   const development = useDevelopmentFeatures();
+  const filtered = Boolean(query.search) || query.status !== "ALL";
+
   return (
-    <form role="search" aria-label="Filtrar alçadas por carteira" onSubmit={submit}
-      className="grid gap-3 border-y border-border px-4 py-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] sm:px-5 lg:grid-cols-[minmax(0,26rem)_minmax(0,16rem)]">
-      <div className="grid min-w-0 gap-2">
-        <label htmlFor="approval-rules-search" className="text-sm font-medium">Buscar carteira</label>
-        <div className="flex min-w-0 gap-2">
-          <Input id="approval-rules-search" ref={input} type="search" placeholder={development ? "Empresa, titular, CNPJ ou carteira" : "Nome ou ID da carteira"}
-            maxLength={120} autoComplete="off" className="h-11 min-w-0" value={search}
-            onChange={(event) => setDraft({ submitted: query.search, value: event.target.value })} />
-          <Button type="submit" variant="outline" size="icon" className="size-11 shrink-0" aria-label="Buscar carteira">
-            <Search aria-hidden="true" />
-          </Button>
-        </div>
-      </div>
-      <div className="grid min-w-0 gap-2">
-        <span id="approval-rules-status" className="text-sm font-medium">Situação da validação</span>
-        <GlideSelect aria-labelledby="approval-rules-status" options={statusOptions} size="lg" menuWidth={248} value={query.status}
-          onChange={(status) => onChange({ ...query, status: ruleStatusFilter.parse(status), page: 1 })} />
-      </div>
-      {(query.search || query.status !== "ALL") && (
-        <Button type="button" variant="ghost" size="sm" className="-ml-2 h-11 w-fit" onClick={() => {
-          setDraft({ submitted: "", value: "" });
-          onChange(initialQuery);
-          input.current?.focus();
-        }}>Limpar filtros</Button>
-      )}
-    </form>
+    <FilterSheet value={query} defaults={initialQuery} active={filtered}
+      onApply={draft => applySearchFilters(draft, operationalSearch, onChange)}>
+      {(draft, setDraft) => <>
+        <FilterInput label="Buscar carteira" placeholder={development ? "Empresa, titular, CNPJ ou carteira" : "Nome ou ID da carteira"} maxLength={120} value={draft.search}
+          onChange={event => setDraft({ ...draft, search: event.target.value })} />
+        <FilterSelect label="Situação da validação" options={statusOptions} value={draft.status}
+          onChange={value => setDraft({ ...draft, status: ruleStatusFilter.parse(value) })} />
+      </>}
+    </FilterSheet>
   );
 }
 
@@ -199,15 +166,15 @@ export function AdminApprovalRulesScreen({ user }: { user: AdminIdentity }) {
     <>
       <ToastNotice message={result.error?.message} />
       <Card className="min-w-0" aria-labelledby="approval-rules-wallets">
-        <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-5">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
           <h2 id="approval-rules-wallets" className="text-balance text-lg font-semibold">Validação por carteira</h2>
           {report && (
             <p className="text-xs text-muted-foreground tabular-nums">
               {count.format(report.summary.ready)} de {count.format(report.summary.total)} com validação habilitada
             </p>
           )}
+          <RuleFilters query={query} onChange={navigate} />
         </header>
-        <RuleFilters query={query} onChange={navigate} />
         {loading && <span role="status" className="sr-only">Carregando alçadas por carteira</span>}
         <SkeletonReveal flow revealed={!loading} skeleton={
           <div className="divide-y divide-border">{[1, 2, 3, 4].map((index) => (
