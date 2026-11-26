@@ -10,8 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
+import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError } from "@/lib/api-client";
 import { apiAccessDraftSchema, integrationApiGateway, type ApiAccessDraft } from "../sandbox-api";
 import { IntegrationConfirmationDialog } from "./integration-confirmation-dialog";
@@ -43,7 +45,7 @@ export function SandboxIntegrationSecurity({ accountId, canManage = true }: { ac
 
   return (
     <div className="grid min-w-0 gap-5">
-      <IntegrationHeading title="Segurança da integração" description="Controle quais redes podem usar as chaves de API da empresa." />
+      <IntegrationHeading title="Segurança da integração" description="Controle o acesso das chaves de API da empresa." />
       {security.isPending ? (
         <Card className="grid gap-3 p-5" aria-busy="true" aria-label="Carregando segurança da integração">
           <Skeleton className="h-6 w-44" /><Skeleton className="h-32 w-full" />
@@ -61,35 +63,44 @@ export function SandboxIntegrationSecurity({ accountId, canManage = true }: { ac
       ) : (
         <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <Card>
-            <CardHeader className="gap-2">
+            <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="flex items-center gap-2"><Network size={18} aria-hidden="true" /> Redes permitidas</CardTitle>
+                <div className="flex items-center gap-1">
+                  <CardTitle className="flex items-center gap-2"><Network size={18} aria-hidden="true" /> IPs permitidos</CardTitle>
+                  <TooltipProvider delayDuration={150}>
+                    <HelpTooltip label="Como funcionam os IPs permitidos?" className="pointer-coarse:size-11">
+                      A lista vale para todas as chaves de API da empresa. Com IPs cadastrados, requisições de outros endereços
+                      recebem erro <strong>403 (acesso negado)</strong>. Com a lista vazia, uma chave válida pode ser usada de qualquer IP.
+                    </HelpTooltip>
+                  </TooltipProvider>
+                </div>
                 <Badge variant={access.networks.length ? "success" : "secondary"}>
-                  {access.networks.length ? "Restrição ativa" : "Acesso por chave"}
+                  {access.networks.length ? "Restrição ativa" : "Qualquer IP"}
                 </Badge>
               </div>
-              <CardDescription>As redes valem para todas as chaves de API da empresa.</CardDescription>
             </CardHeader>
-            <CardContent className="grid min-w-0 gap-4">
-              {access.networks.length ? (
-                <ul className="grid divide-y rounded-lg border text-sm" aria-label="Endereços autorizados">
-                  {access.networks.map((value) => <li key={value} className="wrap-anywhere px-3 py-2.5 font-mono">{value}</li>)}
-                </ul>
-              ) : <p className="text-sm text-muted-foreground">Uma chave válida pode ser usada de qualquer rede.</p>}
-              {canManage && <Button type="button" ref={editor} variant="outline" className="justify-self-start" onClick={() => {
-                setEditing(editing ? null : { version: access.version, text: access.networks.join("\n") });
-              }}>{editing ? "Cancelar edição" : "Editar redes"}</Button>}
-              {canManage && editing && (
-                <form className="grid gap-3 border-t pt-4" onSubmit={reviewChange}>
-                  <label htmlFor="integration-networks" className="text-sm font-medium">Endereços IPv4, IPv6 ou CIDR</label>
-                  <Textarea id="integration-networks" aria-describedby="integration-networks-help" rows={5} spellCheck={false}
-                    value={editing.text} maxLength={1_300} className="font-mono"
-                    onChange={(event) => setEditing({ version: editing.version, text: event.target.value })} />
-                  <p id="integration-networks-help" className="text-sm text-muted-foreground">Digite uma rede por linha. Deixe vazio para liberar todas as redes.</p>
-                  <Button className="justify-self-start" type="submit">Revisar alterações</Button>
-                </form>
-              )}
-            </CardContent>
+            {(canManage || access.networks.length > 0) && (
+              <CardContent className="grid min-w-0 gap-4">
+                {access.networks.length > 0 && (
+                  <ul className="grid divide-y rounded-lg border text-sm" aria-label="IPs cadastrados">
+                    {access.networks.map((value) => <li key={value} className="wrap-anywhere px-3 py-2.5 font-mono">{value}</li>)}
+                  </ul>
+                )}
+                {canManage && <Button type="button" ref={editor} variant="outline" className="justify-self-start" onClick={() => {
+                  setEditing(editing ? null : { version: access.version, text: access.networks.join("\n") });
+                }}>{editing ? "Cancelar edição" : "Editar IPs"}</Button>}
+                {canManage && editing && (
+                  <form className="grid gap-3 border-t pt-4" onSubmit={reviewChange}>
+                    <label htmlFor="integration-networks" className="text-sm font-medium">Endereços IP</label>
+                    <Textarea id="integration-networks" aria-describedby="integration-networks-help" rows={5} spellCheck={false}
+                      value={editing.text} maxLength={1_300} className="font-mono"
+                      onChange={(event) => setEditing({ version: editing.version, text: event.target.value })} />
+                    <p id="integration-networks-help" className="text-sm text-muted-foreground">Informe um IP ou intervalo CIDR por linha.</p>
+                    <Button className="justify-self-start" type="submit">Revisar alterações</Button>
+                  </form>
+                )}
+              </CardContent>
+            )}
           </Card>
           <div className="grid gap-4">
           <Card>
@@ -115,14 +126,14 @@ export function SandboxIntegrationSecurity({ accountId, canManage = true }: { ac
           </div>
         </div>
       )}
-      {canManage && review && <IntegrationConfirmationDialog scope={JSON.stringify(review)} title="Confirmar redes permitidas"
-        description="Revise a lista que será aplicada às chaves da empresa." completed="Redes atualizadas"
+      {canManage && review && <IntegrationConfirmationDialog scope={JSON.stringify(review)} title="Confirmar IPs permitidos"
+        description="Revise a lista que será aplicada às chaves da empresa." completed="IPs atualizados"
         options={() => gateway.options(review)} apply={(proof) => gateway.update(review, proof)}
         onSuccess={(result) => { queryClient.setQueryData(key, result); setEditing(null); }}
         onClose={() => setReview(null)} restoreFocus={() => editor.current?.focus()}>
         {review.networks.length ? <ul className="grid gap-1 rounded-lg border p-3 font-mono text-sm">
           {Array.from(new Set(review.networks)).map((network) => <li key={network} className="wrap-anywhere">{network}</li>)}
-        </ul> : <p className="text-sm text-muted-foreground">Todas as redes terão acesso com uma chave válida.</p>}
+        </ul> : <p className="text-sm text-muted-foreground">Com a lista vazia, uma chave válida pode ser usada de qualquer IP.</p>}
       </IntegrationConfirmationDialog>}
     </div>
   );

@@ -13,7 +13,7 @@ const operations = [
 ] as const;
 
 const relatedLinks = [
-  { href: integrationSecurityPath, label: "Redes permitidas" },
+  { href: integrationSecurityPath, label: "IPs permitidos" },
   { href: webhooksPath, label: "Configurar webhooks" },
   { href: `${integrationLogsPath}?aba=requisicoes`, label: "Ver requisições" },
 ];

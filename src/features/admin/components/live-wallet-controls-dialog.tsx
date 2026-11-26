@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleHelp, Copy, Shuffle } from "lucide-react";
+import { Copy, Shuffle } from "lucide-react";
 import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { OperationFailure } from "@/components/ui/loading-indicator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -134,10 +135,10 @@ function WalletSettingsForm({ poolId, data, onReview, onCancel }: {
           {withdraws && <div className="grid gap-2">
             <div className="flex items-center gap-1">
               <label htmlFor={id + "-fee"} className="text-sm font-medium">Tarifa máxima por saque</label>
-              <WalletFieldHelp label="Sobre a tarifa máxima por saque">
+              <HelpTooltip label="Sobre a tarifa máxima por saque">
                 O Slopay reserva o valor do saque mais este teto. Na liquidação, desconta a tarifa efetiva do provedor e libera a diferença.
                 Se a tarifa do provedor ultrapassar o teto, o saque é recusado.
-              </WalletFieldHelp>
+              </HelpTooltip>
             </div>
             <CurrencyInput id={id + "-fee"} valueInCents={feeLimit} maxInCents={100000} onValueChange={setFeeLimit} />
           </div>}
@@ -160,27 +161,6 @@ function WalletSettingsForm({ poolId, data, onReview, onCancel }: {
         </DialogFooter>
       </form>
     </TooltipProvider>
-  );
-}
-
-function WalletFieldHelp({ label, children }: { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Tooltip open={open} onOpenChange={setOpen}>
-      <TooltipTrigger asChild>
-        <Button type="button" variant="ghost" size="iconSm" aria-label={label} className="text-muted-foreground"
-          onClick={event => {
-            event.preventDefault();
-            setOpen(true);
-          }}>
-          <CircleHelp aria-hidden="true" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent align="start" side="top" collisionPadding={12}
-        className="max-w-[min(19rem,calc(100vw-1.5rem))] px-3 py-2 text-pretty leading-relaxed motion-reduce:animate-none">
-        {children}
-      </TooltipContent>
-    </Tooltip>
   );
 }
 
@@ -218,7 +198,7 @@ function WalletTokenField({ id, name, label, tokenLabel, path, configured, requi
     <div className="grid min-w-0 gap-2">
       <div className="flex min-w-0 items-center gap-1">
         <label htmlFor={id} className="text-sm font-medium">{label}</label>
-        <WalletFieldHelp label={"Como configurar o token " + tokenLabel + " no provedor"}>{children}</WalletFieldHelp>
+        <HelpTooltip label={"Como configurar o token " + tokenLabel + " no provedor"}>{children}</HelpTooltip>
       </div>
       <code id={id + "-path"} className="select-all wrap-anywhere text-xs text-muted-foreground">{path}</code>
       <InputGroup>

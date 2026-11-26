@@ -117,25 +117,25 @@ function WalletPositionRow({ item, writable, canRotate, refreshingId, refreshBal
               openAction({ type, wallet: item }, menuTrigger.current);
             }}>
             {(canRefresh || canConfigure || canRotateKey || canClose) && <>
-            <DropdownMenuGroup>
-              {canRefresh && <DropdownMenuItem className="min-h-11" disabled={!writable || refreshingId !== undefined}
-                onSelect={() => refreshBalance(item.id)}>
-                <RefreshCw aria-hidden="true" />Consultar saldo
-              </DropdownMenuItem>}
-              {canConfigure && <DropdownMenuItem className="min-h-11" disabled={!writable}
-                onSelect={() => { nextDialog.current = "configure"; }}>
-                <Settings2 aria-hidden="true" />Configurar
-              </DropdownMenuItem>}
-              {canRotateKey && <DropdownMenuItem className="min-h-11" disabled={!writable}
-                onSelect={() => { nextDialog.current = "rotate"; }}>
-                <KeyRound aria-hidden="true" />Trocar chave
-              </DropdownMenuItem>}
-              {canClose && <DropdownMenuItem className="min-h-11 text-destructive" disabled={!writable}
-                onSelect={() => { nextDialog.current = "close"; }}>
-                <LockKeyhole aria-hidden="true" />Encerrar carteira
-              </DropdownMenuItem>}
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                {canRefresh && <DropdownMenuItem className="min-h-11" disabled={!writable || refreshingId !== undefined}
+                  onSelect={() => refreshBalance(item.id)}>
+                  <RefreshCw aria-hidden="true" />Consultar saldo
+                </DropdownMenuItem>}
+                {canConfigure && <DropdownMenuItem className="min-h-11" disabled={!writable}
+                  onSelect={() => { nextDialog.current = "configure"; }}>
+                  <Settings2 aria-hidden="true" />Configurar
+                </DropdownMenuItem>}
+                {canRotateKey && <DropdownMenuItem className="min-h-11" disabled={!writable}
+                  onSelect={() => { nextDialog.current = "rotate"; }}>
+                  <KeyRound aria-hidden="true" />Trocar chave
+                </DropdownMenuItem>}
+                {canClose && <DropdownMenuItem className="min-h-11 text-destructive" disabled={!writable}
+                  onSelect={() => { nextDialog.current = "close"; }}>
+                  <LockKeyhole aria-hidden="true" />Encerrar carteira
+                </DropdownMenuItem>}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
             </>}
             <DropdownMenuGroup>
               {can("admin.movements.read") && <DropdownMenuItem asChild className="min-h-11">
