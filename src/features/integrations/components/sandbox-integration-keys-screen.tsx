@@ -264,8 +264,6 @@ export function SandboxIntegrationKeysScreen({
         )}
       </Card>
 
-      {apiOrigin && <ApiKeyQuickStart apiOrigin={apiOrigin} apiPath={apiPath} />}
-
       <Dialog open={canManage && modal !== null} onOpenChange={(open) => { if (!open) close(); }}>
         <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-[calc(100%-2rem)] gap-5 overflow-y-auto p-4 sm:max-w-lg sm:p-6"
           onInteractOutside={(event) => { if (busy || modal?.kind === "issued") event.preventDefault(); }}

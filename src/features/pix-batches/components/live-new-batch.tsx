@@ -22,7 +22,7 @@ import { OperationFactorActions, usePasskeyConfirmation } from "@/features/auth/
 import { ExpenseCategoryLabel, ExpenseCategorySelect } from "@/features/expenses/components/expense-category-select";
 import type { ExpenseCategory } from "@/features/expenses/expenses";
 import { MAX_PIX_AMOUNT_IN_CENTS, pixPaymentIdSchema } from "@/features/pix-receive/pix-receipt";
-import { normalizeWithdrawalKey, pixKeyLabels, pixKeyTypeSchema, type PixKeyType, type WithdrawalProof } from "@/features/pix-withdraw/pix-withdrawal";
+import { normalizeWithdrawalKey, pixKeyLabels, pixKeyTypeSchema, slopayWithdrawalFee, type PixKeyType, type WithdrawalProof } from "@/features/pix-withdraw/pix-withdrawal";
 import { asaasPixWithdrawals, withdrawalOptionsKey } from "@/features/pix-withdraw/pix-withdrawal-gateway";
 import { ApiError } from "@/lib/api-client";
 import { pixKeyInputMask } from "@/lib/validators";
@@ -69,6 +69,10 @@ export function LiveNewBatch({ merchantId, available }: { merchantId: string; av
   const canSimulate = development && options.data?.simulationAvailable;
   const total = transfers.reduce((sum, item) => sum + item.amountInCents, 0);
   const fee = step === 0 ? options.data?.feeLimitInCents : prepared?.input.feeLimitInCents;
+  const platformFee = step === 0
+    ? slopayWithdrawalFee(simulate || transfers.some(item => item.amountInCents < 1) ? undefined : options.data?.slopayPricing,
+      transfers.map(item => item.amountInCents))
+    : prepared?.input.slopayFeeInCents;
 
   useLayoutEffect(() => {
     visibleAtConfirmation.current = canReviewValues;
@@ -99,19 +103,23 @@ export function LiveNewBatch({ merchantId, available }: { merchantId: string; av
 
   async function submitBatch(proof: WithdrawalProof) {
     if (!prepared || !visibleAtConfirmation.current) throw new ApiError("Confira os valores antes de autorizar o lote.", 400);
-    const review = !development && "verificationCode" in proof
-      ? (await liveBatchesGateway.passkeyOptions(prepared.id, prepared.input)).review : undefined;
-    remember(prepared.id);
+    let dispatched = false;
     try {
+      const review = !development && "verificationCode" in proof
+        ? (await liveBatchesGateway.passkeyOptions(prepared.id, prepared.input)).review : undefined;
+      remember(prepared.id);
+      dispatched = true;
       return await liveBatchesGateway.create(prepared.id, { ...prepared.input, ...proof, ...(review && { review }) });
     } catch (failure) {
       if (!uncertain && failure instanceof ApiError &&
-        (failure.code === "PIX_WITHDRAWAL_FEE_CHANGED" || failure.code === "PIX_WITHDRAWAL_INSUFFICIENT_BALANCE")) {
+        ["PIX_WITHDRAWAL_FEE_CHANGED", "SLOPAY_WITHDRAWAL_FEE_CHANGED", "PIX_WITHDRAWAL_INSUFFICIENT_BALANCE"].includes(failure.code ?? "")) {
         remember();
         setStep(0);
         setPrepared(undefined);
         setError(failure.message);
         void options.refetch();
+      } else if (!dispatched) {
+        throw failure;
       } else if (failure instanceof ApiError && failure.code === "PIX_WITHDRAWAL_IDEMPOTENCY_CONFLICT") {
         setUncertain(true);
       } else if (!(failure instanceof ApiError) || failure.status >= 500) {
@@ -180,11 +188,12 @@ export function LiveNewBatch({ merchantId, available }: { merchantId: string; av
         expenseCategory: item.expenseCategory,
       });
     }
-    if (total + preparedTransfers.length * (fee ?? 0) > options.data.availableBalanceInCents)
+    if (total + preparedTransfers.length * (fee ?? 0) + (platformFee ?? 0) > options.data.availableBalanceInCents)
       return showError("O saldo disponível não cobre o lote e as tarifas.");
     setPrepared({
       id: crypto.randomUUID(),
-      input: { title: title.trim() || undefined, transfers: preparedTransfers, simulate, ...(fee != null && { feeLimitInCents: fee }) },
+      input: { title: title.trim() || undefined, transfers: preparedTransfers, simulate, ...(fee != null && { feeLimitInCents: fee }),
+        ...(platformFee !== undefined && { slopayFeeInCents: platformFee }) },
     });
     setError("");
     setStep(1);
@@ -320,7 +329,7 @@ export function LiveNewBatch({ merchantId, available }: { merchantId: string; av
                   ))}
                 </ul>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" className="h-11" onClick={() => setStep(0)}>Editar lote</Button>
+                  <Button type="button" variant="outline" className="h-11" onClick={() => { setStep(0); void options.refetch(); }}>Editar lote</Button>
                   <Button type="button" className="h-11" onClick={authorize}>Continuar para autorização</Button>
                 </div>
               </div>
@@ -356,12 +365,16 @@ export function LiveNewBatch({ merchantId, available }: { merchantId: string; av
             </div>
             {fee != null && <>
               <div className="flex flex-wrap justify-between gap-2 text-sm">
-                <dt className="text-muted-foreground">Tarifa máxima por Pix</dt>
+                <dt className="text-muted-foreground">Tarifa máxima do provedor por Pix</dt>
                 <dd><PanelAmount cents={fee} /></dd>
               </div>
+              {platformFee !== undefined && <div className="flex flex-wrap justify-between gap-2 text-sm">
+                <dt className="text-muted-foreground">Tarifa do Slopay no lote</dt>
+                <dd><PanelAmount cents={platformFee} /></dd>
+              </div>}
               <div className="flex flex-wrap justify-between gap-2 text-sm font-medium">
                 <dt>Débito máximo</dt>
-                <dd><PanelAmount cents={total + transfers.length * fee} /></dd>
+                <dd><PanelAmount cents={total + transfers.length * fee + (platformFee ?? 0)} /></dd>
               </div>
             </>}
             <div className="flex items-center justify-between gap-2 text-sm">

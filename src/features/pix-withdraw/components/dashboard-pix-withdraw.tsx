@@ -17,7 +17,7 @@ import { expenseKeys } from "@/features/expenses/expense-gateway";
 import { expenseCategoryPresentation, type ExpenseCategory } from "@/features/expenses/expenses";
 import { PixAmountField } from "@/features/pix-receive/components/pix-amount-field";
 import { PixFlowTitle, PixOperationSurface } from "@/features/pix-receive/components/pix-operation-surface";
-import { pixPaymentIdSchema } from "@/features/pix-receive/pix-receipt";
+import { MAX_PIX_AMOUNT_IN_CENTS, pixPaymentIdSchema } from "@/features/pix-receive/pix-receipt";
 import { ApiError } from "@/lib/api-client";
 import { pixKeyInputMask } from "@/lib/validators";
 import { usePreferences } from "@/providers/preferences-provider";
@@ -26,6 +26,7 @@ import {
   normalizeWithdrawalKey,
   pixKeyLabels,
   pixKeyTypeSchema,
+  slopayWithdrawalFee,
   withdrawalIssue,
   withdrawalStatusLabel,
   withdrawalUnavailable,
@@ -217,14 +218,16 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
 
   async function submitWithdrawal(proof: WithdrawalProof) {
     if (!draft) throw new ApiError(withdrawalUnavailable, 503);
-    const review = !development && "verificationCode" in proof
-      ? (await asaasPixWithdrawals.passkeyOptions(draft.id, draft.data)).review : undefined;
-    saveWithdrawalReference(storeKey, draft.id);
+    let dispatched = false;
     try {
+      const review = !development && "verificationCode" in proof
+        ? (await asaasPixWithdrawals.passkeyOptions(draft.id, draft.data)).review : undefined;
+      saveWithdrawalReference(storeKey, draft.id);
+      dispatched = true;
       return await asaasPixWithdrawals.create(draft.id, { ...draft.data, ...proof, ...(review && { review }) });
     } catch (error) {
       if (!uncertainSubmission.current && error instanceof ApiError &&
-        (error.code === "PIX_WITHDRAWAL_FEE_CHANGED" || error.code === "PIX_WITHDRAWAL_INSUFFICIENT_BALANCE")) {
+        ["PIX_WITHDRAWAL_FEE_CHANGED", "SLOPAY_WITHDRAWAL_FEE_CHANGED", "PIX_WITHDRAWAL_INSUFFICIENT_BALANCE"].includes(error.code ?? "")) {
         saveWithdrawalReference(storeKey, null);
         setAuthorizing(false);
         setDraft(null);
@@ -232,6 +235,7 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
         void options.refetch();
         throw error;
       }
+      if (!dispatched) throw error;
       if (error instanceof ApiError && error.code === "PIX_WITHDRAWAL_PENDING") {
         saveWithdrawalReference(storeKey, null);
         try {
@@ -317,10 +321,14 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
     const balance = options.data?.availableBalanceInCents;
     if (balance === undefined) return;
     const fee = options.data?.feeLimitInCents;
-    if (amount < 1 || amount + (fee ?? 0) > balance) {
+    const platformFee = simulate ? undefined : slopayWithdrawalFee(options.data?.slopayPricing, [amount]);
+    const debit = amount + (fee ?? 0) + (platformFee ?? 0);
+    if (amount < 1 || debit > balance || debit > MAX_PIX_AMOUNT_IN_CENTS) {
       setValidation({
         field: "amount",
-        message: amount < 1 ? "Informe um valor para sacar." : "O saldo disponível não cobre o valor total e as tarifas.",
+        message: amount < 1 ? "Informe um valor para sacar."
+          : debit > MAX_PIX_AMOUNT_IN_CENTS ? "O valor com as tarifas excede o limite do débito."
+          : "O saldo disponível não cobre o valor total e as tarifas.",
       });
       amountRef.current?.focus();
       return;
@@ -351,6 +359,7 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
         pixKeyType: simulate ? "EMAIL" : keyType,
         simulate,
         ...(fee != null && { feeLimitInCents: fee }),
+        ...(platformFee !== undefined && { slopayFeeInCents: platformFee }),
         ...(expenseCategory && { expenseCategory }),
         ...(normalized !== undefined && { pixKey: normalized }),
       },
@@ -451,12 +460,16 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
             {draft.data.feeLimitInCents !== undefined && (
               <dl className="grid gap-2 rounded-lg border border-border p-3 text-sm">
                 <div className="flex flex-wrap justify-between gap-2">
-                  <dt className="text-muted-foreground">Tarifa máxima</dt>
+                  <dt className="text-muted-foreground">Tarifa máxima do provedor</dt>
                   <dd><PanelAmount cents={draft.data.feeLimitInCents} /></dd>
                 </div>
+                {draft.data.slopayFeeInCents !== undefined && <div className="flex flex-wrap justify-between gap-2">
+                  <dt className="text-muted-foreground">Tarifa do Slopay</dt>
+                  <dd><PanelAmount cents={draft.data.slopayFeeInCents} /></dd>
+                </div>}
                 <div className="flex flex-wrap justify-between gap-2 font-medium">
                   <dt>Débito máximo</dt>
-                  <dd><PanelAmount cents={draft.data.amountInCents + draft.data.feeLimitInCents} /></dd>
+                  <dd><PanelAmount cents={draft.data.amountInCents + draft.data.feeLimitInCents + (draft.data.slopayFeeInCents ?? 0)} /></dd>
                 </div>
               </dl>
             )}
@@ -494,7 +507,10 @@ export function DashboardPixWithdraw({ accountId, available, pendingWithdrawal, 
                   verification.reset();
                   setAuthorizing(true);
                 }}>Continuar para autorização</Button>
-                <Button type="button" variant="ghost" onClick={() => setDraft(null)}>Editar dados</Button>
+                <Button type="button" variant="ghost" onClick={() => {
+                  setDraft(null);
+                  void options.refetch();
+                }}>Editar dados</Button>
               </div>
             )}
           </div>

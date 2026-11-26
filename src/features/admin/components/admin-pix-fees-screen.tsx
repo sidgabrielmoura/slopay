@@ -222,7 +222,7 @@ export function AdminPixFeesScreen({ user }: { user: AdminIdentity }) {
             <h1 className="text-balance text-2xl font-semibold sm:text-3xl">Taxas e limites</h1>
             {development && <Badge variant="secondary">Sandbox</Badge>}
           </div>
-          <p className="text-pretty text-sm text-muted-foreground">Configure a tarifa do Slopay e consulte os limites e tarifas das carteiras.</p>
+          <p className="text-pretty text-sm text-muted-foreground">Configure as tarifas do Slopay e consulte os limites e tarifas das carteiras.</p>
         </div>
         <Button asChild variant="outline" className="h-11">
           <Link href={pixTransactionsPath + "?view=statement&type=FEE_DEBIT"} prefetch={false}>Extrato de tarifas <ArrowUpRight aria-hidden="true" /></Link>

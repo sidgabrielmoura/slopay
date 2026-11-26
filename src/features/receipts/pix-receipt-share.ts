@@ -14,8 +14,15 @@ export const receiptShareSchema = z.object({
   expiresAt: z.iso.datetime(),
 });
 
-const officialReceiptUrl = /^https:\/\/(?:www\.|sandbox\.)?asaas\.com\/comprovantes\/[A-Za-z0-9_-]+\/?$/;
+const officialReceiptUrl = /^https:\/\/(?:www\.|sandbox\.)?asaas\.com(?:\/comprovantes\/[A-Za-z0-9_-]+|\/\d{3}\/comprovantes\/h\/(?:[A-Za-z0-9_+=-]|%2[BbFf]|%3[Dd])+)\/?$/;
 const maskedDocument = /^(?:\*{3}\.\d{3}\.\d{3}-\*{2}|\*{2}\.[A-Z0-9]{3}\.[A-Z0-9]{3}\/\*{4}-\*{2})$/;
+const receiptParty = z.object({
+  name: z.string().min(1).max(160).nullable(),
+  document: z.string().regex(maskedDocument).nullable(),
+  institution: z.string().min(1).max(160).nullable(),
+  ispb: z.string().min(1).max(8).nullable(),
+});
+const identifiedParty = receiptParty.extend({ source: z.enum(["PROVIDER", "SLOPAY"]) });
 
 export const sharedReceiptSchema = z.object({
   expiresAt: z.iso.datetime(),
@@ -33,12 +40,9 @@ export const sharedReceiptSchema = z.object({
     providerId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
     endToEndId: z.string().regex(/^E[A-Za-z0-9]{31}$/).nullable(),
     officialUrl: z.string().max(500).regex(officialReceiptUrl).nullable(),
-    counterparty: z.object({
-      name: z.string().min(1).max(160).nullable(),
-      document: z.string().regex(maskedDocument).nullable(),
-      institution: z.string().min(1).max(160).nullable(),
-      ispb: z.string().min(1).max(8).nullable(),
-    }),
+    counterparty: receiptParty,
+    payer: identifiedParty.nullish(),
+    recipient: identifiedParty.nullish(),
   }),
 });
 

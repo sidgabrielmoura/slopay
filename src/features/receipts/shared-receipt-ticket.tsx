@@ -137,11 +137,31 @@ function ReceiptDocumentSkeleton() {
   );
 }
 
+type ReceiptParty = NonNullable<SharedReceipt["receipt"]["payer"]>;
+
+function PartyDetails({ heading, party }: { heading: string; party: ReceiptParty | null }) {
+  return (
+    <section aria-label={heading} className="flex min-w-0 items-start gap-3 rounded-lg bg-muted p-3">
+      <Landmark className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <div className="grid min-w-0 gap-1">
+        <h2 className={styles.label}>{heading}</h2>
+        {party ? <>
+          {party.name && <p className="wrap-anywhere text-sm font-semibold">{party.name}</p>}
+          {party.document && <p className="text-sm tabular-nums">{party.document}</p>}
+          {party.institution && <p className="wrap-anywhere text-sm text-muted-foreground">{party.institution}</p>}
+          {party.ispb && <p className="text-xs tabular-nums text-muted-foreground">ISPB {party.ispb}</p>}
+          {party.source === "SLOPAY" && <p className="text-xs text-muted-foreground">Titular no Slopay</p>}
+        </> : <p className="text-pretty text-sm text-muted-foreground">Dados indisponíveis.</p>}
+      </div>
+    </section>
+  );
+}
+
 function ReceiptDocument({ data: { receipt, expiresAt } }: { data: SharedReceipt }) {
   const incoming = receipt.direction === "IN";
   const settled = receipt.settledAt ?? receipt.settledDate;
-  const party = receipt.counterparty;
-  const hasParty = Boolean(party.name || party.document || party.institution || party.ispb);
+  const legacyParty = Object.values(receipt.counterparty).some(Boolean)
+    ? { ...receipt.counterparty, source: "PROVIDER" as const } : null;
 
   return (
     <>
@@ -192,18 +212,10 @@ function ReceiptDocument({ data: { receipt, expiresAt } }: { data: SharedReceipt
           )}
         </dl>
 
-        {hasParty && (
-          <section aria-labelledby="receipt-party" className="flex min-w-0 items-start gap-3 rounded-lg bg-muted p-3">
-            <Landmark className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <div className="grid min-w-0 gap-1">
-              <h2 id="receipt-party" className={styles.label}>{incoming ? "Contraparte informada pelo provedor" : "Beneficiário"}</h2>
-              {party.name && <p className="wrap-anywhere text-sm font-semibold">{party.name}</p>}
-              {party.document && <p className="text-sm tabular-nums">{party.document}</p>}
-              {party.institution && <p className="wrap-anywhere text-sm text-muted-foreground">{party.institution}</p>}
-              {party.ispb && <p className="text-xs tabular-nums text-muted-foreground">ISPB {party.ispb}</p>}
-            </div>
-          </section>
-        )}
+        <div className="grid min-w-0 gap-2">
+          <PartyDetails heading="Pagador" party={receipt.payer ?? (incoming ? legacyParty : null)} />
+          <PartyDetails heading="Recebedor" party={receipt.recipient ?? (incoming ? null : legacyParty)} />
+        </div>
       </div>
 
       <div className={styles.perforation} aria-hidden="true" />
@@ -211,7 +223,10 @@ function ReceiptDocument({ data: { receipt, expiresAt } }: { data: SharedReceipt
       <footer className={receiptFooter}>
         <dl className="grid min-w-0 gap-3">
           <div>
-            <dt className={styles.label}>{incoming ? "ID da cobrança no provedor" : "ID da transferência no provedor"}</dt>
+            <dt className={styles.label}>
+              {receipt.kind === "refund" ? "ID da cobrança original no provedor"
+                : incoming ? "ID da cobrança no provedor" : "ID da transferência no provedor"}
+            </dt>
             <dd className="wrap-anywhere font-mono text-sm">{receipt.providerId}</dd>
           </div>
           {receipt.endToEndId && (

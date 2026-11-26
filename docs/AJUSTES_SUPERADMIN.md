@@ -20,8 +20,20 @@
 - A liquidação contabiliza a receita do Slopay e o saldo do cliente na mesma transação. A receita permanece na carteira emissora do provedor, com registro contábil separado. Estornos revertem a tarifa do Slopay proporcionalmente. Cobranças legadas já emitidas com split externo seguem o plano gravado.
 - A carteira mostra a receita do Slopay separada dos saldos dos clientes. A conciliação compara a soma de ambos ao saldo consultado no provedor. Uma divergência que deixe o líquido do recebimento abaixo da tarifa prevista coloca a cobrança em revisão.
 
+## Tarifas de recebimento e saque
+
+Em **Taxas e limites**, configure valores fixos, percentuais sobre o bruto, mínimos e franquias mensais de recebimento e saque. Cada padrão é atribuído a novas contas e às contas sem regra daquele tipo de operação. Em **Empresas → Detalhes da empresa**, edite as duas regras individualmente.
+
+No saque direto, em lote e via API, a autorização fixa a tarifa do Slopay e reserva, por transferência, o valor solicitado, a tarifa do Slopay e o teto do provedor. Na liquidação, o débito usa a tarifa do provedor efetivamente confirmada. Cancelamentos e falhas definitivas liberam reserva e vaga de franquia. Em lotes, cada item liquida ou libera a reserva de forma independente.
+
+## Comprovantes
+
+O link de uma movimentação confirmada exibe os dados disponíveis do pagador e do recebedor. O backend consulta o provedor usando a carteira da própria operação e aproveita os dados conciliados que estão no banco. O CPF ou CNPJ aparece mascarado. A etiqueta **Titular no Slopay** identifica dados obtidos no cadastro local. O comprovante oficial e o End-to-End aparecem quando disponíveis.
+
+As mudanças de tarifas e comprovantes dependem das migrações `20261126185000_add_pix_cash_out_pricing` e `20261126190000_capture_live_pix_receipts` no backend.
+
 ## Validação e publicação
 
-O build do backend e os 83 testes unitários passaram. Os 45 testes de integração passaram no PostgreSQL isolado com o perfil de permissões do backend e respostas simuladas do provedor. O build de produção do frontend e cinco verificações HTTP das rotas administrativas também passaram.
+Na revisão inicial dos oito itens da tabela, o build do backend e os 83 testes unitários passaram. Os 45 testes de integração passaram no PostgreSQL isolado com o perfil de permissões do backend e respostas simuladas do provedor. O build de produção do frontend e cinco verificações HTTP das rotas administrativas também passaram.
 
 Para homologar em produção, aplique as seis migrações de saldos, pagador, provedores, split, origem e tarifa mínima junto com as versões correspondentes do backend e do frontend.

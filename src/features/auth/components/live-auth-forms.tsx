@@ -88,7 +88,7 @@ export function LiveLogin({ returnTo }: { returnTo?: string }) {
             </form>
             <nav aria-label="Opções de acesso" className="flex flex-wrap justify-between gap-3 text-sm text-primary">
               <Link href="/recuperar-acesso" className="underline-offset-4 hover:underline">Recuperar acesso</Link>
-              <Link href="/criar-conta" className="underline-offset-4 hover:underline">Criar usuário</Link>
+              <Link href="/criar-conta" className="underline-offset-4 hover:underline">Criar conta</Link>
             </nav>
           </>
         )}

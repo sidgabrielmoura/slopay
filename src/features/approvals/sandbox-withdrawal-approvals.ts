@@ -16,8 +16,10 @@ export const approvalItemSchema = z.object({
 export const approvalPageSchema = z.object({ enabled: z.boolean(), items: z.array(approvalItemSchema), nextCursor: z.uuid().nullable() });
 export const approvalGroupSchema = z.enum(["pending", "history"]);
 export const approvalFilterSchema = z.strictObject({ group: approvalGroupSchema.optional(), before: z.uuid().optional() });
-export const approvalReviewSchema = approvalItemSchema.extend({ pixKey: z.string(), feeLimitInCents: cents.nullable() });
-const approve = z.strictObject({ decision: z.literal("APPROVE"), feeLimitInCents: cents });
+export const approvalReviewSchema = approvalItemSchema.extend({
+  pixKey: z.string(), feeLimitInCents: cents.nullable(), slopayFeeInCents: cents.nullish(),
+});
+const approve = z.strictObject({ decision: z.literal("APPROVE"), feeLimitInCents: cents, slopayFeeInCents: cents.optional() });
 const reject = z.strictObject({ decision: z.literal("REJECT") });
 export const approvalDecisionSchema = z.discriminatedUnion("decision", [approve, reject]);
 export const confirmedApprovalSchema = z.discriminatedUnion("decision", [

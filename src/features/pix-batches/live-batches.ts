@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { passkeyAssertionSchema, sessionConfirmationTokenSchema } from "@/features/auth/passkey-contract";
 import { expenseCategorySchema } from "@/features/expenses/expenses";
-import { pixAmountSchema, pixPaymentIdSchema } from "@/features/pix-receive/pix-receipt";
+import { MAX_PIX_AMOUNT_IN_CENTS, pixAmountSchema, pixPaymentIdSchema } from "@/features/pix-receive/pix-receipt";
 import { pixKeyTypeSchema, withdrawalFeeSchema, withdrawalReviewSchema, withdrawalSchema } from "@/features/pix-withdraw/pix-withdrawal";
 import type { BadgeProps } from "@/components/ui/badge";
 
@@ -20,6 +20,7 @@ export const batchDraftSchema = z.strictObject({
   transfers: z.array(transferInput).min(2).max(maxBatchTransferCount),
   simulate: z.boolean(),
   feeLimitInCents: withdrawalFeeSchema.optional(),
+  slopayFeeInCents: z.int().min(0).max(MAX_PIX_AMOUNT_IN_CENTS * maxBatchTransferCount).optional(),
 });
 export const batchInputSchema = z.union([
   batchDraftSchema.extend({ verificationCode: z.string().regex(/^\d{6}$/), review: withdrawalReviewSchema.optional() }),

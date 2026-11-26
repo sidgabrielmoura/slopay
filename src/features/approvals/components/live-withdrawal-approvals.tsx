@@ -139,10 +139,15 @@ function ReviewDetails({ review }: { review: WithdrawalApprovalReview }) {
       <div><dt className="text-muted-foreground">Chave Pix de destino</dt>
         <dd className="mt-1 wrap-anywhere font-medium">{hideValues || !preferencesReady ? review.destination : review.pixKey}</dd></div>
       <div className="flex flex-wrap items-center justify-between gap-2"><dt>Valor do saque</dt><dd className="font-semibold tabular-nums"><PanelAmount cents={review.amountInCents} /></dd></div>
-      <div className="flex flex-wrap items-center justify-between gap-2"><dt>Tarifa máxima</dt>
+      <div className="flex flex-wrap items-center justify-between gap-2"><dt>Tarifa máxima do provedor</dt>
         <dd>{review.feeLimitInCents === null ? "Indisponível" : <PanelAmount cents={review.feeLimitInCents} />}</dd></div>
+      {review.slopayFeeInCents != null && <div className="flex flex-wrap items-center justify-between gap-2">
+        <dt>Tarifa do Slopay</dt><dd><PanelAmount cents={review.slopayFeeInCents} /></dd>
+      </div>}
       {review.feeLimitInCents !== null && <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-        <dt>Total máximo do débito</dt><dd className="font-semibold tabular-nums"><PanelAmount cents={review.amountInCents + review.feeLimitInCents} /></dd>
+        <dt>Total máximo do débito</dt><dd className="font-semibold tabular-nums">
+          <PanelAmount cents={review.amountInCents + review.feeLimitInCents + (review.slopayFeeInCents ?? 0)} />
+        </dd>
       </div>}
     </dl>
   );
@@ -189,7 +194,10 @@ function WithdrawalReview({ accountId, id, development, onClose, onDecided }: { 
             <div className="flex flex-wrap justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => continueWith({ decision: "REJECT" })}>Recusar</Button>
               <Button type="button" disabled={review.feeLimitInCents === null} onClick={() => {
-                if (review.feeLimitInCents !== null) continueWith({ decision: "APPROVE", feeLimitInCents: review.feeLimitInCents });
+                if (review.feeLimitInCents !== null) continueWith({
+                  decision: "APPROVE", feeLimitInCents: review.feeLimitInCents,
+                  ...(review.slopayFeeInCents != null && { slopayFeeInCents: review.slopayFeeInCents }),
+                });
               }}>Autorizar saque</Button>
             </div>
           </div>

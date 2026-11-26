@@ -56,7 +56,7 @@ O endpoint do QR Code confirma a situação no Asaas. Se devolver `409 PIX_QR_UN
 
 Os tipos aceitos são `CPF`, `CNPJ`, `EMAIL`, `PHONE` e `EVP`. Ao enviar telefone, use E.164 com o prefixo `+55`. Uma conta com limites definidos e carteira habilitada pode criar uma solicitação em `AWAITING_APPROVAL`. Caso contrário, a API devolve `409 PIX_WITHDRAWAL_UNAVAILABLE`.
 
-A solicitação fica disponível para decisão por 24 horas. O titular confere o destino, o valor e a tarifa máxima em **Aprovações** e confirma com biometria ou autenticador. A reserva só é criada na autorização. Se a chave originadora estiver pausada, revogada ou expirada, a solicitação fica impedida de avançar. Use o detalhe para consultar a decisão ou uma expiração com `reason: "REQUEST_EXPIRED"`. Use `PIX_SENT` ou o estado `DONE` no detalhe para confirmar a liquidação. Saques em lote são montados e autorizados pelo titular no painel.
+A solicitação fica disponível para decisão por 24 horas. Em **Aprovações**, o titular confere o destino, o valor, a tarifa do Slopay e o teto da tarifa do provedor. A autorização reserva o total máximo exibido. Se a chave originadora estiver pausada, revogada ou expirada, a solicitação fica impedida de avançar. Use o detalhe para consultar a decisão ou uma expiração com `reason: "REQUEST_EXPIRED"`. Use `PIX_SENT` ou o estado `DONE` no detalhe para confirmar a liquidação. Saques em lote são montados e autorizados pelo titular no painel.
 
 ### Diagnóstico pela resposta
 
@@ -82,6 +82,8 @@ Em **Integrações → Webhooks**, cadastre um endpoint HTTPS público sem redir
 | `APPROVAL_REQUIRED` | Uma chave de API solicitou um saque e o titular precisa decidir. |
 | `PIX_SENT` | O saque foi concluído e a baixa da reserva foi registrada. |
 | `WITHDRAWAL_FAILED` | O saque foi encerrado sem liquidação, incluindo recusa pelo titular. |
+
+Em `PIX_SENT`, `data.feeInCents` soma as tarifas confirmadas do provedor e do Slopay. Quando houve cobrança da tarifa do Slopay, `data.slopayFeeInCents` informa a parcela já incluída nesse total.
 
 Para eventos de negócio, responda `2xx` após persistir a recepção de forma idempotente. Em modo **Sequencial**, uma falha definitiva interrompe a fila. Após corrigir o destino, clique em **Reativar fila** para repetir o evento que a interrompeu. No modo **Não sequencial**, os eventos podem chegar fora de ordem, e uma falha definitiva permite reenviar aquela entrega pelos logs. As retentativas automáticas cobrem falhas temporárias, como `429` ou `503`, quando habilitadas.
 

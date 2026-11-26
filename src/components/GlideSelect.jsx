@@ -109,7 +109,7 @@ export default function GlideSelect({
       void p.offsetHeight;
       p.style.transition = '';
     }
-    searchRef.current?.focus({ preventScroll: true });
+    if (!portal) searchRef.current?.focus({ preventScroll: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, menuElement]);
 
@@ -129,7 +129,7 @@ export default function GlideSelect({
   }, [active, activeId, phase, step, menuElement, portal]);
 
   const open = viaKey => {
-    if (disabled) return;
+    if (disabled || triggerRef.current?.matches(':disabled')) return;
     clearTimeout(closeTimer.current);
     instant.current = true;
     const first = items.findIndex(it => !it.disabled);
@@ -151,6 +151,7 @@ export default function GlideSelect({
     closeTimer.current = setTimeout(() => setPhase('closed'), popOut + 20);
   };
   const pick = (i, viaKey) => {
+    if (phase !== 'open' || disabled || triggerRef.current?.matches(':disabled')) return;
     const it = items[i];
     if (!it) {
       close('instant');
@@ -236,6 +237,8 @@ export default function GlideSelect({
     return i >= 0 && i < items.length && !items[i].disabled ? i : null;
   };
   const onListDown = e => {
+    // Portaled touch lists scroll natively. The option handles activation on click,
+    // which WebKit can report with pointerType 'mouse' even for a tap.
     if (scrub.current || (portal && e.pointerType === 'touch')) return;
     e.preventDefault();
     try {
@@ -324,9 +327,7 @@ export default function GlideSelect({
             aria-disabled={it.disabled || undefined}
             data-index={i}
             className="glide-select__option"
-            onClick={e => {
-              if (e.detail === 0 || e.nativeEvent.pointerType === 'touch') pick(i, false);
-            }}
+            onClick={() => pick(i, false)}
           >
             <span className="glide-select__name">{it.label}</span>
             {showTags && it.tag ? <span className="glide-select__tag">{it.tag}</span> : null}
@@ -367,7 +368,9 @@ export default function GlideSelect({
         disabled={disabled}
         className="glide-select__trigger"
         onPointerDown={e => {
-          if (e.button !== 0 || disabled) return;
+          if (e.button !== 0 || e.currentTarget.matches(':disabled')) return;
+          // Keep the explicit focus below when the browser synthesizes mouse events after a tap.
+          e.preventDefault();
           e.currentTarget.focus({ preventScroll: true });
           if (phase === 'open') close('pop');
           else open(false);
@@ -403,10 +406,13 @@ export default function GlideSelect({
           <Popover.Content asChild side={side} align={align === 'right' ? 'end' : 'start'}
             sideOffset={MENU_GAP} collisionPadding={8} role={search ? 'dialog' : 'presentation'}
             aria-label={search?.label}
-            onOpenAutoFocus={e => e.preventDefault()}
+            onOpenAutoFocus={e => {
+              e.preventDefault();
+              searchRef.current?.focus({ preventScroll: true });
+            }}
             onCloseAutoFocus={e => e.preventDefault()}
-            onFocusOutside={e => {
-              if (search && triggerRef.current?.contains(e.target)) e.preventDefault();
+            onInteractOutside={e => {
+              if (triggerRef.current?.contains(e.target)) e.preventDefault();
             }}
             onEscapeKeyDown={e => { e.preventDefault(); close('instant'); triggerRef.current?.focus({ preventScroll: true }); }}>
             {menu}

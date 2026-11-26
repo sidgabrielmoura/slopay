@@ -41,12 +41,26 @@ export function normalizeWithdrawalKey(type: PixKeyType, input: string): string 
 }
 
 export const withdrawalFeeSchema = z.int().min(0).max(MAX_PIX_AMOUNT_IN_CENTS);
+export const withdrawalPricingSchema = z.object({
+  fixedCents: withdrawalFeeSchema,
+  minimumCents: withdrawalFeeSchema,
+  percentageUnits: z.int().min(0).max(1_000_000),
+  monthlyFreeRemaining: z.int().min(0).max(1_000_000),
+});
+
+export function slopayWithdrawalFee(pricing: z.infer<typeof withdrawalPricingSchema> | undefined, amounts: readonly number[]) {
+  if (!pricing) return undefined;
+  return amounts.reduce((total, amount, index) => index < pricing.monthlyFreeRemaining ? total
+    : total + Math.max(pricing.minimumCents, pricing.fixedCents + Math.floor((amount * pricing.percentageUnits + 500_000) / 1_000_000)), 0);
+}
+
 export const withdrawalDraftSchema = z.strictObject({
   amountInCents: pixAmountSchema,
   pixKeyType: pixKeyTypeSchema,
   pixKey: z.string().trim().min(1).max(120).optional(),
   simulate: z.boolean(),
   feeLimitInCents: withdrawalFeeSchema.optional(),
+  slopayFeeInCents: withdrawalFeeSchema.optional(),
   expenseCategory: expenseCategorySchema.nullable().optional(),
 });
 export const withdrawalReviewSchema = z.string().regex(/^\d{13}\.[0-9a-f]{64}$/);
@@ -63,6 +77,7 @@ export type WithdrawalProof = IntegrationProof;
 export const withdrawalOptionsSchema = z.object({
   availableBalanceInCents: z.int().nonnegative(),
   feeLimitInCents: withdrawalFeeSchema.nullish(),
+  slopayPricing: withdrawalPricingSchema.optional(),
   simulationAvailable: z.boolean(),
   simulationDestination: z.string().max(120).nullable(),
 });

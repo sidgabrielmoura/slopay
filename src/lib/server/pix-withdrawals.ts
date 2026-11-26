@@ -29,6 +29,7 @@ const withdrawalMessages: Partial<Record<string, string>> = {
   PIX_WITHDRAWAL_PENDING: "Já existe um saque em andamento. Acompanhe o resultado antes de iniciar outro.",
   PIX_WITHDRAWAL_INSUFFICIENT_BALANCE: "O saldo disponível não cobre o valor total e as tarifas.",
   PIX_WITHDRAWAL_FEE_CHANGED: "A tarifa mudou. Revise a operação com a tarifa atual.",
+  SLOPAY_WITHDRAWAL_FEE_CHANGED: "A tarifa do Slopay ou a franquia mudou. Revise a operação com os valores atuais.",
   PIX_WITHDRAWAL_VALIDATION_NOT_CONFIGURED: "A conta ainda precisa habilitar a validação de saques.",
   PIX_WITHDRAWAL_REVIEW_EXPIRED: "Revise os dados do saque antes de confirmar.",
   PIX_WITHDRAWAL_LIMIT: "O valor excede o limite de saque da conta.",
@@ -61,6 +62,7 @@ export async function forwardWithdrawalRequest(
       const code = error?.code === "INTEGRATION_CODE_REJECTED" ? "PIX_WITHDRAWAL_CODE_REJECTED"
         : error?.code === "INTEGRATION_PASSKEY_REJECTED" ? "PIX_WITHDRAWAL_PASSKEY_REJECTED"
           : typeof error?.code === "string" && (error.code === "INTEGRATION_SESSION_CONFIRMATION_EXPIRED" ||
+            error.code === "SLOPAY_WITHDRAWAL_FEE_CHANGED" ||
             /^PIX_WITHDRAWAL_[A-Z_]{1,48}$/.test(error.code)) ? error.code : undefined;
       const rowError = code === "PIX_WITHDRAWAL_INVALID_KEY" && typeof error?.message === "string" &&
         /^Confira a chave Pix da transferência \d{1,2}\.$/.test(error.message) ? error.message : undefined;

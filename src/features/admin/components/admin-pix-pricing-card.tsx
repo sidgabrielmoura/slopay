@@ -13,28 +13,42 @@ import { IntegrationConfirmationDialog } from "@/features/integrations/component
 import { formatCentsToBrl } from "@/lib/money";
 import { toast } from "sonner";
 import { adminPixPricing, maxFixedPixFee, maxMonthlyPix, pixPricingTerms,
-  type PixPricingDraft, type PixPricingView } from "../admin-pix-pricing";
+  type PixPricingDirection, type PixPricingDraft, type PixPricingView } from "../admin-pix-pricing";
 import { retryAdminRead } from "../admin-query";
 import { CompanyReadError } from "./company-display";
 
 const sourceLabels = { NONE: "Sem regra", DEFAULT: "Padrão atribuído", CUSTOM: "Regra individual" } as const;
 const percentageFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 });
+const directionLabels = { CASH_IN: "Recebimento Pix (cash in)", CASH_OUT: "Saque Pix (cash out)" } as const;
 
-export function AdminPixPricingCard({ adminId, companyId }: { adminId: string; companyId?: string }) {
+type PricingScope = { adminId: string; companyId?: string };
+
+export function AdminPixPricingCard(props: PricingScope) {
+  return (
+    <section aria-label="Tarifas do Slopay" className="grid min-w-0 gap-4">
+      <PricingRuleCard {...props} direction="CASH_IN" />
+      <PricingRuleCard {...props} direction="CASH_OUT" />
+    </section>
+  );
+}
+
+function PricingRuleCard({ adminId, companyId, direction }: PricingScope & { direction: PixPricingDirection }) {
   const client = useQueryClient();
-  const key = ["admin-pix-pricing", adminId, companyId ?? "default"] as const;
+  const heading = useId();
+  const key = ["admin-pix-pricing", adminId, companyId ?? "default", direction] as const;
   const result = useQuery({
-    queryKey: key, queryFn: ({ signal }) => adminPixPricing.read(companyId, signal), retry: retryAdminRead,
+    queryKey: key, queryFn: ({ signal }) => adminPixPricing.read(companyId, direction, signal), retry: retryAdminRead,
   });
   return (
-    <Card className="min-w-0">
+    <Card role="region" className="min-w-0" aria-labelledby={heading}>
       <CardHeader className="gap-2 p-5 pb-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-lg font-semibold">Tarifa Pix do Slopay</h2>
+          <h2 id={heading} className="text-balance text-lg font-semibold">{directionLabels[direction]}</h2>
           {companyId && result.data && <Badge variant="secondary">{sourceLabels[result.data.source]}</Badge>}
         </div>
         <CardDescription className="max-w-prose text-pretty">
-          {companyId ? "A regra desta conta vale para cobranças emitidas após a alteração."
+          {companyId ? direction === "CASH_IN" ? "Vale para as novas cobranças desta conta."
+            : "Vale para os novos saques desta conta, inclusive itens de lote."
             : "O padrão é atribuído a novas contas e às contas sem regra. As regras já atribuídas são preservadas."}
         </CardDescription>
       </CardHeader>
@@ -106,10 +120,11 @@ function PixPricingForm({ view, companyId, onSaved }: { view: PixPricingView; co
         <Button ref={review} type="submit" variant="outline" className="h-11 justify-self-start">Revisar tarifa</Button>
       </form>
       {draft && <IntegrationConfirmationDialog
-        scope={`slopay-pix-pricing:${companyId ?? "default"}:${JSON.stringify(draft)}`}
-        title="Confirmar tarifa Pix" description="Confira a regra e confirme sua identidade para salvar."
-        completed="Tarifa registrada" options={() => adminPixPricing.options(companyId, draft)}
-        apply={(proof) => adminPixPricing.save(companyId, draft, proof)}
+        scope={`slopay-pix-pricing:${companyId ?? "default"}:${view.direction}:${JSON.stringify(draft)}`}
+        title={view.direction === "CASH_IN" ? "Confirmar tarifa de recebimento" : "Confirmar tarifa de saque"}
+        description="Confira a regra e confirme sua identidade para salvar."
+        completed="Tarifa registrada" options={() => adminPixPricing.options(companyId, view.direction, draft)}
+        apply={(proof) => adminPixPricing.save(companyId, view.direction, draft, proof)}
         onSuccess={() => { saved.current = true; }}
         onClose={() => {
           setDraft(null);
