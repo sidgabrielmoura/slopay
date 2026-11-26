@@ -254,7 +254,7 @@ export function PanelSidebar({
               <IntegrationsBackButton ref={integrationsBack} onClick={() => setIntegrationsOpen(false)} />
               <h2 className="text-balance text-sm font-semibold">Integrações</h2>
             </div>
-            <IntegrationNavigation className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-3" />
+            <IntegrationNavigation className="flex-1 px-2 py-3" />
           </div>
         )}
       </aside>

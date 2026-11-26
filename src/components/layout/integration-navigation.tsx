@@ -3,7 +3,8 @@
 import type { ComponentProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { integrationNavigation } from "@/features/integrations/navigation";
 
@@ -26,8 +27,8 @@ export function IntegrationNavigation({ className, onNavigate }: { className?: s
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Menu de integrações" className={className}>
-      <ul className="space-y-1">
+    <nav aria-label="Menu de integrações" className={cn("flex min-h-0 flex-col gap-3", className)}>
+      <ul className="min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto">
         {integrationNavigation.map(({ title, path, icon: Icon }) => {
           const active = pathname === path || pathname?.startsWith(`${path}/`);
           return (
@@ -49,6 +50,12 @@ export function IntegrationNavigation({ className, onNavigate }: { className?: s
           );
         })}
       </ul>
+      <Button asChild size="lg" className="w-full shrink-0 justify-between px-3 text-sm focus-visible:ring-offset-sidebar">
+        <a href="https://doc.slopay.com.br/" target="_blank" rel="noopener noreferrer">
+          <span>Documentação<span className="sr-only"> (abre em nova aba)</span></span>
+          <ArrowUpRight aria-hidden="true" />
+        </a>
+      </Button>
     </nav>
   );
 }
