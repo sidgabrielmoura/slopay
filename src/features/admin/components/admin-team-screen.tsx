@@ -2,13 +2,14 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Search, UserPlus } from "lucide-react";
+import { Ban, ChevronRight, Ellipsis, Search, Trash2, UserPlus } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { TablePagination } from "@/components/shared/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { GlideSelect } from "@/components/ui/glide-select";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,10 +22,12 @@ import { operationalSearch } from "../admin-operational-accounts";
 import { retryAdminRead } from "../admin-query";
 import {
   adminMemberStatusFilter, adminTeam, adminTeamHref, adminTeamKey, adminTeamQuery, adminTeamQueryFrom,
-  adminTeamStatuses, type AdminTeamEntry, type AdminTeamMember, type AdminTeamQuery, type AdminTeamSummary,
+  adminTeamStatuses, type AdminInvitationChange, type AdminTeamEntry, type AdminTeamInvitation,
+  type AdminTeamMember, type AdminTeamQuery, type AdminTeamSummary,
 } from "../admin-team";
 import { AdminMemberLogin, AdminTeamEntryStatus } from "./admin-team-member-display";
 import { AdminTeamInviteDialog } from "./admin-team-invite-dialog";
+import { AdminTeamInvitationChangeDialog } from "./admin-team-invitation-change-dialog";
 import { AdminTeamMemberDialog } from "./admin-team-member-dialog";
 import { useAdminAccess } from "./admin-access-provider";
 import { adminAccessLevelLabels } from "../admin-access";
@@ -126,6 +129,8 @@ function TeamIdentity({ entry, isSelf }: { entry: AdminTeamEntry; isSelf: boolea
 }
 
 type OpenMember = (id: string, trigger: HTMLButtonElement) => void;
+type InvitationReview = { invitation: AdminTeamInvitation; change: AdminInvitationChange };
+type OpenInvitation = (review: InvitationReview, trigger: HTMLButtonElement) => void;
 
 function MemberButton({ member, openMember, className }: {
   member: AdminTeamMember;
@@ -140,7 +145,46 @@ function MemberButton({ member, openMember, className }: {
   );
 }
 
-function TeamRows({ entries, userId, openMember }: { entries: AdminTeamEntry[]; userId: string; openMember: OpenMember }) {
+function InvitationActions({ invitation, openInvitation }: { invitation: AdminTeamInvitation; openInvitation: OpenInvitation }) {
+  const trigger = useRef<HTMLButtonElement>(null);
+  const selected = useRef<AdminInvitationChange>(null);
+  const version = invitation.invitation.version;
+  if (version === undefined || invitation.status === "INVITE_ACCEPTED") return null;
+  const deleting = invitation.status === "INVITE_CANCELLED";
+  const Icon = deleting ? Trash2 : Ban;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button ref={trigger} type="button" variant="ghost" size="icon" className="size-11 shrink-0 text-muted-foreground"
+          aria-label={"Ações do convite de " + invitation.email}>
+          <Ellipsis aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onCloseAutoFocus={(event) => {
+        const change = selected.current;
+        if (!change || !trigger.current) return;
+        event.preventDefault();
+        selected.current = null;
+        openInvitation({ invitation, change }, trigger.current);
+      }}>
+        <DropdownMenuItem className="min-h-11 text-destructive focus:text-destructive"
+          onSelect={() => { selected.current = { action: deleting ? "DELETE" : "CANCEL", version }; }}>
+          <Icon aria-hidden="true" />{deleting ? "Excluir convite" : "Cancelar convite"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function TeamRows({ entries, userId, openMember, openInvitation }: {
+  entries: AdminTeamEntry[]; userId: string; openMember: OpenMember; openInvitation?: OpenInvitation;
+}) {
+  function rowAction(entry: AdminTeamEntry, memberClassName?: string) {
+    if (entry.kind === "member") return <MemberButton member={entry} openMember={openMember} className={memberClassName} />;
+    return openInvitation && <InvitationActions invitation={entry} openInvitation={openInvitation} />;
+  }
+
   return (
     <>
       <div className="hidden min-w-0 xl:block">
@@ -152,7 +196,7 @@ function TeamRows({ entries, userId, openMember }: { entries: AdminTeamEntry[]; 
               <TableHead scope="col">Situação</TableHead>
               <TableHead scope="col" className="whitespace-normal">Verificação em duas etapas</TableHead>
               <TableHead scope="col">Último login</TableHead>
-              <TableHead scope="col"><span className="sr-only">Detalhes</span></TableHead>
+              <TableHead scope="col"><span className="sr-only">Ações</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>{entries.map((entry) => (
@@ -166,7 +210,7 @@ function TeamRows({ entries, userId, openMember }: { entries: AdminTeamEntry[]; 
                 {entry.kind === "member" ? <AdminMemberLogin lastLoginAt={entry.lastLoginAt} /> : "—"}
               </TableCell>
               <TableCell className="px-2 py-2 text-right">
-                {entry.kind === "member" && <MemberButton member={entry} openMember={openMember} />}
+                {rowAction(entry)}
               </TableCell>
             </TableRow>
           ))}</TableBody>
@@ -177,10 +221,7 @@ function TeamRows({ entries, userId, openMember }: { entries: AdminTeamEntry[]; 
           <li key={entry.id} className="grid min-w-0 gap-2 px-4 py-3 sm:px-5">
             <div className="relative flex min-w-0 items-center justify-between gap-2">
               <TeamIdentity entry={entry} isSelf={entry.id === userId} />
-              {entry.kind === "member" && (
-                <MemberButton member={entry} openMember={openMember}
-                  className="after:absolute after:inset-0 after:rounded-md focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring" />
-              )}
+              {rowAction(entry, "after:absolute after:inset-0 after:rounded-md focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring")}
             </div>
             <AdminTeamEntryStatus entry={entry}>
               {entry.kind === "member" && (
@@ -208,10 +249,11 @@ export function AdminTeamScreen({ user }: { user: AdminIdentity }) {
   const { can } = useAdminAccess();
   const client = useQueryClient();
   const heading = useRef<HTMLHeadingElement>(null);
-  const detailsTrigger = useRef<HTMLButtonElement>(null);
+  const rowTrigger = useRef<HTMLButtonElement>(null);
   const inviteTrigger = useRef<HTMLButtonElement>(null);
   const [inviting, setInviting] = useState(false);
   const [details, setDetails] = useState<{ id: string; open: boolean } | null>(null);
+  const [invitationReview, setInvitationReview] = useState<InvitationReview | null>(null);
   const query = adminTeamQueryFrom(useSearchParams());
   const filterKey = adminTeamHref({ ...query, page: 1 });
   const filtered = Boolean(query.search || query.status !== "ALL");
@@ -235,15 +277,24 @@ export function AdminTeamScreen({ user }: { user: AdminIdentity }) {
   }
 
   const openMember: OpenMember = (id, trigger) => {
-    detailsTrigger.current = trigger;
+    rowTrigger.current = trigger;
     setDetails({ id, open: true });
   };
 
-  function restoreFocus(event: Event) {
-    event.preventDefault();
-    const trigger = detailsTrigger.current;
+  const openInvitation: OpenInvitation = (review, trigger) => {
+    rowTrigger.current = trigger;
+    setInvitationReview(review);
+  };
+
+  function focusRowTrigger() {
+    const trigger = rowTrigger.current;
     if (trigger?.isConnected && trigger.offsetWidth > 0) trigger.focus();
     else heading.current?.focus();
+  }
+
+  function restoreFocus(event: Event) {
+    event.preventDefault();
+    focusRowTrigger();
     setDetails(null);
   }
 
@@ -276,7 +327,8 @@ export function AdminTeamScreen({ user }: { user: AdminIdentity }) {
             </div>
           ))}</div>
         }>
-          {report?.items.length ? <TeamRows entries={report.items} userId={user.id} openMember={openMember} /> : report ? (
+          {report?.items.length ? <TeamRows entries={report.items} userId={user.id} openMember={openMember}
+            openInvitation={can("admin.team.manage") && !loading ? openInvitation : undefined} /> : report ? (
             <div className="grid min-h-40 content-center justify-items-center gap-3 px-4 py-6 text-center">
               <h3 className="text-balance text-base font-semibold">Nenhum registro encontrado</h3>
               {filtered ? (
@@ -305,6 +357,11 @@ export function AdminTeamScreen({ user }: { user: AdminIdentity }) {
         restoreFocus={() => (inviteTrigger.current ?? heading.current)?.focus()} />}
       {details && <AdminTeamMemberDialog key={details.id} memberId={details.id} userId={user.id} open={details.open}
         onOpenChange={(open) => setDetails({ id: details.id, open })} onCloseAutoFocus={restoreFocus} />}
+      {invitationReview && <AdminTeamInvitationChangeDialog {...invitationReview}
+        onClose={() => setInvitationReview(null)} restoreFocus={focusRowTrigger} onChanged={() => {
+          void client.invalidateQueries({ queryKey: adminTeamKey(user.id) });
+          void client.invalidateQueries({ queryKey: ["admin-audit", user.id] });
+        }} />}
     </AdminPanel>
   );
 }

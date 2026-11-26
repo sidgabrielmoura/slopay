@@ -13,7 +13,7 @@ const api = "/api/admin/team";
 const date = z.iso.datetime({ offset: true });
 const count = z.int().nonnegative();
 const memberStatus = z.enum(["ACTIVE", "SUSPENDED", "LOCKED", "PENDING_VERIFICATION"]);
-const invitationStatus = z.enum(["INVITE_PENDING", "INVITE_ACCEPTED", "INVITE_EXPIRED"]);
+const invitationStatus = z.enum(["INVITE_PENDING", "INVITE_ACCEPTED", "INVITE_EXPIRED", "INVITE_CANCELLED"]);
 const changeAction = z.enum(["SUSPEND", "REACTIVATE", "EDIT_ACCESS", "REMOVE"]);
 
 export const adminMemberStatusFilter = z.enum(["ALL", ...memberStatus.options, ...invitationStatus.options]);
@@ -33,6 +33,8 @@ const invitation = z.object({
   status: invitationStatus,
   expiresAt: date,
   acceptedAt: date.nullable(),
+  cancelledAt: date.nullable().default(null),
+  version: count.optional(),
   emailState: z.enum(["PENDING", "ACCEPTED", "FAILED"]).nullable(),
 });
 const teamEntry = z.union([
@@ -76,11 +78,18 @@ const inviteConfirmation = z.string().max(1024).regex(/^[\w-]+\.[\w-]+\.[\w-]+$/
 export const adminTeamInviteOptionsSchema = passkeyOptionsSchema.extend({ confirmation: inviteConfirmation });
 export const adminTeamConfirmedInvite = adminTeamInviteSchema.extend({ confirmation: inviteConfirmation, proof: integrationProofSchema });
 export const adminTeamInvitedSchema = z.object({ invited: z.literal(true) });
+export const adminInvitationChangeSchema = z.strictObject({
+  action: z.enum(["CANCEL", "DELETE"]), version: count.max(2_147_483_646),
+});
+export const adminInvitationConfirmedChange = adminInvitationChangeSchema.extend({ proof: integrationProofSchema });
+export const adminInvitationChangedSchema = z.object({ updated: z.literal(true) });
 
 export type AdminTeamQuery = z.infer<typeof adminTeamQuery>;
 export type AdminTeamSummary = z.infer<typeof adminTeamSchema>["summary"];
 export type AdminTeamMember = z.infer<typeof member>;
 export type AdminTeamEntry = z.infer<typeof teamEntry>;
+export type AdminTeamInvitation = Extract<AdminTeamEntry, { kind: "invitation" }>;
+export type AdminInvitationChange = z.infer<typeof adminInvitationChangeSchema>;
 export type AdminMemberDetail = z.infer<typeof adminMemberSchema>["member"];
 export type AdminMemberAccessEvent = z.infer<typeof adminMemberSchema>["history"][number];
 export type AdminTeamChange = z.infer<typeof adminTeamChangeSchema>;
@@ -93,6 +102,7 @@ export const adminTeamStatuses = {
   INVITE_PENDING: { label: "Convite pendente", variant: "info" },
   INVITE_ACCEPTED: { label: "Convite aceito", variant: "success" },
   INVITE_EXPIRED: { label: "Convite expirado", variant: "secondary" },
+  INVITE_CANCELLED: { label: "Convite cancelado", variant: "secondary" },
 } as const;
 
 export function adminTeamQueryFrom(params: Pick<URLSearchParams, "get">): AdminTeamQuery {
@@ -138,4 +148,8 @@ export const adminTeam = {
     requestPixGateway(`${api}/invite/options`, adminTeamInviteOptionsSchema, "Não foi possível preparar o convite.", post({ email, ...access })),
   invite: (email: string, confirmation: string, proof: IntegrationProof, access: AdminAccessDraft) =>
     requestPixGateway(`${api}/invite`, adminTeamInvitedSchema, "Não foi possível registrar o convite.", post({ email, confirmation, proof, ...access })),
+  invitationOptions: (id: string, change: AdminInvitationChange) =>
+    requestPixGateway(`${api}/${id}/invitation/options`, passkeyOptionsSchema, "Não foi possível preparar a confirmação.", post(change)),
+  changeInvitation: (id: string, change: AdminInvitationChange, proof: IntegrationProof) =>
+    requestPixGateway(`${api}/${id}/invitation`, adminInvitationChangedSchema, "Não foi possível alterar o convite.", post({ ...change, proof })),
 };

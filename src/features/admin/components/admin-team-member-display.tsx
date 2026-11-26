@@ -23,8 +23,9 @@ export function AdminTeamEntryStatus({ entry, children }: { entry: AdminTeamEntr
   );
   const invite = entry.invitation;
   if (!invite) return status;
-  const date = invite.acceptedAt ?? invite.expiresAt;
-  const dateLabel = invite.acceptedAt ? "Convite aceito em" : invite.status === "INVITE_EXPIRED" ? "Expirou em" : "Válido até";
+  const date = invite.acceptedAt ?? invite.cancelledAt ?? invite.expiresAt;
+  const dateLabel = invite.acceptedAt ? "Convite aceito em" : invite.cancelledAt ? "Cancelado em"
+    : invite.status === "INVITE_EXPIRED" ? "Expirou em" : "Válido até";
   return (
     <div className="min-w-0 space-y-1 text-xs text-muted-foreground">
       {status}
@@ -32,7 +33,7 @@ export function AdminTeamEntryStatus({ entry, children }: { entry: AdminTeamEntr
         <p className="whitespace-normal">
           {dateLabel} <time dateTime={date} className="whitespace-nowrap tabular-nums">{formatDateTime(date, "short")}</time>
         </p>
-        {entry.kind === "invitation" && invite.emailState && (
+        {entry.kind === "invitation" && invite.status !== "INVITE_CANCELLED" && invite.emailState && (
           <p className={invite.emailState === "FAILED" ? "whitespace-normal text-destructive" : "whitespace-normal"}>
             <span aria-hidden="true" className="mr-2 text-muted-foreground">·</span>
             {emailStates[invite.emailState]}
